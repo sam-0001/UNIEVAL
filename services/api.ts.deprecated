@@ -1,0 +1,10 @@
+/**
+ * DEPRECATED: This file is kept for reference only.
+ * The API services have been split into modular files in services/api/
+ * 
+ * New imports:
+ *   import { api } from './api/index';         // backward-compatible (all same methods)
+ *   import { courseApi } from './api/index';    // domain-specific (preferred)
+ *   import { noteApi } from './api/index';
+ *   etc.
+ */
