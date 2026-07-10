@@ -32,7 +32,7 @@ const API_BASE_URL = process.env.API_BASE_URL || (
 const ALLOWED_VIDEO_TYPES = ['video/mp4', 'video/webm', 'video/ogg', 'video/quicktime', 'video/x-msvideo'];
 const ALLOWED_VIDEO_EXTENSIONS = ['mp4', 'webm', 'ogg', 'mov', 'avi'];
 
-const ALLOWED_DOC_EXTENSIONS = ['pdf', 'txt', 'md', 'csv', 'doc', 'docx', 'ppt', 'pptx', 'xls', 'xlsx'];
+const ALLOWED_DOC_EXTENSIONS = ['pdf', 'txt', 'md', 'csv', 'doc', 'docx', 'ppt', 'pptx', 'xls', 'xlsx', 'html', 'htm'];
 const MAX_DOC_SIZE = 100 * 1024 * 1024; // 100MB per note file
 
 const UPLOADS_DIR = path.join(process.cwd(), 'uploads');
@@ -223,37 +223,52 @@ router.post('/upload/r2-presigned-url', requireAuth, presignedUrlLimit, async (r
 // to this endpoint, encrypted in memory with AES-256-GCM (fresh key+IV per file), and only
 // the ciphertext is written to storage. The key/IV/authTag live exclusively in MongoDB
 // (FileKey) and are never exposed to the client or embedded in the storage path.
+async function encryptAndStoreFile(
+    buffer: Buffer,
+    meta: { originalName?: string; mimeType?: string; bundleId?: string; relativePath?: string; isEntry?: boolean },
+): Promise<string> {
+    const fileId = randomUUID();
+    const { ciphertext, keyHex, ivHex, authTagHex } = encryptBuffer(buffer);
+
+    let storageType: 'r2' | 'local';
+    let storageKey: string;
+
+    if (R2_ACCOUNT_ID && R2_BUCKET_NAME) {
+        storageType = 'r2';
+        storageKey = `secure-files/${fileId}`;
+        await s3Client.send(new PutObjectCommand({
+            Bucket: R2_BUCKET_NAME,
+            Key: storageKey,
+            Body: ciphertext,
+            ContentType: 'application/octet-stream', // deliberately generic — real type never touches storage metadata
+        }));
+    } else {
+        storageType = 'local';
+        storageKey = path.join(SECURE_FILES_DIR, fileId);
+        fs.writeFileSync(storageKey, ciphertext);
+    }
+
+    await FileKey.create({
+        fileId, keyHex, ivHex, authTagHex, storageType, storageKey,
+        originalName: meta.originalName,
+        mimeType: meta.mimeType,
+        size: buffer.length,
+        bundleId: meta.bundleId,
+        relativePath: meta.relativePath,
+        isEntry: meta.isEntry || false,
+    });
+
+    return fileId;
+}
+
 router.post('/upload/file', requireAuth, uploadRateLimit, noteFileUpload.single('file'), async (req: Request, res: Response): Promise<void> => {
     const file = (req as any).file as Express.Multer.File | undefined;
     if (!file) { res.status(400).json({ error: 'No file provided' }); return; }
 
     try {
-        const fileId = randomUUID();
-        const { ciphertext, keyHex, ivHex, authTagHex } = encryptBuffer(file.buffer);
-
-        let storageType: 'r2' | 'local';
-        let storageKey: string;
-
-        if (R2_ACCOUNT_ID && R2_BUCKET_NAME) {
-            storageType = 'r2';
-            storageKey = `secure-files/${fileId}`;
-            await s3Client.send(new PutObjectCommand({
-                Bucket: R2_BUCKET_NAME,
-                Key: storageKey,
-                Body: ciphertext,
-                ContentType: 'application/octet-stream', // deliberately generic — real type never touches storage metadata
-            }));
-        } else {
-            storageType = 'local';
-            storageKey = path.join(SECURE_FILES_DIR, fileId);
-            fs.writeFileSync(storageKey, ciphertext);
-        }
-
-        await FileKey.create({
-            fileId, keyHex, ivHex, authTagHex, storageType, storageKey,
+        const fileId = await encryptAndStoreFile(file.buffer, {
             originalName: file.originalname,
             mimeType: file.mimetype,
-            size: file.size,
         });
 
         // The stored "url" is just an opaque pointer to this proxy — never the raw storage location.
@@ -264,14 +279,105 @@ router.post('/upload/file', requireAuth, uploadRateLimit, noteFileUpload.single(
     }
 });
 
+// --- HTML NOTE BUNDLE UPLOAD (HTML file + its img/ folder, as a .zip) ---
+// A plain .html upload has no way to carry the images it references, so when a note's
+// HTML has a local "img/" folder (or any relative assets), the instructor zips the HTML
+// file together with those assets and uploads the zip here instead. Every file inside is
+// individually AES-256-GCM encrypted and stored exactly like /upload/file, but they're
+// tagged with a shared bundleId so the secure-file proxy can serve the image at request
+// time and rewrite the HTML's relative references to point at them.
+const ALLOWED_BUNDLE_ENTRY_EXTENSIONS = ['html', 'htm'];
+const ALLOWED_BUNDLE_ASSET_EXTENSIONS = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg'];
+const MAX_BUNDLE_SIZE = 100 * 1024 * 1024; // 100MB per zip
+const MAX_BUNDLE_FILES = 200;
+
+const bundleUpload = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: MAX_BUNDLE_SIZE },
+    fileFilter: (_req, file, cb) => {
+        const ext = (file.originalname.split('.').pop() || '').toLowerCase();
+        if (ext !== 'zip') { cb(new Error('Expected a .zip file')); return; }
+        cb(null, true);
+    },
+});
+
+router.post('/upload/html-bundle', requireAuth, uploadRateLimit, bundleUpload.single('file'), async (req: Request, res: Response): Promise<void> => {
+    const file = (req as any).file as Express.Multer.File | undefined;
+    if (!file) { res.status(400).json({ error: 'No file provided' }); return; }
+
+    try {
+        const AdmZip = (await import('adm-zip')).default;
+        const zip = new AdmZip(file.buffer);
+        const entries = zip.getEntries().filter(e => !e.isDirectory);
+
+        if (entries.length === 0) { res.status(400).json({ error: 'Zip is empty' }); return; }
+        if (entries.length > MAX_BUNDLE_FILES) { res.status(400).json({ error: 'Too many files in zip' }); return; }
+
+        // Reject path traversal / absolute paths up front.
+        for (const e of entries) {
+            const normalized = path.posix.normalize(e.entryName.replace(/\\/g, '/'));
+            if (normalized.startsWith('..') || path.posix.isAbsolute(normalized)) {
+                res.status(400).json({ error: `Unsafe path in zip: ${e.entryName}` });
+                return;
+            }
+        }
+
+        // Find the HTML entry file — prefer index.html, otherwise the first .html/.htm found.
+        const htmlEntries = entries.filter(e => {
+            const ext = (e.entryName.split('.').pop() || '').toLowerCase();
+            return ALLOWED_BUNDLE_ENTRY_EXTENSIONS.includes(ext);
+        });
+        if (htmlEntries.length === 0) { res.status(400).json({ error: 'Zip must contain an .html file' }); return; }
+        const entryFile = htmlEntries.find(e => /(^|\/)index\.html?$/i.test(e.entryName)) || htmlEntries[0];
+
+        // Validate every non-HTML file is an allowed image type; skip anything else silently
+        // (OS metadata files etc.) rather than failing the whole upload.
+        const assetEntries = entries.filter(e => {
+            if (e === entryFile) return false;
+            const ext = (e.entryName.split('.').pop() || '').toLowerCase();
+            return ALLOWED_BUNDLE_ASSET_EXTENSIONS.includes(ext);
+        });
+
+        const bundleId = randomUUID();
+        const mimeByExt: Record<string, string> = {
+            png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg',
+            gif: 'image/gif', webp: 'image/webp', svg: 'image/svg+xml',
+        };
+
+        // Store assets first, then the entry — order doesn't matter for lookups, but this
+        // keeps failures from leaving an orphaned "isEntry" record with missing siblings.
+        for (const asset of assetEntries) {
+            const ext = (asset.entryName.split('.').pop() || '').toLowerCase();
+            await encryptAndStoreFile(asset.getData(), {
+                originalName: path.posix.basename(asset.entryName),
+                mimeType: mimeByExt[ext] || 'application/octet-stream',
+                bundleId,
+                relativePath: asset.entryName.replace(/\\/g, '/'),
+                isEntry: false,
+            });
+        }
+
+        const entryFileId = await encryptAndStoreFile(entryFile.getData(), {
+            originalName: path.posix.basename(entryFile.entryName),
+            mimeType: 'text/html',
+            bundleId,
+            relativePath: entryFile.entryName.replace(/\\/g, '/'),
+            isEntry: true,
+        });
+
+        res.json({ url: `/api/secure-file-raw/${entryFileId}`, fileId: entryFileId, entryName: path.posix.basename(entryFile.entryName) });
+    } catch (error) {
+        logger.error('Error processing HTML bundle upload:', error);
+        res.status(500).json({ error: 'Failed to process zip file' });
+    }
+});
+
+
 // --- SERVE + DECRYPT A NOTE FILE ---
 // Access control (purchase / free / college-domain checks) happens upstream in
 // server/routes/secureFile.ts, which resolves a Note's fileId and then fetches from here
 // (or calls this logic directly) only after confirming the requester is entitled to it.
-export async function readAndDecryptFile(fileId: string): Promise<{ buffer: Buffer; mimeType?: string; originalName?: string } | null> {
-    const record = await FileKey.findOne({ fileId }).lean() as any;
-    if (!record) return null;
-
+async function decryptRecord(record: any): Promise<Buffer> {
     let ciphertext: Buffer;
     if (record.storageType === 'r2') {
         const obj = await s3Client.send(new GetObjectCommand({ Bucket: R2_BUCKET_NAME, Key: record.storageKey }));
@@ -281,10 +387,33 @@ export async function readAndDecryptFile(fileId: string): Promise<{ buffer: Buff
     } else {
         ciphertext = fs.readFileSync(record.storageKey);
     }
-
-    const buffer = decryptBuffer(ciphertext, record.keyHex, record.ivHex, record.authTagHex);
-    return { buffer, mimeType: record.mimeType, originalName: record.originalName };
+    return decryptBuffer(ciphertext, record.keyHex, record.ivHex, record.authTagHex);
 }
+
+export async function readAndDecryptFile(fileId: string): Promise<{ buffer: Buffer; mimeType?: string; originalName?: string; bundleId?: string; isEntry?: boolean } | null> {
+    const record = await FileKey.findOne({ fileId }).lean() as any;
+    if (!record) return null;
+    const buffer = await decryptRecord(record);
+    return { buffer, mimeType: record.mimeType, originalName: record.originalName, bundleId: record.bundleId, isEntry: record.isEntry };
+}
+
+// Looks up and decrypts a sibling asset (e.g. an image under img/) that was uploaded in the
+// same .zip bundle as an HTML entry file. relativePath must match exactly as stored (already
+// zip-relative, e.g. "img/diagram1.png").
+// Cheap lookup — just the bundleId, without touching storage or decrypting.
+// Used by the asset route to resolve which bundle an HTML entry file belongs to.
+export async function getBundleIdForFile(fileId: string): Promise<string | undefined> {
+    const record = await FileKey.findOne({ fileId }).select('bundleId').lean() as any;
+    return record?.bundleId;
+}
+
+export async function readAndDecryptBundleAsset(bundleId: string, relativePath: string): Promise<{ buffer: Buffer; mimeType?: string } | null> {
+    const record = await FileKey.findOne({ bundleId, relativePath, isEntry: { $ne: true } }).lean() as any;
+    if (!record) return null;
+    const buffer = await decryptRecord(record);
+    return { buffer, mimeType: record.mimeType };
+}
+
 
 // uploadRateLimit stays here — this triggers heavy FFmpeg processing
 router.post('/process-video', requireAuth, uploadRateLimit, async (req: Request, res: Response): Promise<void> => {

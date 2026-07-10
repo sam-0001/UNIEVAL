@@ -11,6 +11,7 @@ interface UploadResponse {
     url: string;
     message?: string;
     filename?: string;
+    entryName?: string;
 }
 
 interface VideoJob {
@@ -423,12 +424,20 @@ const TeacherUpload: React.FC = () => {
       const progressKey = `note-${sectionId}-${Date.now()}`;
       setMessage(`Uploading ${file.name}...`);
 
+      // A .zip is an HTML note bundled with its own assets (e.g. an img/ folder) —
+      // route it to the bundle endpoint, which extracts, encrypts, and stores each
+      // file individually and links them together server-side.
+      const isBundle = file.name.toLowerCase().endsWith('.zip');
+      const endpoint = isBundle ? '/api/upload/html-bundle' : '/api/upload/file';
+
       try {
-          const data = await uploadFileWithProgress('/api/upload/file', file, 'file', progressKey);
-          
+          const data = await uploadFileWithProgress(endpoint, file, 'file', progressKey);
+
           const newFile: NoteFile = {
               id: Date.now().toString(),
-              title: file.name,
+              // For bundles, title with the HTML entry's filename (e.g. "unit1.html")
+              // so the viewer picks the right renderer — not the .zip filename.
+              title: isBundle ? (data.entryName || file.name) : file.name,
               url: data.url,
               isFree: false
           };
@@ -769,13 +778,13 @@ const TeacherUpload: React.FC = () => {
                                     className="font-semibold text-gray-800 border-b border-transparent hover:border-gray-300 focus:border-indigo-500 focus:outline-none bg-transparent"
                                 />
                                 <div className="flex items-center gap-2">
-                                     <label className="text-xs bg-indigo-100 text-indigo-600 px-2 py-1 rounded hover:bg-indigo-200 cursor-pointer flex items-center gap-1">
+                                     <label className="text-xs bg-indigo-100 text-indigo-600 px-2 py-1 rounded hover:bg-indigo-200 cursor-pointer flex items-center gap-1" title="PDF, HTML, or a .zip containing an HTML file + its img/ folder">
                                         <Upload className="w-3 h-3" />
-                                        Upload PDF
+                                        Upload File
                                         <input 
                                             type="file" 
                                             className="hidden" 
-                                            accept=".pdf" 
+                                            accept=".pdf,.html,.htm,.zip" 
                                             onChange={(e) => {
                                                 if (e.target.files && e.target.files[0]) {
                                                     handleNoteFileUpload(section.id, e.target.files[0], e.target);
@@ -788,9 +797,14 @@ const TeacherUpload: React.FC = () => {
                             </div>
                             
                             <div className="space-y-2">
-                                {section.files.map((file) => (
+                                {section.files.map((file) => {
+                                    const fileExt = (file.title.split('.').pop() || 'FILE').toUpperCase();
+                                    const badgeClass = ['HTML', 'HTM'].includes(fileExt)
+                                        ? 'bg-amber-100 text-amber-600'
+                                        : 'bg-red-100 text-red-600';
+                                    return (
                                     <div key={file.id} className="flex items-center gap-3 bg-gray-50 p-2 rounded text-sm">
-                                        <div className="p-1 bg-red-100 text-red-600 rounded text-[10px] font-bold">PDF</div>
+                                        <div className={`p-1 rounded text-[10px] font-bold ${badgeClass}`}>{fileExt.substring(0, 4)}</div>
                                         <input 
                                             type="text" 
                                             value={file.title} 
@@ -807,7 +821,8 @@ const TeacherUpload: React.FC = () => {
                                             Free Preview
                                         </label>
                                     </div>
-                                ))}
+                                    );
+                                })}
                                 {section.files.length === 0 && <p className="text-xs text-gray-400 italic">No files in this section yet.</p>}
                             </div>
                         </div>

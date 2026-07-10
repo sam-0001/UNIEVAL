@@ -18,7 +18,7 @@ import express, { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { Note, User } from '../models/index.js';
 import { JwtPayload } from '../middleware/auth.js';
-import { readAndDecryptFile } from './upload.js';
+import { readAndDecryptFile, readAndDecryptBundleAsset, getBundleIdForFile } from './upload.js';
 
 const router = express.Router();
 const JWT_SECRET = process.env.JWT_SECRET!;
@@ -56,10 +56,38 @@ const MIME: Record<string, string> = {
     pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
     xls:  'application/vnd.ms-excel',
     xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    html: 'text/html',
+    htm:  'text/html',
 };
 
 function extOf(filename: string): string {
     return (filename.split('.').pop() || '').toLowerCase();
+}
+
+// Shared by both the main file route and the bundle-asset route: loads the note, finds the
+// requested file, and checks the requester is entitled to it (purchased / free / college-domain).
+async function resolveFileAccess(
+    noteId: string,
+    fileId: string,
+    currentUser: any,
+): Promise<{ ok: true; targetFile: { id: string; title: string; url: string; isFree: boolean } } | { ok: false; status: number; error: string }> {
+    const note = await Note.findOne({ id: noteId }).lean() as any;
+    if (!note) return { ok: false, status: 404, error: 'Note not found' };
+
+    let targetFile: { id: string; title: string; url: string; isFree: boolean } | undefined;
+    for (const section of note.sections || []) {
+        const found = (section.files || []).find((f: any) => f.id === fileId);
+        if (found) { targetFile = found; break; }
+    }
+    if (!targetFile) return { ok: false, status: 404, error: 'File not found' };
+
+    const isPurchased   = Array.isArray(currentUser.purchasedNoteIds) && currentUser.purchasedNoteIds.includes(noteId);
+    const isCollegeFree = note.collegeConfig?.emailDomain && currentUser.email?.endsWith(note.collegeConfig.emailDomain.trim());
+    const isFreeNote    = !note.price || note.price === 0;
+    const hasAccess     = isPurchased || isCollegeFree || isFreeNote || targetFile.isFree;
+    if (!hasAccess) return { ok: false, status: 403, error: 'Purchase required to access this file' };
+
+    return { ok: true, targetFile };
 }
 
 // ── Proxy route ───────────────────────────────────────────────────────────────
@@ -67,26 +95,9 @@ router.get('/secure-file/:noteId/:fileId', requireAuthOrQuery, async (req: Reque
     const { noteId, fileId } = req.params;
     const currentUser = (req as any).currentUser;
 
-    // 1. Load note
-    const note = await Note.findOne({ id: noteId }).lean() as any;
-    if (!note) { res.status(404).json({ error: 'Note not found' }); return; }
-
-    // 2. Find the file within any section
-    let targetFile: { id: string; title: string; url: string; isFree: boolean } | undefined;
-    for (const section of note.sections || []) {
-        const found = (section.files || []).find((f: any) => f.id === fileId);
-        if (found) { targetFile = found; break; }
-    }
-    if (!targetFile) { res.status(404).json({ error: 'File not found' }); return; }
-
-    // 3. Access check
-    const isPurchased   = Array.isArray(currentUser.purchasedNoteIds) && currentUser.purchasedNoteIds.includes(noteId);
-    const isCollegeFree = note.collegeConfig?.emailDomain && currentUser.email?.endsWith(note.collegeConfig.emailDomain.trim());
-    const isFreeNote    = !note.price || note.price === 0;
-    const hasAccess     = isPurchased || isCollegeFree || isFreeNote || targetFile.isFree;
-    if (!hasAccess) { res.status(403).json({ error: 'Purchase required to access this file' }); return; }
-
-    // 4. Validate URL
+    const access = await resolveFileAccess(String(noteId), String(fileId), currentUser);
+    if (!access.ok) { res.status(access.status).json({ error: access.error }); return; }
+    const targetFile = access.targetFile;
     const fileUrl = targetFile.url;
     if (!fileUrl || fileUrl === '#') { res.status(404).json({ error: 'File URL not configured' }); return; }
 
@@ -141,6 +152,50 @@ router.get('/secure-file/:noteId/:fileId', requireAuthOrQuery, async (req: Reque
         }
     } catch {
         if (!res.headersSent) res.status(502).json({ error: 'File proxy error' });
+    }
+});
+
+const ASSET_MIME: Record<string, string> = {
+    png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg',
+    gif: 'image/gif', webp: 'image/webp', svg: 'image/svg+xml',
+};
+
+// ── Bundle asset route (images etc. referenced by an HTML note file) ──────────
+// GET /api/secure-file/:noteId/:fileId/asset?path=img/diagram1.png&t=<jwt>
+// :fileId is the HTML entry file's id (the one the note actually lists); the asset itself
+// is looked up by the bundle it was uploaded together with, plus its relative path.
+router.get('/secure-file/:noteId/:fileId/asset', requireAuthOrQuery, async (req: Request, res: Response): Promise<void> => {
+    const { noteId, fileId } = req.params;
+    const currentUser = (req as any).currentUser;
+    const relativePath = req.query.path;
+    if (typeof relativePath !== 'string' || !relativePath) { res.status(400).json({ error: 'Missing asset path' }); return; }
+
+    // Reject path traversal outright.
+    if (relativePath.includes('..') || relativePath.startsWith('/')) { res.status(400).json({ error: 'Invalid asset path' }); return; }
+
+    // Same entitlement check as the entry file itself — access to the HTML note implies
+    // access to the images it embeds.
+    const access = await resolveFileAccess(String(noteId), String(fileId), currentUser);
+    if (!access.ok) { res.status(access.status).json({ error: access.error }); return; }
+
+    try {
+        const bundleId = await getBundleIdForFile(String(fileId));
+        if (!bundleId) { res.status(404).json({ error: 'Asset not found' }); return; }
+
+        const asset = await readAndDecryptBundleAsset(bundleId, relativePath);
+        if (!asset) { res.status(404).json({ error: 'Asset not found' }); return; }
+
+        const ext = extOf(relativePath);
+        res.setHeader('Content-Type', asset.mimeType || ASSET_MIME[ext] || 'application/octet-stream');
+        res.setHeader('Content-Disposition', 'inline');
+        res.setHeader('X-Content-Type-Options', 'nosniff');
+        res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+        res.setHeader('Pragma', 'no-cache');
+        res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+        res.setHeader('Content-Length', asset.buffer.length);
+        res.end(asset.buffer);
+    } catch (err) {
+        if (!res.headersSent) res.status(500).json({ error: 'Failed to load asset' });
     }
 });
 

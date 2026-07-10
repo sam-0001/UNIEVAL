@@ -4,6 +4,7 @@ import { api } from '../services/api';
 import { Note, NoteFile, User } from '../types';
 import { useAuth } from '../context/AuthContext';
 import SecurePdfViewer from '../components/SecurePdfViewer';
+import SecureHtmlViewer from '../components/SecureHtmlViewer';
 
 declare global {
   interface Window {
@@ -215,6 +216,7 @@ const NoteDetail: React.FC = () => {
     else if (['PPT', 'PPTX'].includes(ext)) colorClass = 'bg-orange-100 text-orange-600';
     else if (['XLS', 'XLSX', 'CSV'].includes(ext)) colorClass = 'bg-green-100 text-green-600';
     else if (['JPG', 'JPEG', 'PNG', 'GIF', 'WEBP'].includes(ext)) colorClass = 'bg-purple-100 text-purple-600';
+    else if (['HTML', 'HTM'].includes(ext)) colorClass = 'bg-amber-100 text-amber-600';
     return (
       <div className={`p-1.5 rounded ${colorClass}`}>
         <span className="text-[10px] font-bold">{ext.substring(0, 4)}</span>
@@ -268,6 +270,18 @@ const NoteDetail: React.FC = () => {
     if (ext === 'pdf') {
       return (
         <SecurePdfViewer
+          key={activeFile.id}
+          url={secureUrl}
+          filename={activeFile.title}
+          watermarkText={(user as any)?.phoneNumber || user?.email || 'UNIEVAL'}
+        />
+      );
+    }
+
+    // HTML — sandboxed, watermarked viewer (same anti-piracy treatment as PDF)
+    if (['html', 'htm'].includes(ext)) {
+      return (
+        <SecureHtmlViewer
           key={activeFile.id}
           url={secureUrl}
           filename={activeFile.title}

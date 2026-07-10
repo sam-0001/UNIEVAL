@@ -37,6 +37,7 @@
     "jsonwebtoken": "^9.0.3",
     "lucide-react": "^0.577.0",
     "mongoose": "^9.2.4",
+    "adm-zip": "^0.5.16",
     "multer": "^2.0.2",
     "nodemailer": "^8.0.1",
     "pdfjs-dist": "^4.10.38",
@@ -47,6 +48,7 @@
     "winston": "^3.19.0"
   },
   "devDependencies": {
+    "@types/adm-zip": "^0.5.7",
     "@types/bcryptjs": "^2.4.6",
     "@types/compression": "^1.7.5",
     "@types/cors": "^2.8.19",
