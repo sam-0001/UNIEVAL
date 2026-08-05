@@ -14,7 +14,7 @@ import beToolkitRoutes from "./server/routes/beToolkit.js";
 import beToolkitSearchRoutes from "./server/routes/beToolkitSearch.js";
 import generateQuizRoutes from "./server/routes/generateQuiz.js";
 import payoutRoutes from "./server/routes/payout.js";
-import secureFileRoutes from "./server/routes/secureFile.ts";
+import secureFileRoutes from "./server/routes/secureFile.js";
 import connectDB, { getDBStatus } from "./server/db.js";
 import { connectRedis, isRedisAvailable } from "./server/redis.js";
 import { startScheduler } from "./server/services/scheduler.service.js";
