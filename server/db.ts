@@ -19,6 +19,7 @@ const connectDB = async () => {
       retryWrites: true,
       retryReads: true,
       compressors: ['zlib'],
+      family: 4, // Force IPv4 because VPS Node.js sometimes tries IPv6 which Atlas Free Tier rejects
     });
 
     logger.info(`MongoDB Connected: ${conn.connection.host}`);
