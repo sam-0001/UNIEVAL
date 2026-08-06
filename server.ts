@@ -73,6 +73,14 @@ async function startServer() {
         crossOriginEmbedderPolicy: false, // needed for HLS video player
     }));
 
+    // ── Static assets served BEFORE CORS — they are always same-origin ──────
+    // Serving dist assets before CORS middleware prevents static files from
+    // being rejected by CORS when CORS_ORIGINS is set to a specific domain.
+    if (NODE_ENV === 'production') {
+        const distPath = path.resolve(__dirname, 'dist');
+        app.use(express.static(distPath));
+    }
+
     // ── CORS ─────────────────────────────────────────────────────────────────
     app.use(cors({
         origin: (origin, callback) => {
