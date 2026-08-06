@@ -35,6 +35,7 @@ async function startServer() {
     startScheduler();
 
     const app = express();
+    app.set('trust proxy', 1); // trust first proxy (Nginx) for correct IP in rate limiting & HTTPS redirect
 
     logger.info(`Starting UNIEVAL in ${NODE_ENV} mode on port ${PORT}`);
 
