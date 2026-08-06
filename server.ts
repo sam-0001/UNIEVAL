@@ -146,6 +146,9 @@ async function startServer() {
     // ── Static uploads ────────────────────────────────────────────────────────
     app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
+    // ── Static images (logo etc) ──────────────────────────────────────────────
+    app.use('/img', express.static(path.join(__dirname, 'img')));
+
     // ── API routes ────────────────────────────────────────────────────────────
     app.use('/api', apiRoutes);
     app.use('/api', uploadRoutes);
