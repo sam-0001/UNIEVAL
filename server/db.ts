@@ -14,12 +14,11 @@ const connectDB = async () => {
       minPoolSize: Math.floor(DB_POOL_SIZE / 2),
       socketTimeoutMS: DB_SOCKET_TIMEOUT,
       connectTimeoutMS: DB_CONNECT_TIMEOUT,
-      serverSelectionTimeoutMS: 5000,
+      serverSelectionTimeoutMS: 30000, // increased from 5s — VPS TLS handshake needs more time
       heartbeatFrequencyMS: 10000,
       retryWrites: true,
       retryReads: true,
-      compressors: ['zlib'],
-      family: 4, // Force IPv4 because VPS Node.js sometimes tries IPv6 which Atlas Free Tier rejects
+      family: 4, // Force IPv4 — VPS Node.js sometimes tries IPv6 which Atlas Free Tier rejects
     });
 
     logger.info(`MongoDB Connected: ${conn.connection.host}`);
