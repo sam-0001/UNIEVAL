@@ -53,15 +53,21 @@ async function startServer() {
     // X-XSS-Protection, Content-Security-Policy, and more — in one call.
     app.use(helmet({
         contentSecurityPolicy: NODE_ENV === 'production' ? {
+            useDefaults: false, // prevents Helmet from auto-adding upgrade-insecure-requests
             directives: {
                 defaultSrc: ["'self'"],
-                scriptSrc:  ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://checkout.razorpay.com", "https://cdnjs.cloudflare.com"],
-                styleSrc:   ["'self'", "'unsafe-inline'"],
+                scriptSrc:  ["'self'", "'unsafe-inline'", "'unsafe-eval'",
+                             "https://checkout.razorpay.com", "https://cdn.razorpay.com",
+                             "https://cdnjs.cloudflare.com", "https://cdn.tailwindcss.com"],
+                styleSrc:   ["'self'", "'unsafe-inline'",
+                             "https://fonts.googleapis.com", "https://cdn.tailwindcss.com"],
+                fontSrc:    ["'self'", "https://fonts.gstatic.com", "data:"],
                 imgSrc:     ["'self'", "data:", "https:", "blob:"],
                 mediaSrc:   ["'self'", "https:", "blob:"],
                 connectSrc: ["'self'", "https://api.razorpay.com", "https://lumberjack.razorpay.com"],
                 frameSrc:   ["'self'", "https://api.razorpay.com"],
                 workerSrc:  ["'self'", "blob:"],
+                // NOTE: upgradeInsecureRequests is intentionally omitted — server runs plain HTTP
             },
         } : false, // disable CSP in dev (Vite HMR needs it off)
         crossOriginEmbedderPolicy: false, // needed for HLS video player
