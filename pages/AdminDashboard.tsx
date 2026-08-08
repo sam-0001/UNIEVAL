@@ -1177,6 +1177,7 @@ const CreateCourseModal: React.FC<{onClose: () => void; editItem?: Course | null
                     videoProgress: v.videoProgress,
                     videoId: v.videoId, 
                     videoKey: v.videoKey, 
+                    thumbnailUrl: (v as any).thumbnailUrl,
                     resources: v.resources
                 }))
             }))

@@ -347,20 +347,33 @@ const CourseDetail: React.FC = () => {
                         >
                           <div className="flex items-center justify-between">
                             <div className="flex items-center">
-                              <div className={`flex-shrink-0 h-6 w-6 rounded-md flex items-center justify-center mr-3 ${activeVideo?.id === video.id ? 'bg-brand-cobalt text-white' : 'bg-gray-200 text-gray-600'}`}>
-                                {activeVideo?.id === video.id ? (
-                                  <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" /></svg>
-                                ) : isModuleLocked ? (
-                                  <svg className="w-3 h-3 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                                  </svg>
-                                ) : (
-                                  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                  </svg>
-                                )}
-                              </div>
+                              {(video as any).thumbnailUrl ? (
+                                <div className="relative flex-shrink-0 w-12 h-7 mr-3 rounded overflow-hidden shadow-sm">
+                                  <img src={(video as any).thumbnailUrl} alt={video.title} className="absolute inset-0 w-full h-full object-cover" />
+                                  {isModuleLocked && (
+                                    <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                                      <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                                      </svg>
+                                    </div>
+                                  )}
+                                </div>
+                              ) : (
+                                <div className={`flex-shrink-0 h-6 w-6 rounded-md flex items-center justify-center mr-3 ${activeVideo?.id === video.id ? 'bg-brand-cobalt text-white' : 'bg-gray-200 text-gray-600'}`}>
+                                  {activeVideo?.id === video.id ? (
+                                    <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" /></svg>
+                                  ) : isModuleLocked ? (
+                                    <svg className="w-3 h-3 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                                    </svg>
+                                  ) : (
+                                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                  )}
+                                </div>
+                              )}
                               <div className="flex-1">
                                 <p className={`text-sm ${activeVideo?.id === video.id ? 'font-bold text-brand-cobalt' : 'font-medium text-gray-700'}`}>{video.title}</p>
                               </div>
