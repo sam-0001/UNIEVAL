@@ -131,8 +131,13 @@ router.get('/secure-file/:noteId/:fileId', requireAuthOrQuery, async (req: Reque
     // 5b. Legacy path: files uploaded before encryption was introduced are stored as a
     // plain (unencrypted) URL and are proxied through as before.
     try {
+        if (!fileUrl.startsWith('http://') && !fileUrl.startsWith('https://')) {
+            res.status(404).json({ error: 'File missing or corrupted in storage' });
+            return;
+        }
+        
         const upstream = await fetch(fileUrl);
-        if (!upstream.ok) { res.status(502).json({ error: 'Could not retrieve file from storage' }); return; }
+        if (!upstream.ok) { res.status(404).json({ error: 'File missing or corrupted in storage' }); return; }
 
         res.setHeader('Content-Type', mimeType || upstream.headers.get('content-type') || 'application/octet-stream');
         if (upstream.headers.has('content-length')) {
@@ -151,7 +156,7 @@ router.get('/secure-file/:noteId/:fileId', requireAuthOrQuery, async (req: Reque
             res.end(Buffer.from(await upstream.arrayBuffer()));
         }
     } catch {
-        if (!res.headersSent) res.status(502).json({ error: 'File proxy error' });
+        if (!res.headersSent) res.status(404).json({ error: 'File missing or corrupted in storage' });
     }
 });
 
