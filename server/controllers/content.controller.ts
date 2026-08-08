@@ -3,6 +3,17 @@ import { randomUUID } from 'crypto';
 import { Course, Note, Quiz, Viva } from '../models/index.js';
 import { cache } from '../services/cache.service.js';
 import logger from '../logger.js';
+import { deleteFileFromR2 } from '../routes/upload.js';
+
+function extractR2Key(fileUrl?: string): string | null {
+    if (!fileUrl) return null;
+    try {
+        const u = new URL(fileUrl);
+        let key = u.pathname;
+        if (key.startsWith('/')) key = key.substring(1);
+        return key;
+    } catch { return null; }
+}
 
 export function generateId(): string { return randomUUID(); }
 
@@ -100,8 +111,35 @@ export async function updateCourse(req: express.Request, res: express.Response):
 export async function deleteCourse(req: express.Request, res: express.Response): Promise<void> {
     const id = req.params.id as string;
     try {
-        const course = await Course.findOneAndDelete({ id });
+        const course = await Course.findOneAndDelete({ id }) as any;
         if (!course) { res.status(404).json({ error: 'Course not found' }); return; }
+
+        // Extract and delete files from R2
+        const keysToDelete: string[] = [];
+        const thumbKey = extractR2Key(course.thumbnailUrl);
+        if (thumbKey) keysToDelete.push(thumbKey);
+
+        if (Array.isArray(course.modules)) {
+            course.modules.forEach((mod: any) => {
+                if (Array.isArray(mod.videos)) {
+                    mod.videos.forEach((vid: any) => {
+                        const vKey = extractR2Key(vid.videoUrl) || vid.videoKey;
+                        if (vKey) keysToDelete.push(vKey);
+                        if (Array.isArray(vid.resources)) {
+                            vid.resources.forEach((resItem: any) => {
+                                const rKey = extractR2Key(resItem.url);
+                                if (rKey) keysToDelete.push(rKey);
+                            });
+                        }
+                    });
+                }
+            });
+        }
+        
+        Promise.all(keysToDelete.map(k => deleteFileFromR2(k))).catch(e => {
+            logger.error('[Courses] Failed to delete some R2 files during course deletion:', e);
+        });
+
         await Promise.all([cache.invalidate('courses:*'), cache.invalidate(`course:${id}`)]);
         res.json({ success: true });
     } catch (err) { logger.error('[Courses] deleteCourse:', err); res.status(500).json({ error: 'An internal error occurred' }); }
@@ -162,8 +200,30 @@ export async function updateNote(req: express.Request, res: express.Response): P
 export async function deleteNote(req: express.Request, res: express.Response): Promise<void> {
     const id = req.params.id as string;
     try {
-        const note = await Note.findOneAndDelete({ id });
+        const note = await Note.findOneAndDelete({ id }) as any;
         if (!note) { res.status(404).json({ error: 'Note not found' }); return; }
+        
+        // Extract and delete files from R2
+        const keysToDelete: string[] = [];
+        const thumbKey = extractR2Key(note.thumbnailUrl);
+        if (thumbKey) keysToDelete.push(thumbKey);
+        
+        if (Array.isArray(note.sections)) {
+            note.sections.forEach((sec: any) => {
+                if (Array.isArray(sec.files)) {
+                    sec.files.forEach((f: any) => {
+                        const fk = extractR2Key(f.url);
+                        if (fk) keysToDelete.push(fk);
+                    });
+                }
+            });
+        }
+        
+        // Delete all extracted keys asynchronously
+        Promise.all(keysToDelete.map(k => deleteFileFromR2(k))).catch(e => {
+            logger.error('[Notes] Failed to delete some R2 files during note deletion:', e);
+        });
+
         await Promise.all([cache.invalidate('notes:*'), cache.invalidate(`note:${id}`)]);
         res.json({ success: true });
     } catch (err) { logger.error('[Notes] deleteNote:', err); res.status(500).json({ error: 'An internal error occurred' }); }

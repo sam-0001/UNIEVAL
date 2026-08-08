@@ -90,6 +90,15 @@ const s3Client = new S3Client({
   responseChecksumValidation: "WHEN_REQUIRED",
 });
 
+export async function deleteFileFromR2(key: string): Promise<void> {
+  if (!R2_BUCKET_NAME) return;
+  try {
+    await s3Client.send(new DeleteObjectCommand({ Bucket: R2_BUCKET_NAME, Key: key }));
+  } catch (err) {
+    console.error(`[R2] Failed to delete ${key}:`, err);
+  }
+}
+
 // --- TYPES & STORE ---
 interface Resolution { name: string; width: number; height: number; bitrate: string; }
 interface ProcessVideoRequest { videoUrl: string; videoKey?: string; }
