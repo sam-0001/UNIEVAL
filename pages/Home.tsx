@@ -366,14 +366,14 @@ const Home: React.FC = () => {
             ))}
           </div>
 
-          {/* Branch grid */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 min-h-[280px]">
-            {visibleBranches.map((branch) => (
+          {/* Branch Grid / Slider */}
+          <div className="flex overflow-x-auto pb-6 gap-4 no-scrollbar snap-x snap-mandatory min-h-[160px]">
+            {filteredBranches.map((branch) => (
               <a
                 key={branch.id}
                 href="#"
                 onClick={(e) => handleBranchClick(e, branch.title)}
-                className="group bg-white border border-gray-100 rounded-xl p-5 hover:shadow-lg hover:border-indigo-200 transition-all duration-200 flex flex-col items-center text-center cursor-pointer"
+                className="group bg-white border border-gray-100 rounded-xl p-5 hover:shadow-lg hover:border-indigo-200 transition-all duration-200 flex flex-col items-center text-center cursor-pointer min-w-[160px] flex-shrink-0 snap-start"
               >
                 <div className="w-14 h-14 bg-indigo-50 rounded-full flex items-center justify-center text-2xl mb-3 group-hover:scale-110 group-hover:bg-indigo-100 transition-all">
                   {branch.icon}
@@ -386,30 +386,13 @@ const Home: React.FC = () => {
                 </p>
               </a>
             ))}
-            {visibleBranches.length === 0 && (
-              <div className="col-span-full flex flex-col items-center justify-center py-16 text-gray-400 gap-2">
+            {filteredBranches.length === 0 && (
+              <div className="w-full flex flex-col items-center justify-center py-8 text-gray-400 gap-2">
                 <span className="text-4xl">🔍</span>
                 <p className="text-sm font-medium">No branches match your search.</p>
               </div>
             )}
           </div>
-
-          {/* Pagination dots */}
-          {filteredBranches.length > ITEMS_PER_PAGE && (
-            <div className="flex justify-center mt-8 gap-2 items-center">
-              {Array.from({ length: Math.ceil(filteredBranches.length / ITEMS_PER_PAGE) }).map((_, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => setStartIndex(idx * ITEMS_PER_PAGE)}
-                  className={`rounded-full transition-all ${
-                    Math.floor(startIndex / ITEMS_PER_PAGE) === idx
-                      ? 'w-6 h-2 bg-indigo-600'
-                      : 'w-2 h-2 bg-gray-300 hover:bg-gray-400'
-                  }`}
-                />
-              ))}
-            </div>
-          )}
         </div>
       </section>
 

@@ -138,6 +138,7 @@ const BrowseCourses: React.FC = () => {
                                                     src={course.thumbnailUrl} 
                                                     alt={course.title} 
                                                     className="object-cover w-full h-48 transform group-hover:scale-105 transition-transform duration-500"
+                                                    onError={(e) => { e.currentTarget.src = 'https://picsum.photos/800/600?random=' + course.id; }}
                                                 />
                                                 <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-10 transition-opacity flex items-center justify-center">
                                                     <svg className="w-12 h-12 text-white opacity-0 group-hover:opacity-100 transition-opacity drop-shadow-lg" fill="currentColor" viewBox="0 0 20 20">
