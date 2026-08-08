@@ -1079,6 +1079,28 @@ const CreateCourseModal: React.FC<{onClose: () => void; editItem?: Course | null
         } catch (error) { console.error("Resource upload failed:", error); alert('Failed to upload resource'); }
     };
 
+    const handleThumbnailSelect = async (moduleId: number, videoId: number, file: File | null) => {
+        if (!file) return;
+        const fileType = file.type || 'image/jpeg';
+        try {
+            const { uploadUrl, publicUrl } = await api.getPresignedUrl(file.name, fileType, file.size, false);
+            const xhr = new XMLHttpRequest();
+            xhr.open('PUT', uploadUrl, true);
+            xhr.setRequestHeader('Content-Type', fileType);
+            xhr.onload = async () => {
+                if (xhr.status >= 200 && xhr.status < 300) {
+                    setModules(prev => prev.map(m => m.id === moduleId ? {
+                        ...m, videos: m.videos.map(v => v.id === videoId ? { ...v, thumbnailUrl: publicUrl } : v)
+                    } : m));
+                } else {
+                    alert('Failed to upload thumbnail');
+                }
+            };
+            xhr.onerror = () => { alert('Failed to upload thumbnail'); };
+            xhr.send(file);
+        } catch (error) { console.error("Thumbnail upload failed:", error); alert('Failed to upload thumbnail'); }
+    };
+
     const handleRetryProcessing = async (moduleId: number, videoId: number) => {
         const module = modules.find(m => m.id === moduleId);
         const video = module?.videos.find(v => v.id === videoId);
@@ -1245,6 +1267,11 @@ const CreateCourseModal: React.FC<{onClose: () => void; editItem?: Course | null
                                                          <input type="file" accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt,.md,.csv,.png,.jpg,.jpeg,.gif,.webp,.epub,.odt,.odp,.ods" id={`resource-file-${video.id}`} className="hidden" onChange={(e) => handleResourceSelect(module.id, video.id, e.target.files?.[0] || null)} />
                                                          <label htmlFor={`resource-file-${video.id}`} className="text-purple-600 hover:underline font-medium cursor-pointer">
                                                              {video.resourceFileName ? 'Change Resource' : 'Add Resource'}
+                                                         </label>
+                                                         <span className="text-gray-300">|</span>
+                                                         <input type="file" accept="image/*" id={`thumbnail-file-${video.id}`} className="hidden" onChange={(e) => handleThumbnailSelect(module.id, video.id, e.target.files?.[0] || null)} />
+                                                         <label htmlFor={`thumbnail-file-${video.id}`} className="text-emerald-600 hover:underline font-medium cursor-pointer">
+                                                             {(video as any).thumbnailUrl ? 'Change Thumbnail' : 'Add Thumbnail'}
                                                          </label>
                                                          <button onClick={() => removeVideo(module.id, video.id)} className="text-red-500 hover:text-red-700 ml-2">
                                                              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
