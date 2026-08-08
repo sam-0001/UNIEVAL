@@ -29,7 +29,22 @@ const ALLOWED_ORIGINS = (process.env.CORS_ORIGINS || '').split(',').map(s => s.t
 const FORCE_HTTPS    = process.env.FORCE_HTTPS === 'true';
 const REQUEST_TIMEOUT = parseInt(process.env.REQUEST_TIMEOUT || '120000', 10);
 
+function validateEnv() {
+    if (NODE_ENV !== 'production') return;
+    const requiredKeys = [
+        'JWT_SECRET', 'DATABASE_URL', 'R2_ACCOUNT_ID', 'R2_ACCESS_KEY_ID',
+        'R2_SECRET_ACCESS_KEY', 'R2_BUCKET_NAME', 'R2_PUBLIC_URL', 
+        'RAZORPAY_KEY_ID', 'RAZORPAY_KEY_SECRET'
+    ];
+    const missing = requiredKeys.filter(key => !process.env[key]);
+    if (missing.length > 0) {
+        logger.error(`FATAL: Missing required environment variables in production: ${missing.join(', ')}`);
+        process.exit(1);
+    }
+}
+
 async function startServer() {
+    validateEnv();
     await connectDB();
     await connectRedis();
     startScheduler();
