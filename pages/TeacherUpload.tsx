@@ -337,6 +337,48 @@ const TeacherUpload: React.FC = () => {
       }
   };
 
+  const handleVideoThumbnailUpload = async (moduleId: string, videoId: string, e: React.ChangeEvent<HTMLInputElement>) => {
+      if (!e.target.files || e.target.files.length === 0) return;
+      const file = e.target.files[0];
+      
+      try {
+          const presignRes = await fetch('/api/upload/r2-presigned-url', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ fileName: file.name, fileType: file.type, fileSize: file.size, isVideo: false })
+          });
+          if (!presignRes.ok) throw new Error('Failed to get upload URL');
+          const { uploadUrl, publicUrl } = await presignRes.json();
+
+          await new Promise<void>((resolve, reject) => {
+            const xhr = new XMLHttpRequest();
+            xhr.open('PUT', uploadUrl);
+            xhr.setRequestHeader('Content-Type', file.type);
+            xhr.onload = () => (xhr.status >= 200 && xhr.status < 300 ? resolve() : reject(new Error('Upload failed')));
+            xhr.onerror = () => reject(new Error('Upload failed'));
+            xhr.send(file);
+          });
+
+          setCourseModules(courseModules.map(mod => {
+              if (mod.id === moduleId) {
+                  return {
+                      ...mod,
+                      videos: mod.videos.map(v => {
+                          if (v.id === videoId) {
+                              return { ...v, thumbnailUrl: publicUrl };
+                          }
+                          return v;
+                      })
+                  };
+              }
+              return mod;
+          }));
+      } catch (error) {
+          console.error('Error uploading video thumbnail:', error);
+          alert('Failed to upload video thumbnail');
+      }
+  };
+
   const removeResource = (moduleId: string, videoId: string, resourceIndex: number) => {
       setCourseModules(courseModules.map(mod => {
           if (mod.id === moduleId) {
@@ -725,14 +767,30 @@ const TeacherUpload: React.FC = () => {
                                                   ))}
                                               </div>
                                               
-                                              <label className="inline-flex items-center gap-1 text-xs text-brand-cobalt hover:text-brand-indigo cursor-pointer font-bold transition-colors">
-                                                  <Plus className="w-3 h-3" /> Add Resource (PDF/Link)
-                                                  <input 
-                                                      type="file" 
-                                                      className="hidden" 
-                                                      onChange={(e) => handleResourceUpload(mod.id, video.id, e)} 
-                                                  />
-                                              </label>
+                                              <div className="flex items-center gap-4 mt-3">
+                                                <label className="inline-flex items-center gap-1 text-xs text-brand-cobalt hover:text-brand-indigo cursor-pointer font-bold transition-colors">
+                                                    <Plus className="w-3 h-3" /> Add Resource (PDF/Link)
+                                                    <input 
+                                                        type="file" 
+                                                        className="hidden" 
+                                                        onChange={(e) => handleResourceUpload(mod.id, video.id, e)} 
+                                                    />
+                                                </label>
+                                                <label className="inline-flex items-center gap-1 text-xs text-brand-cobalt hover:text-brand-indigo cursor-pointer font-bold transition-colors">
+                                                    <Plus className="w-3 h-3" /> Add Thumbnail (16:9)
+                                                    <input 
+                                                        type="file" 
+                                                        className="hidden"
+                                                        accept="image/*" 
+                                                        onChange={(e) => handleVideoThumbnailUpload(mod.id, video.id, e)} 
+                                                    />
+                                                </label>
+                                                {video.thumbnailUrl && (
+                                                  <div className="flex items-center gap-1 text-xs text-emerald-600 font-bold ml-auto">
+                                                    <CheckCircle className="w-3 h-3" /> Thumbnail Added
+                                                  </div>
+                                                )}
+                                              </div>
                                           </div>
                                       </div>
                                   ))}

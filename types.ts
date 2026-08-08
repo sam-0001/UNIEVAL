@@ -68,6 +68,7 @@ export interface CourseVideo {
   videoProgress?: number;
   videoId?: string;
   videoKey?: string;
+  thumbnailUrl?: string;
 }
 
 export interface CourseModule {
@@ -82,6 +83,7 @@ export interface CourseModule {
   videoProgress?: number;
   videoId?: string;
   videoKey?: string;
+  thumbnailUrl?: string;
 }
 
 // New Interfaces for Notes Structure

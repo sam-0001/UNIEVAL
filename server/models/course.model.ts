@@ -21,6 +21,7 @@ const courseSchema = new mongoose.Schema({
       videoProgress: Number,
       videoId: String,
       videoKey: String,
+      thumbnailUrl: String,
       resources: [{ title: String, url: String, type: { type: String } }]
     }]
   }],
