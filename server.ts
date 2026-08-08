@@ -59,7 +59,7 @@ async function startServer() {
                 defaultSrc: ["'self'"],
                 scriptSrc:  ["'self'", "'unsafe-inline'", "'unsafe-eval'",
                              "https://checkout.razorpay.com", "https://cdn.razorpay.com",
-                             "https://cdnjs.cloudflare.com", "https://cdn.tailwindcss.com"],
+                             "https://cdnjs.cloudflare.com", "https://cdn.tailwindcss.com", "https://unpkg.com"],
                 styleSrc:   ["'self'", "'unsafe-inline'",
                              "https://fonts.googleapis.com", "https://cdn.tailwindcss.com"],
                 fontSrc:    ["'self'", "https://fonts.gstatic.com", "data:"],
