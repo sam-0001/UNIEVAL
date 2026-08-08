@@ -37,3 +37,13 @@ body {
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }
+
+@keyframes onAutoFillStart {
+  from {}
+  to {}
+}
+
+input:-webkit-autofill {
+  animation-name: onAutoFillStart;
+  animation-duration: 0.1s;
+}

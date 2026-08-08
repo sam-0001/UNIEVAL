@@ -174,6 +174,15 @@ const Login: React.FC = () => {
     setResendCountdown(0);
   };
 
+  const handleAutoFill = (e: React.AnimationEvent<HTMLInputElement>) => {
+    if (e.animationName === 'onAutoFillStart' && view === 'LOGIN') {
+      setTimeout(() => {
+        const form = e.currentTarget.closest('form');
+        if (form) form.requestSubmit();
+      }, 300); // Wait briefly for React state to capture the autofilled values
+    }
+  };
+
   // ── Login ──────────────────────────────────────────────────────────────────
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -406,6 +415,7 @@ const Login: React.FC = () => {
                   </div>
                   <input type="password" required={!isSuperAdminLogin} value={password}
                     onChange={(e) => setPassword(e.target.value)} placeholder="••••••••"
+                    onAnimationStart={handleAutoFill}
                     className="block w-full px-4 py-3 rounded-xl border-gray-200 border bg-gray-50 focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all outline-none text-sm" />
                 </div>
               )}
