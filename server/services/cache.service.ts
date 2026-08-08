@@ -17,7 +17,9 @@ export const cache = {
             if (cached) return JSON.parse(cached) as T;
 
             const data = await fetcher();
-            await redis.setex(key, ttlSeconds, JSON.stringify(data));
+            // Add up to 20% random jitter to TTL to prevent cache stampedes
+            const actualTtl = ttlSeconds + Math.floor(Math.random() * (ttlSeconds * 0.2));
+            await redis.setex(key, actualTtl, JSON.stringify(data));
             return data;
         } catch {
             return fetcher(); // Redis error → fall through to DB, never crash
@@ -39,7 +41,9 @@ export const cache = {
     async set(key: string, value: unknown, ttlSeconds = 300): Promise<void> {
         if (!isRedisAvailable()) return;
         try {
-            await redis.setex(key, ttlSeconds, JSON.stringify(value));
+            // Add up to 20% random jitter to TTL
+            const actualTtl = ttlSeconds + Math.floor(Math.random() * (ttlSeconds * 0.2));
+            await redis.setex(key, actualTtl, JSON.stringify(value));
         } catch { /* ignore */ }
     },
 
