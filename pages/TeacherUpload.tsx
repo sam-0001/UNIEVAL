@@ -467,13 +467,13 @@ const TeacherUpload: React.FC = () => {
           <nav className="-mb-px flex">
             <button
               onClick={() => { setActiveTab('course'); setMessage(''); }}
-              className={`${activeTab === 'course' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'} w-1/2 py-4 px-1 text-center border-b-2 font-medium text-sm transition-colors`}
+              className={`${activeTab === 'course' ? 'border-brand-cobalt text-brand-cobalt' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'} w-1/2 py-4 px-1 text-center border-b-2 font-medium text-sm transition-colors`}
             >
               Upload Video Course
             </button>
             <button
                onClick={() => { setActiveTab('note'); setMessage(''); }}
-               className={`${activeTab === 'note' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'} w-1/2 py-4 px-1 text-center border-b-2 font-medium text-sm transition-colors`}
+               className={`${activeTab === 'note' ? 'border-brand-cobalt text-brand-cobalt' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'} w-1/2 py-4 px-1 text-center border-b-2 font-medium text-sm transition-colors`}
             >
                Upload Notes Package
             </button>
@@ -493,10 +493,10 @@ const TeacherUpload: React.FC = () => {
                   {Object.entries(uploadProgress).map(([key, percent]) => (
                       <div key={key} className="bg-gray-100 rounded-full overflow-hidden h-4 relative">
                           <div 
-                              className="bg-indigo-600 h-full transition-all duration-300" 
+                              className="bg-brand-cobalt h-full transition-all duration-300" 
                               style={{ width: `${percent}%` }}
                           ></div>
-                          <span className="absolute inset-0 flex items-center justify-center text-[10px] font-bold text-gray-700">
+                          <span className="absolute inset-0 flex items-center justify-center text-[10px] font-bold text-white drop-shadow-md">
                               {key.includes('video') ? 'Uploading Video' : 'Uploading File'}: {percent}%
                           </span>
                       </div>
@@ -509,11 +509,11 @@ const TeacherUpload: React.FC = () => {
               <div className="grid grid-cols-1 gap-6">
                 <div>
                     <label className="block text-sm font-medium text-gray-700">Course Title</label>
-                    <input type="text" required value={courseTitle} onChange={e => setCourseTitle(e.target.value)} className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" />
+                    <input type="text" required value={courseTitle} onChange={e => setCourseTitle(e.target.value)} className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-brand-cobalt focus:border-brand-cobalt sm:text-sm" />
                 </div>
                 <div>
                     <label className="block text-sm font-medium text-gray-700">Description</label>
-                    <textarea rows={3} required value={courseDesc} onChange={e => setCourseDesc(e.target.value)} className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" />
+                    <textarea rows={3} required value={courseDesc} onChange={e => setCourseDesc(e.target.value)} className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-brand-cobalt focus:border-brand-cobalt sm:text-sm" />
                 </div>
                 
                 {/* Thumbnail Upload */}
@@ -535,8 +535,8 @@ const TeacherUpload: React.FC = () => {
                       </button>
                       {thumbnailUploading && (
                         <div className="absolute inset-0 flex items-center justify-center bg-white/70 rounded-lg">
-                          <Loader2 className="w-6 h-6 text-indigo-600 animate-spin" />
-                          <span className="ml-2 text-sm text-indigo-600">Uploading...</span>
+                          <Loader2 className="w-6 h-6 text-brand-cobalt animate-spin" />
+                          <span className="ml-2 text-sm text-brand-cobalt">Uploading...</span>
                         </div>
                       )}
                       {thumbnailUrl && (
@@ -546,9 +546,9 @@ const TeacherUpload: React.FC = () => {
                       )}
                     </div>
                   ) : (
-                    <label className="flex flex-col items-center justify-center w-full max-w-xs h-32 border-2 border-dashed border-gray-300 rounded-lg bg-gray-50 hover:bg-gray-100 cursor-pointer transition-colors">
-                      <Upload className="w-7 h-7 text-gray-400 mb-1" />
-                      <span className="text-sm text-indigo-600 font-medium">Click to upload thumbnail</span>
+                    <label className="flex flex-col items-center justify-center w-full max-w-xs h-32 border-2 border-dashed border-slate-300 rounded-lg bg-slate-50 hover:bg-blue-50 hover:border-brand-cobalt cursor-pointer transition-colors">
+                      <Upload className="w-7 h-7 text-brand-cobalt mb-1" />
+                      <span className="text-sm text-brand-cobalt font-medium">Click to upload thumbnail</span>
                       <span className="text-xs text-gray-400 mt-0.5">PNG, JPG, WEBP (max 5MB)</span>
                       <input
                         type="file"
@@ -563,25 +563,25 @@ const TeacherUpload: React.FC = () => {
                 <div className="bg-gray-50 p-4 rounded-xl border border-gray-200">
                     <SubjectSelector 
                         {...courseSubjectSelection} 
-                        inputClass="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" 
+                        inputClass="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-brand-cobalt focus:border-brand-cobalt sm:text-sm" 
                         labelClass="block text-sm font-medium text-gray-700" 
                     />
                 </div>
               </div>
 
               {/* Video Upload Section */}
-              <div className="border-2 border-gray-300 border-dashed rounded-md p-6 flex justify-center bg-gray-50">
+              <div className="border-2 border-slate-300 border-dashed rounded-lg p-6 flex justify-center bg-slate-50 hover:bg-blue-50 hover:border-brand-cobalt transition-colors">
                  <div className="space-y-1 text-center">
                    {isUploading ? (
                        <div className="flex flex-col items-center">
-                           <Loader2 className="w-8 h-8 text-indigo-600 animate-spin mb-2" />
-                           <p className="text-sm text-gray-600">Uploading to cloud...</p>
+                           <Loader2 className="w-8 h-8 text-brand-cobalt animate-spin mb-2" />
+                           <p className="text-sm text-brand-cobalt font-medium">Uploading to cloud...</p>
                        </div>
                    ) : (
                        <>
-                           <Upload className="mx-auto h-12 w-12 text-gray-400" />
+                           <Upload className="mx-auto h-12 w-12 text-brand-cobalt" />
                            <div className="flex text-sm text-gray-600 justify-center">
-                             <label className="relative cursor-pointer bg-white rounded-md font-medium text-indigo-600 hover:text-indigo-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-indigo-500">
+                             <label className="relative cursor-pointer bg-transparent rounded-md font-medium text-brand-cobalt hover:text-brand-indigo focus-within:outline-none">
                                <span>Upload videos</span>
                                <input type="file" className="sr-only" accept="video/*" onChange={(e) => handleVideoUpload(null, e)} />
                              </label>
@@ -597,10 +597,10 @@ const TeacherUpload: React.FC = () => {
                   <div className="space-y-4">
                       <h4 className="font-medium text-gray-900">Uploaded Modules</h4>
                       {courseModules.map((mod, idx) => (
-                          <div key={idx} className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                          <div key={idx} className="bg-gray-50 p-4 rounded-xl border border-gray-200">
                               <div className="flex items-center justify-between mb-3">
                                   <div className="flex items-center gap-3">
-                                      <span className="w-6 h-6 flex items-center justify-center bg-indigo-100 text-indigo-700 rounded-full text-xs font-bold">{idx + 1}</span>
+                                      <span className="w-6 h-6 flex items-center justify-center bg-blue-100 text-brand-cobalt rounded-lg text-xs font-bold">{idx + 1}</span>
                                       <input 
                                           type="text" 
                                           value={mod.title} 
@@ -609,10 +609,10 @@ const TeacherUpload: React.FC = () => {
                                               newModules[idx].title = e.target.value;
                                               setCourseModules(newModules);
                                           }}
-                                          className="text-sm font-medium text-gray-700 bg-transparent border-b border-transparent hover:border-gray-300 focus:border-indigo-500 focus:outline-none"
+                                          className="text-sm font-medium text-gray-700 bg-transparent border-b border-transparent hover:border-gray-300 focus:border-brand-cobalt focus:outline-none"
                                       />
                                   </div>
-                                  <label className="text-xs bg-indigo-100 text-indigo-600 px-2 py-1 rounded hover:bg-indigo-200 cursor-pointer flex items-center gap-1">
+                                  <label className="text-xs bg-blue-50 border border-blue-200 text-brand-cobalt font-medium px-2 py-1 rounded-lg hover:bg-blue-100 cursor-pointer flex items-center gap-1 transition-colors">
                                       <Plus className="w-3 h-3" /> Add Video
                                       <input 
                                           type="file" 
@@ -625,7 +625,7 @@ const TeacherUpload: React.FC = () => {
                               
                               <div className="space-y-4 pl-9">
                                   {mod.videos.map((video, vIdx) => (
-                                      <div key={vIdx} className="bg-white p-3 rounded border border-gray-200">
+                                      <div key={vIdx} className="bg-white p-3 rounded-lg border border-gray-200 hover:border-brand-cobalt/30 transition-colors">
                                           <div className="flex items-center justify-between mb-2">
                                               <input 
                                                   type="text" 
@@ -635,23 +635,23 @@ const TeacherUpload: React.FC = () => {
                                                       newModules[idx].videos[vIdx].title = e.target.value;
                                                       setCourseModules(newModules);
                                                   }}
-                                                  className="text-sm font-medium text-gray-700 bg-transparent border-b border-transparent hover:border-gray-300 focus:border-indigo-500 focus:outline-none"
+                                                  className="text-sm font-medium text-gray-700 bg-transparent border-b border-transparent hover:border-gray-300 focus:border-brand-cobalt focus:outline-none flex-1 mr-4"
                                               />
                                               {/* Status Badge */}
                                               <div className="flex items-center gap-2">
                                                   {video.videoStatus === 'ready' ? (
-                                                      <span className="text-xs text-green-600 bg-green-100 px-2 py-1 rounded-full flex items-center gap-1">
+                                                      <span className="text-xs text-emerald-600 bg-emerald-100 border border-emerald-200 px-2 py-1 rounded-lg flex items-center gap-1 font-medium">
                                                           <CheckCircle className="w-3 h-3" /> Ready
                                                       </span>
                                                   ) : video.videoStatus === 'processing' ? (
                                                       <div className="flex items-center gap-2">
-                                                          <div className="w-24 h-2 bg-gray-200 rounded-full overflow-hidden">
-                                                              <div className="h-full bg-blue-500 transition-all duration-500" style={{ width: `${video.videoProgress || 0}%` }}></div>
+                                                          <div className="w-24 h-2 bg-gray-100 rounded-full overflow-hidden">
+                                                              <div className="h-full bg-brand-cobalt transition-all duration-500" style={{ width: `${video.videoProgress || 0}%` }}></div>
                                                           </div>
-                                                          <span className="text-xs text-blue-600 font-medium">{video.videoProgress}%</span>
+                                                          <span className="text-xs text-brand-cobalt font-bold">{video.videoProgress}%</span>
                                                       </div>
                                                   ) : video.videoStatus === 'finalizing' ? (
-                                                      <span className="text-xs text-purple-600 bg-purple-100 px-2 py-1 rounded-full flex items-center gap-1">
+                                                      <span className="text-xs text-brand-indigo bg-purple-50 border border-purple-200 px-2 py-1 rounded-lg flex items-center gap-1 font-medium">
                                                           <Loader2 className="w-3 h-3 animate-spin" /> Finalizing...
                                                       </span>
                                                   ) : video.videoStatus === 'error' ? (
@@ -685,7 +685,7 @@ const TeacherUpload: React.FC = () => {
                                                   ))}
                                               </div>
                                               
-                                              <label className="inline-flex items-center gap-1 text-xs text-indigo-600 hover:text-indigo-700 cursor-pointer font-medium">
+                                              <label className="inline-flex items-center gap-1 text-xs text-brand-cobalt hover:text-brand-indigo cursor-pointer font-bold transition-colors">
                                                   <Plus className="w-3 h-3" /> Add Resource (PDF/Link)
                                                   <input 
                                                       type="file" 
@@ -705,7 +705,7 @@ const TeacherUpload: React.FC = () => {
               <button 
                 type="submit" 
                 disabled={loading || isUploading || thumbnailUploading || !allVideosReady} 
-                className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-md text-sm font-bold text-white bg-gradient-main hover:opacity-90 focus:outline-none transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {loading ? 'Publishing...' : thumbnailUploading ? 'Uploading thumbnail...' : (!allVideosReady && courseModules.length > 0 ? 'Waiting for videos...' : 'Publish Course')}
               </button>
@@ -716,7 +716,7 @@ const TeacherUpload: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setShowCourseCoupons(v => !v)}
-                    className="flex items-center gap-2 text-sm font-semibold text-indigo-600 hover:text-indigo-800 border border-indigo-200 hover:border-indigo-400 px-4 py-2 rounded-lg transition-colors"
+                    className="flex items-center gap-2 text-sm font-semibold text-brand-cobalt hover:text-brand-indigo border border-brand-cobalt/30 hover:border-brand-cobalt px-4 py-2 rounded-lg transition-colors"
                   >
                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
@@ -739,20 +739,20 @@ const TeacherUpload: React.FC = () => {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                             <label className="block text-sm font-medium text-gray-700">Package Title</label>
-                            <input type="text" placeholder="e.g. BEE Exam Notes" required value={noteTitle} onChange={e => setNoteTitle(e.target.value)} className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 sm:text-sm" />
+                            <input type="text" placeholder="e.g. BEE Exam Notes" required value={noteTitle} onChange={e => setNoteTitle(e.target.value)} className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:ring-brand-cobalt focus:border-brand-cobalt sm:text-sm" />
                         </div>
                          <div>
                             <label className="block text-sm font-medium text-gray-700">Price (₹)</label>
-                            <input type="number" placeholder="0 for Free" value={notePrice} onChange={e => setNotePrice(Number(e.target.value))} className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 sm:text-sm" />
+                            <input type="number" placeholder="0 for Free" value={notePrice} onChange={e => setNotePrice(Number(e.target.value))} className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:ring-brand-cobalt focus:border-brand-cobalt sm:text-sm" />
                         </div>
                         <div className="md:col-span-2">
                             <label className="block text-sm font-medium text-gray-700">Description</label>
-                            <input type="text" placeholder="Guaranteed passing..." value={noteDesc} onChange={e => setNoteDesc(e.target.value)} className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 sm:text-sm" />
+                            <input type="text" placeholder="Guaranteed passing..." value={noteDesc} onChange={e => setNoteDesc(e.target.value)} className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:ring-brand-cobalt focus:border-brand-cobalt sm:text-sm" />
                         </div>
                         <div className="md:col-span-2 bg-white p-4 rounded-xl border border-gray-200 mt-2">
                             <SubjectSelector 
                                 {...noteSubjectSelection} 
-                                inputClass="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" 
+                                inputClass="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-brand-cobalt focus:border-brand-cobalt sm:text-sm" 
                                 labelClass="block text-sm font-medium text-gray-700" 
                             />
                         </div>
@@ -763,7 +763,7 @@ const TeacherUpload: React.FC = () => {
                 <div className="space-y-6">
                     <div className="flex justify-between items-center">
                         <h3 className="text-lg font-medium text-gray-900">Content Sections</h3>
-                        <button type="button" onClick={addSection} className="text-sm bg-indigo-100 text-indigo-700 px-3 py-1.5 rounded-md hover:bg-indigo-200">
+                        <button type="button" onClick={addSection} className="text-sm bg-blue-50 text-brand-cobalt border border-blue-200 px-3 py-1.5 rounded-lg hover:bg-blue-100 font-medium transition-colors">
                             + Add Section
                         </button>
                     </div>
@@ -775,10 +775,10 @@ const TeacherUpload: React.FC = () => {
                                     type="text" 
                                     value={section.title} 
                                     onChange={(e) => updateSectionTitle(section.id, e.target.value)}
-                                    className="font-semibold text-gray-800 border-b border-transparent hover:border-gray-300 focus:border-indigo-500 focus:outline-none bg-transparent"
+                                    className="font-semibold text-gray-800 border-b border-transparent hover:border-gray-300 focus:border-brand-cobalt focus:outline-none bg-transparent"
                                 />
                                 <div className="flex items-center gap-2">
-                                     <label className="text-xs bg-indigo-100 text-indigo-600 px-2 py-1 rounded hover:bg-indigo-200 cursor-pointer flex items-center gap-1" title="PDF, HTML, or a .zip containing an HTML file + its img/ folder">
+                                     <label className="text-xs bg-blue-50 border border-blue-200 text-brand-cobalt font-medium px-2 py-1 rounded-lg hover:bg-blue-100 cursor-pointer flex items-center gap-1 transition-colors" title="PDF, HTML, or a .zip containing an HTML file + its img/ folder">
                                         <Upload className="w-3 h-3" />
                                         Upload File
                                         <input 
@@ -816,7 +816,7 @@ const TeacherUpload: React.FC = () => {
                                                 type="checkbox" 
                                                 checked={file.isFree}
                                                 onChange={(e) => updateFile(section.id, file.id, 'isFree', e.target.checked)}
-                                                className="rounded text-indigo-600 focus:ring-indigo-500"
+                                                className="rounded text-brand-cobalt focus:ring-brand-cobalt"
                                             />
                                             Free Preview
                                         </label>
@@ -829,7 +829,7 @@ const TeacherUpload: React.FC = () => {
                     ))}
                 </div>
 
-                <button type="submit" disabled={loading} className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-base font-bold text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                <button type="submit" disabled={loading} className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-md text-base font-bold text-white bg-gradient-main hover:opacity-90 focus:outline-none transition-all">
                     {loading ? 'Creating Package...' : 'Publish Notes Package'}
                 </button>
 
@@ -839,7 +839,7 @@ const TeacherUpload: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => setShowNoteCoupons(v => !v)}
-                      className="flex items-center gap-2 text-sm font-semibold text-indigo-600 hover:text-indigo-800 border border-indigo-200 hover:border-indigo-400 px-4 py-2 rounded-lg transition-colors"
+                      className="flex items-center gap-2 text-sm font-semibold text-brand-cobalt hover:text-brand-indigo border border-brand-cobalt/30 hover:border-brand-cobalt px-4 py-2 rounded-lg transition-colors"
                     >
                       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />

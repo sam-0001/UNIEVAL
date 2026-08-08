@@ -99,19 +99,19 @@ const EXAM_PREP_SUBJECTS: ExamPrepSubject[] = [
 const ExamPrepCard: React.FC<{ subject: ExamPrepSubject; onClick: () => void }> = ({ subject, onClick }) => (
   <div
     onClick={onClick}
-    className="group relative bg-white rounded-2xl p-5 border border-gray-100 shadow-sm hover:shadow-xl hover:-translate-y-1 hover:border-indigo-200 transition-all duration-200 cursor-pointer flex flex-col gap-3"
+    className="group relative bg-white rounded-xl p-5 border border-gray-100 shadow-sm hover:shadow-md hover:-translate-y-1 hover:border-brand-cobalt transition-all duration-200 cursor-pointer flex flex-col gap-3"
   >
-    <div className="absolute top-0 left-6 right-6 h-0.5 rounded-b bg-gradient-to-r from-indigo-400 to-violet-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+    <div className="absolute top-0 left-6 right-6 h-0.5 rounded-b bg-gradient-main opacity-0 group-hover:opacity-100 transition-opacity" />
     <div className="flex items-start justify-between gap-2">
       <span className="text-3xl leading-none">{subject.icon}</span>
-      <span className="inline-flex items-center text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border bg-amber-100 text-amber-800 border-amber-200 whitespace-nowrap">
+      <span className="inline-flex items-center text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-lg border bg-blue-50 text-brand-cobalt border-blue-200 whitespace-nowrap">
         {subject.label}
       </span>
     </div>
-    <p className="font-bold text-gray-900 text-sm leading-snug group-hover:text-indigo-700 transition-colors">
+    <p className="font-bold text-brand-navy text-sm leading-snug group-hover:text-brand-indigo transition-colors">
       {subject.name}
     </p>
-    <button className="mt-auto self-start text-xs font-semibold text-indigo-600 group-hover:text-indigo-800 flex items-center gap-1 transition-colors">
+    <button className="mt-auto self-start text-xs font-semibold text-brand-cobalt group-hover:text-brand-indigo flex items-center gap-1 transition-colors">
       Start Prep
       <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
@@ -121,9 +121,9 @@ const ExamPrepCard: React.FC<{ subject: ExamPrepSubject; onClick: () => void }> 
 );
 
 const FeatureCard: React.FC<{ emoji: string; title: string; desc: string; bg: string }> = ({ emoji, title, desc, bg }) => (
-  <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm hover:shadow-md transition-shadow flex flex-col gap-3">
-    <div className={`w-11 h-11 ${bg} rounded-xl flex items-center justify-center text-xl flex-shrink-0`}>{emoji}</div>
-    <h3 className="font-bold text-gray-900">{title}</h3>
+  <div className="bg-white rounded-xl p-6 border border-gray-100 shadow-sm hover:shadow-md transition-shadow flex flex-col gap-3">
+    <div className={`w-11 h-11 ${bg} rounded-lg flex items-center justify-center text-xl flex-shrink-0`}>{emoji}</div>
+    <h3 className="font-bold text-brand-navy">{title}</h3>
     <p className="text-sm text-gray-500 leading-relaxed">{desc}</p>
   </div>
 );
@@ -186,7 +186,7 @@ const Home: React.FC = () => {
     <div className="flex flex-col min-h-screen bg-slate-50">
 
       {/* ── 1. HERO ─────────────────────────────────────────────────────── */}
-      <section className="relative overflow-hidden bg-[#0f172a] text-white">
+      <section className="relative overflow-hidden bg-brand-navy text-white">
         {/* Dot-grid background */}
         <div
           className="absolute inset-0 opacity-[0.035]"
@@ -196,20 +196,20 @@ const Home: React.FC = () => {
           }}
         />
         {/* Ambient glow */}
-        <div className="absolute -top-40 -left-40 w-[500px] h-[500px] bg-indigo-600 rounded-full blur-[140px] opacity-20 pointer-events-none" />
-        <div className="absolute -bottom-28 right-0 w-80 h-80 bg-violet-600 rounded-full blur-[100px] opacity-15 pointer-events-none" />
+        <div className="absolute -top-40 -left-40 w-[500px] h-[500px] bg-brand-cobalt rounded-full blur-[140px] opacity-20 pointer-events-none" />
+        <div className="absolute -bottom-28 right-0 w-80 h-80 bg-brand-indigo rounded-full blur-[100px] opacity-15 pointer-events-none" />
 
         <div className="relative max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-24 sm:py-32 text-center flex flex-col items-center gap-6">
           {/* Audience pill */}
-          <div className="inline-flex items-center gap-2 bg-white/10 border border-white/15 rounded-full px-4 py-1.5 text-xs font-semibold text-indigo-200 tracking-wide">
-            <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse shrink-0" />
+          <div className="inline-flex items-center gap-2 bg-white/10 border border-white/15 rounded-lg px-4 py-1.5 text-xs font-semibold text-white tracking-wide">
+            <span className="w-1.5 h-1.5 rounded-full bg-brand-cobalt animate-pulse shrink-0" />
             Built for SPPU Engineering Students — FE · SE · TE · BE
           </div>
 
           {/* Headline */}
           <h1 className="text-4xl sm:text-5xl lg:text-[3.5rem] font-extrabold tracking-tight leading-[1.1]">
             SPPU Exam Prep,{' '}
-            <span className="text-amber-400">simplified.</span>
+            <span className="text-gradient-main">simplified.</span>
           </h1>
 
           {/* Subtext */}
@@ -221,13 +221,13 @@ const Home: React.FC = () => {
           <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto mt-2">
             <button
               onClick={handleStartExamPrep}
-              className="w-full sm:w-auto bg-amber-400 hover:bg-amber-300 text-slate-900 font-bold px-8 py-3.5 rounded-full text-base shadow-lg shadow-amber-500/25 transition-all hover:scale-[1.02] active:scale-100"
+              className="w-full sm:w-auto bg-gradient-main text-white font-bold px-8 py-3.5 rounded-lg text-base shadow-lg shadow-brand-indigo/25 transition-all hover:scale-[1.02] active:scale-100"
             >
               🚀 Start Exam Prep
             </button>
             <Link
               to="/browse"
-              className="w-full sm:w-auto bg-white/10 hover:bg-white/20 border border-white/20 text-white font-semibold px-8 py-3.5 rounded-full text-base transition-all text-center"
+              className="w-full sm:w-auto bg-white/10 hover:bg-white/20 border border-white/20 text-white font-semibold px-8 py-3.5 rounded-lg text-base transition-all text-center"
             >
               Browse Subjects
             </Link>
@@ -248,15 +248,15 @@ const Home: React.FC = () => {
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-8">
           <div>
             <div className="flex items-center gap-2 mb-2">
-              <span className="w-1.5 h-5 bg-amber-400 rounded-full" />
-              <p className="text-xs font-bold uppercase tracking-widest text-amber-600">Exam Prep</p>
+              <span className="w-1.5 h-5 bg-brand-cobalt rounded-lg" />
+              <p className="text-xs font-bold uppercase tracking-widest text-brand-cobalt">Exam Prep</p>
             </div>
-            <h2 className="text-2xl sm:text-3xl font-extrabold text-gray-900">Start Your Preparation</h2>
+            <h2 className="text-2xl sm:text-3xl font-extrabold text-brand-navy">Start Your Preparation</h2>
             <p className="text-gray-500 mt-1 text-sm">Jump straight into high-weightage topics for your semester.</p>
           </div>
           <Link
             to="/exam-intelligence"
-            className="shrink-0 text-sm font-semibold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 transition-colors"
+            className="shrink-0 text-sm font-semibold text-brand-cobalt hover:text-brand-indigo flex items-center gap-1 transition-colors"
           >
             View all subjects
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -277,14 +277,14 @@ const Home: React.FC = () => {
         </div>
 
         {/* AI nudge strip */}
-        <div className="mt-8 bg-gradient-to-r from-indigo-600 to-violet-600 rounded-2xl p-6 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-lg shadow-indigo-200">
+        <div className="mt-8 bg-gradient-main rounded-xl p-6 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-lg shadow-brand-indigo/20">
           <div>
             <p className="text-white font-bold text-lg">Not sure where to start?</p>
-            <p className="text-indigo-200 text-sm mt-0.5">Let our AI pick the most important topics for your exam.</p>
+            <p className="text-white/80 text-sm mt-0.5">Let our AI pick the most important topics for your exam.</p>
           </div>
           <button
             onClick={handleStartExamPrep}
-            className="shrink-0 bg-white text-indigo-700 font-bold px-6 py-2.5 rounded-full hover:bg-indigo-50 transition-colors shadow-sm whitespace-nowrap"
+            className="shrink-0 bg-white text-brand-indigo font-bold px-6 py-2.5 rounded-lg hover:bg-slate-50 transition-colors shadow-sm whitespace-nowrap"
           >
             Try Exam Intelligence →
           </button>
@@ -294,18 +294,18 @@ const Home: React.FC = () => {
       {/* ── 3. YEAR QUICK ACCESS ────────────────────────────────────────── */}
       <section className="bg-white border-y border-gray-100">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-          <h2 className="text-xl font-extrabold text-gray-900 mb-6 text-center">Browse by Year</h2>
+          <h2 className="text-xl font-extrabold text-brand-navy mb-6 text-center">Browse by Year</h2>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
             {([
-              { year: '1', label: 'First Year',  sub: 'FE — Common for all',       emoji: '🎓', from: '#6366f1', to: '#8b5cf6' },
-              { year: '2', label: 'Second Year', sub: 'SE — Branch starts',        emoji: '📐', from: '#0ea5e9', to: '#06b6d4' },
-              { year: '3', label: 'Third Year',  sub: 'TE — Core subjects',        emoji: '⚡', from: '#10b981', to: '#14b8a6' },
-              { year: '4', label: 'Final Year',  sub: 'BE — Advanced electives',   emoji: '🚀', from: '#f97316', to: '#f59e0b' },
+              { year: '1', label: 'First Year',  sub: 'FE — Common for all',       emoji: '🎓', from: '#131A3F', to: '#1e293b' },
+              { year: '2', label: 'Second Year', sub: 'SE — Branch starts',        emoji: '📐', from: '#1F81FC', to: '#3b82f6' },
+              { year: '3', label: 'Third Year',  sub: 'TE — Core subjects',        emoji: '⚡', from: '#7F26FE', to: '#8b5cf6' },
+              { year: '4', label: 'Final Year',  sub: 'BE — Advanced electives',   emoji: '🚀', from: '#0ea5e9', to: '#0284c7' },
             ] as const).map(({ year, label, sub, emoji, from: f, to: t }) => (
               <Link
                 key={year}
                 to={`/browse?year=${year}`}
-                className="group relative overflow-hidden rounded-2xl p-5 text-white shadow-md hover:shadow-xl hover:-translate-y-1 transition-all duration-200 flex flex-col gap-1"
+                className="group relative overflow-hidden rounded-xl p-5 text-white shadow-sm hover:shadow-md hover:-translate-y-1 transition-all duration-200 flex flex-col gap-1"
                 style={{ background: `linear-gradient(135deg, ${f}, ${t})` }}
               >
                 <span className="text-3xl block mb-2">{emoji}</span>
@@ -321,8 +321,8 @@ const Home: React.FC = () => {
       {/* ── 4. FEATURES ──────────────────────────────────────────────────── */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 w-full">
         <div className="text-center mb-10">
-          <p className="text-xs font-bold uppercase tracking-widest text-indigo-500 mb-2">Platform Features</p>
-          <h2 className="text-2xl sm:text-3xl font-extrabold text-gray-900">Everything you need to ace your exams</h2>
+          <p className="text-xs font-bold uppercase tracking-widest text-brand-cobalt mb-2">Platform Features</p>
+          <h2 className="text-2xl sm:text-3xl font-extrabold text-brand-navy">Everything you need to ace your exams</h2>
         </div>
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
           <FeatureCard emoji="🤖" bg="bg-indigo-50" title="AI Quiz Generator"    desc="Generate smart MCQs from any topic in seconds. Adaptive difficulty based on your performance." />
@@ -424,7 +424,7 @@ const Home: React.FC = () => {
       </section>
 
       {/* ── 6. FINAL CTA ────────────────────────────────────────────────── */}
-      <section className="bg-[#0f172a] text-white">
+      <section className="bg-brand-navy text-white">
         <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-20 text-center flex flex-col items-center gap-6">
           <span className="text-5xl">🎓</span>
           <h2 className="text-3xl sm:text-4xl font-extrabold leading-tight">
@@ -437,14 +437,14 @@ const Home: React.FC = () => {
             {!user && (
               <Link
                 to="/login"
-                className="w-full sm:w-auto bg-amber-400 hover:bg-amber-300 text-slate-900 font-bold px-8 py-3.5 rounded-full text-base transition-all hover:scale-[1.02] text-center shadow-lg shadow-amber-500/20"
+                className="w-full sm:w-auto bg-gradient-main text-white font-bold px-8 py-3.5 rounded-lg text-base transition-all hover:scale-[1.02] text-center shadow-lg shadow-brand-indigo/20"
               >
                 Create Free Account
               </Link>
             )}
             <button
               onClick={handleStartExamPrep}
-              className="w-full sm:w-auto bg-white/10 hover:bg-white/20 border border-white/20 text-white font-semibold px-8 py-3.5 rounded-full text-base transition-all"
+              className="w-full sm:w-auto bg-white/10 hover:bg-white/20 border border-white/20 text-white font-semibold px-8 py-3.5 rounded-lg text-base transition-all"
             >
               Start Exam Prep Now
             </button>
@@ -453,7 +453,7 @@ const Home: React.FC = () => {
       </section>
 
       {/* ── FOOTER ──────────────────────────────────────────────────────── */}
-      <footer className="bg-gray-950 text-gray-500 py-12">
+      <footer className="bg-brand-navy border-t border-white/10 text-gray-400 py-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid grid-cols-1 md:grid-cols-3 gap-8">
           <div>
             <div className="flex items-center gap-2 mb-3">

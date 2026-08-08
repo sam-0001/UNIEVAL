@@ -330,7 +330,7 @@ const NoteDetail: React.FC = () => {
       <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-6">
 
         {/* Back Link */}
-        <Link to="/browse?year=1" className="inline-flex items-center text-sm text-slate-500 hover:text-indigo-600 mb-6 transition-colors">
+        <Link to="/browse?year=1" className="inline-flex items-center text-sm text-slate-500 hover:text-brand-cobalt mb-6 transition-colors font-medium">
           <svg className="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
           </svg>
@@ -340,11 +340,11 @@ const NoteDetail: React.FC = () => {
         {/* Header Card */}
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 mb-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div className="flex items-start gap-4">
-            <div className="bg-gradient-to-br from-indigo-50 to-blue-50 p-4 rounded-xl border border-indigo-100 shadow-sm">
+            <div className="bg-gradient-to-br from-indigo-50 to-blue-50 p-4 rounded-xl border border-brand-cobalt/20 shadow-sm">
               <img src="/img/logo.jpeg" className="w-10 h-10 object-cover rounded-lg" alt="UNIEVAL" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-slate-900">{note.title}</h1>
+              <h1 className="text-2xl font-bold text-brand-navy">{note.title}</h1>
               <p className="text-slate-500 mt-1 whitespace-pre-line">{note.description}</p>
               <div className="mt-2 flex items-center gap-2">
                 {note.price && note.price > 0 ? (
@@ -409,7 +409,7 @@ const NoteDetail: React.FC = () => {
               <button
                 onClick={() => handlePayment()}
                 disabled={paymentLoading}
-                className="hidden md:flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white px-8 py-3 rounded-xl font-bold text-lg shadow-lg shadow-indigo-200 transition-all transform hover:scale-105"
+                className="hidden md:flex items-center gap-2 bg-gradient-main hover:opacity-90 disabled:opacity-60 text-white px-8 py-3 rounded-xl font-bold text-lg shadow-lg shadow-indigo-200 transition-all transform hover:scale-105"
               >
                 {paymentLoading && <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
                 {!user ? 'Login to Unlock' : (displayPrice === 0 ? 'Unlock for Free' : `Unlock for ₹${displayPrice}`)}
@@ -446,14 +446,14 @@ const NoteDetail: React.FC = () => {
                           <div
                             key={f.id}
                             onClick={() => handleFileSelect(f)}
-                            className={`px-4 py-3 flex items-center gap-3 cursor-pointer hover:bg-slate-50 border-l-4 transition-all ${activeFile?.id === f.id ? 'border-indigo-600 bg-indigo-50/50' : 'border-transparent'}`}
+                            className={`px-4 py-3 flex items-center gap-3 cursor-pointer hover:bg-slate-50 border-l-4 transition-all ${activeFile?.id === f.id ? 'border-brand-cobalt bg-blue-50/50' : 'border-transparent'}`}
                           >
                             {getFileBadge(f.title)}
                             <div className="flex-1 min-w-0">
-                              <p className={`text-sm truncate ${activeFile?.id === f.id ? 'font-medium text-indigo-900' : 'text-slate-600'}`}>
+                              <p className={`text-sm truncate ${activeFile?.id === f.id ? 'font-bold text-brand-cobalt' : 'text-slate-600 font-medium'}`}>
                                 {f.title}
                               </p>
-                              <p className="text-xs text-indigo-500 font-medium">
+                              <p className={`text-xs font-medium ${activeFile?.id === f.id ? 'text-brand-cobalt' : 'text-slate-400'}`}>
                                 {activeFile?.id === f.id ? 'Viewing Now' : 'View File'}
                               </p>
                             </div>
@@ -527,13 +527,13 @@ const NoteDetail: React.FC = () => {
               {/* Scenario: Locked */}
               {activeFile && !hasAccess && !activeFile.isFree ? (
                 <div className="absolute inset-0 flex items-center justify-center flex-col bg-white/90 backdrop-blur-sm z-10 p-4">
-                  <div className="bg-white p-8 rounded-2xl shadow-xl text-center max-w-sm border border-gray-100">
-                    <div className="w-16 h-16 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <div className="bg-white p-8 rounded-2xl shadow-xl text-center max-w-sm border border-slate-200">
+                    <div className="w-16 h-16 bg-blue-50 text-brand-cobalt rounded-full flex items-center justify-center mx-auto mb-4">
                       <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                       </svg>
                     </div>
-                    <h3 className="text-xl font-bold text-slate-900 mb-2">Content Locked</h3>
+                    <h3 className="text-xl font-bold text-brand-navy mb-2">Content Locked</h3>
                     <p className="text-slate-500 mb-6 text-sm">
                       Purchase the complete <b>{note.title}</b> pack to access {activeFile.title} and all other locked materials.
                     </p>
@@ -575,7 +575,7 @@ const NoteDetail: React.FC = () => {
                     <button
                       onClick={() => handlePayment()}
                       disabled={paymentLoading}
-                      className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white font-bold py-3 px-4 rounded-xl transition-colors shadow-lg shadow-indigo-200 flex items-center justify-center gap-2"
+                      className="w-full bg-gradient-main hover:opacity-90 disabled:opacity-60 text-white font-bold py-3 px-4 rounded-xl transition-all shadow-lg shadow-indigo-200 flex items-center justify-center gap-2"
                     >
                       {paymentLoading && <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
                       {!user ? 'Login to Unlock' : (displayPrice === 0 ? 'Unlock for Free' : `Unlock for ₹${displayPrice}`)}
@@ -646,7 +646,7 @@ const NoteDetail: React.FC = () => {
               <button
                 onClick={() => handlePayment()}
                 disabled={paymentLoading}
-                className="flex-1 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white py-3 rounded-xl font-bold shadow-lg shadow-indigo-200 transition-all active:scale-95 flex items-center justify-center gap-2"
+                className="flex-1 bg-gradient-main hover:opacity-90 disabled:opacity-60 text-white py-3 rounded-xl font-bold shadow-lg shadow-indigo-200 transition-all active:scale-95 flex items-center justify-center gap-2"
               >
                 {paymentLoading && <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
                 {!user ? 'Login to Unlock' : (displayPrice === 0 ? 'Unlock for Free' : 'Unlock Now')}

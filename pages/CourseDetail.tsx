@@ -214,26 +214,26 @@ const CourseDetail: React.FC = () => {
                   watermarkText={user ? `${user.phoneNumber || user.email} | ${user.id.slice(-6).toUpperCase()}` : undefined}
                 />
               ) : activeVideo?.videoStatus === 'processing' || activeVideo?.videoStatus === 'finalizing' ? (
-                <div className="absolute inset-0 flex items-center justify-center text-white flex-col gap-3 bg-gray-900">
-                  <div className="w-10 h-10 border-4 border-white/20 border-t-indigo-400 rounded-full animate-spin"/>
+                <div className="absolute inset-0 flex items-center justify-center text-white flex-col gap-3 bg-brand-navy rounded-xl shadow-2xl overflow-hidden">
+                  <div className="w-10 h-10 border-4 border-white/20 border-t-brand-cobalt rounded-full animate-spin"/>
                   <p className="text-sm text-gray-300 font-medium">Video is being processed, please check back shortly.</p>
                   {activeVideo.videoProgress != null && activeVideo.videoProgress > 0 && (
                     <p className="text-xs text-gray-500">{activeVideo.videoProgress}% complete</p>
                   )}
                 </div>
               ) : activeVideo?.videoStatus === 'error' ? (
-                <div className="absolute inset-0 flex items-center justify-center text-white flex-col gap-2 bg-gray-900">
+                <div className="absolute inset-0 flex items-center justify-center text-white flex-col gap-2 bg-brand-navy rounded-xl shadow-2xl overflow-hidden">
                   <p className="text-red-400 font-semibold">Video processing failed.</p>
                   <p className="text-xs text-gray-500">Please contact support or re-upload the video.</p>
                 </div>
               ) : (
-                <div className="absolute inset-0 flex items-center justify-center text-white flex-col bg-gray-900">
+                <div className="absolute inset-0 flex items-center justify-center text-white flex-col bg-brand-navy rounded-xl shadow-2xl overflow-hidden">
                   <p className="text-gray-400">Video not available</p>
                 </div>
               )
             ) : (
-              <div className="absolute inset-0 flex items-center justify-center flex-col bg-slate-900/90 backdrop-blur-sm z-10 p-6 text-center">
-                <div className="w-16 h-16 bg-indigo-600 rounded-full flex items-center justify-center mb-4 shadow-lg shadow-indigo-500/30">
+              <div className="absolute inset-0 flex items-center justify-center flex-col bg-brand-navy/95 backdrop-blur-sm z-10 p-6 text-center rounded-xl shadow-2xl overflow-hidden">
+                <div className="w-16 h-16 bg-brand-cobalt rounded-full flex items-center justify-center mb-4 shadow-lg shadow-brand-cobalt/30">
                   <svg className="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                   </svg>
@@ -242,7 +242,7 @@ const CourseDetail: React.FC = () => {
                 <p className="text-gray-300 mb-6 max-w-md">Enroll in this course to access high-quality video lectures, assignments, and more.</p>
                 <button
                   onClick={() => handlePayment()}
-                  className="bg-white text-indigo-600 hover:bg-indigo-50 px-8 py-3 rounded-xl font-bold text-lg transition-colors"
+                  className="bg-gradient-main text-white hover:opacity-90 px-8 py-3 rounded-xl font-bold text-lg transition-all"
                 >
                   {!user ? 'Login to Enroll' : (course.price === 0 ? 'Enroll for Free' : `Unlock for ₹${displayPrice}`)}
                 </button>
@@ -253,7 +253,7 @@ const CourseDetail: React.FC = () => {
           <div className="bg-white rounded-lg shadow p-6">
             <div className="flex justify-between items-start">
               <div>
-                <h1 className="text-2xl font-bold text-gray-900 mb-2">{course.title}</h1>
+                <h1 className="text-2xl font-bold text-brand-navy mb-2">{course.title}</h1>
                 <p className="text-gray-600 whitespace-pre-line">{course.description}</p>
               </div>
               <div className="hidden md:block text-right min-w-[200px]">
@@ -303,7 +303,7 @@ const CourseDetail: React.FC = () => {
 
                     <button
                       onClick={() => handlePayment()}
-                      className="w-full mt-1 bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2 rounded-lg font-bold shadow-md transition-all"
+                      className="w-full mt-1 bg-gradient-main hover:opacity-90 text-white px-6 py-2 rounded-lg font-bold shadow-md transition-all"
                     >
                       {!user ? 'Login' : (course.price === 0 ? 'Enroll' : 'Buy Now')}
                     </button>
@@ -332,21 +332,21 @@ const CourseDetail: React.FC = () => {
                 }] : []);
 
                 return (
-                  <li key={module.id} className="bg-white">
-                    <div className="p-4 bg-gray-50 border-b border-gray-100 flex items-center justify-between">
+                  <li key={module.id} className={`bg-white border-b border-slate-100 ${module.videos?.some(v => v.id === activeVideo?.id) || (module.videoUrl && 'legacy-' + module.id === activeVideo?.id) ? 'border-l-4 border-l-brand-cobalt' : 'border-l-4 border-l-transparent'}`}>
+                    <div className="p-4 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
                       <h4 className="text-sm font-bold text-gray-800">Module {idx + 1}: {module.title}</h4>
-                      {isModuleLocked && <span className="text-[10px] text-indigo-600 font-semibold uppercase tracking-wider">Locked</span>}
+                      {isModuleLocked && <span className="text-[10px] text-brand-cobalt font-bold uppercase tracking-wider">Locked</span>}
                     </div>
                     <ul className="divide-y divide-gray-100">
                       {videos.map((video) => (
                         <li
                           key={video.id}
-                          className={`p-3 pl-6 transition-colors ${activeVideo?.id === video.id ? 'bg-indigo-50' : 'hover:bg-gray-50'} ${isModuleLocked ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}
+                          className={`p-3 pl-6 transition-all ${activeVideo?.id === video.id ? 'bg-blue-50' : 'hover:bg-slate-50'} ${isModuleLocked ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}
                           onClick={() => { if (!isModuleLocked) { setActiveModule(module); setActiveVideo(video); } else { handlePayment(); } }}
                         >
                           <div className="flex items-center justify-between">
                             <div className="flex items-center">
-                              <div className={`flex-shrink-0 h-6 w-6 rounded-full flex items-center justify-center mr-3 ${activeVideo?.id === video.id ? 'bg-indigo-600 text-white' : 'bg-gray-200 text-gray-600'}`}>
+                              <div className={`flex-shrink-0 h-6 w-6 rounded-md flex items-center justify-center mr-3 ${activeVideo?.id === video.id ? 'bg-brand-cobalt text-white' : 'bg-gray-200 text-gray-600'}`}>
                                 {activeVideo?.id === video.id ? (
                                   <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" /></svg>
                                 ) : isModuleLocked ? (
@@ -361,7 +361,7 @@ const CourseDetail: React.FC = () => {
                                 )}
                               </div>
                               <div className="flex-1">
-                                <p className={`text-sm ${activeVideo?.id === video.id ? 'font-bold text-indigo-600' : 'font-medium text-gray-700'}`}>{video.title}</p>
+                                <p className={`text-sm ${activeVideo?.id === video.id ? 'font-bold text-brand-cobalt' : 'font-medium text-gray-700'}`}>{video.title}</p>
                               </div>
                             </div>
                             <span className="text-xs text-gray-400">{video.duration}</span>
@@ -427,7 +427,7 @@ const CourseDetail: React.FC = () => {
                 </div>
                 <button
                   onClick={() => handlePayment()}
-                  className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-xl font-bold shadow-lg shadow-indigo-200 transition-all active:scale-95"
+                  className="flex-1 bg-gradient-main hover:opacity-90 text-white py-3 rounded-xl font-bold shadow-lg shadow-indigo-200 transition-all active:scale-95"
                 >
                   {!user ? 'Login to Enroll' : (course.price === 0 ? 'Enroll Now' : 'Enroll Now')}
                 </button>

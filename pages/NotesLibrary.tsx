@@ -99,7 +99,7 @@ const NotesLibrary: React.FC = () => {
              {/* Toggle Button for Context Switching */}
              <button 
                 onClick={toggleFirstYearMode}
-                className="bg-gray-900 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-800 transition-colors whitespace-nowrap"
+                className="bg-brand-navy text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-opacity-90 transition-colors whitespace-nowrap"
              >
                 {isFirstYearMode ? 'View Departmental Notes' : 'View First Year (FE)'}
              </button>
@@ -116,8 +116,8 @@ const NotesLibrary: React.FC = () => {
                         onClick={() => handleYearChange(y === selectedYear ? '' : y)}
                         className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
                             selectedYear === y 
-                            ? 'bg-indigo-600 text-white shadow-md' 
-                            : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50'
+                            ? 'bg-brand-cobalt text-white shadow-sm' 
+                            : 'bg-white text-gray-700 border border-gray-200 hover:bg-blue-50'
                         }`}
                     >
                         {y === 1 ? 'FE' : y === 2 ? 'SE' : y === 3 ? 'TE' : 'BE'}
@@ -136,7 +136,7 @@ const NotesLibrary: React.FC = () => {
                      <select
                         value={selectedBranch}
                         onChange={(e) => handleBranchChange(e.target.value)}
-                        className="appearance-none block w-full pl-10 pr-10 py-3 text-base bg-white border border-gray-200 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-700 font-medium cursor-pointer hover:border-indigo-300 transition-colors"
+                        className="appearance-none block w-full pl-10 pr-10 py-3 text-base bg-white border border-gray-200 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-cobalt focus:border-transparent text-gray-700 font-medium cursor-pointer hover:border-brand-cobalt transition-colors"
                      >
                         <option value="">All Engineering Branches</option>
                         <option value="Computer Science Engineering (CSE)">Computer Science (CSE)</option>
@@ -157,19 +157,19 @@ const NotesLibrary: React.FC = () => {
       {/* Content Area */}
       {loading ? (
         <div className="flex justify-center py-20">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-cobalt"></div>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {notes.length > 0 ? (
                 notes.map(note => (
                     <Link to={`/note/${note.id}`} key={note.id} className="block h-full">
-                        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 hover:shadow-lg transition-shadow duration-300 flex flex-col relative overflow-hidden group h-full">
-                            {/* Purple Top Border Accent */}
-                            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-indigo-500 to-purple-600 transform origin-left scale-x-0 group-hover:scale-x-100 transition-transform duration-300"></div>
+                        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5 hover:-translate-y-1 hover:shadow-lg hover:border-brand-indigo transition-all duration-300 flex flex-col relative overflow-hidden group h-full">
+                            {/* Gradient Top Border Accent */}
+                            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-main transform origin-left scale-x-0 group-hover:scale-x-100 transition-transform duration-300"></div>
                             
-                            <div className="flex justify-between items-start mb-4">
-                                <h3 className="text-lg font-bold text-gray-900 group-hover:text-indigo-700 transition-colors leading-tight">
+                            <div className="flex justify-between items-start mb-4 gap-2">
+                                <h3 className="text-lg font-bold text-brand-navy group-hover:text-brand-indigo transition-colors leading-tight">
                                     {note.title}
                                 </h3>
                                 <div className="bg-red-50 p-2 rounded-lg">
@@ -191,13 +191,13 @@ const NotesLibrary: React.FC = () => {
                                             {note.originalPrice && note.originalPrice > note.price && (
                                                 <span className="text-xs text-red-400 line-through">₹{note.originalPrice.toFixed(2)}</span>
                                             )}
-                                            <span className="text-xl font-bold text-gray-900">₹{note.price.toFixed(2)}</span>
+                                            <span className="text-xl font-bold text-brand-navy">₹{note.price.toFixed(2)}</span>
                                         </div>
                                     ) : (
-                                        <span className="text-lg font-bold text-green-600">Free</span>
+                                        <span className="text-lg font-bold text-emerald-600">Free</span>
                                     )}
                                 </div>
-                                <span className="text-sm font-semibold text-indigo-600 hover:text-indigo-800 underline">
+                                <span className="text-sm font-bold text-brand-cobalt group-hover:text-brand-indigo underline transition-colors">
                                     View Details
                                 </span>
                             </div>

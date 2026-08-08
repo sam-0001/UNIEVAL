@@ -203,24 +203,24 @@ const ToolkitCard: React.FC<{ item: BEToolkitItem; onViewPdf: (url: string, titl
   const isPdf = item.link.toLowerCase().endsWith('.pdf');
 
   return (
-    <div className="bg-white border border-gray-200 rounded-xl p-5 flex flex-col gap-3 hover:shadow-md hover:border-indigo-200 transition-all duration-200">
+    <div className="bg-white border border-slate-200 rounded-xl p-5 flex flex-col gap-3 hover:shadow-lg hover:-translate-y-1 hover:border-brand-indigo transition-all duration-300">
       <div className="flex flex-wrap gap-1.5 items-center">
         <span className="text-xs font-medium text-gray-500 bg-gray-100 px-2 py-0.5 rounded">
           {TYPE_LABELS[item.type] ?? item.type}
         </span>
-        <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${diff?.classes ?? ''}`}>
+        <span className={`text-xs font-bold px-2 py-0.5 rounded-md ${diff?.classes ?? ''}`}>
           {diff?.label ?? item.difficulty}
         </span>
         {isPdf && (
           <span className="text-xs text-blue-600 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded font-medium">PDF</span>
         )}
       </div>
-      <h3 className="font-semibold text-gray-900 text-sm leading-snug">{item.title}</h3>
+      <h3 className="font-semibold text-brand-navy text-sm leading-snug">{item.title}</h3>
       <p className="text-xs text-gray-600 leading-relaxed line-clamp-3">{item.summary}</p>
       {item.tags.length > 0 && (
         <div className="flex flex-wrap gap-1">
           {item.tags.map((tag, i) => (
-            <span key={i} className="text-xs bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-full">{tag}</span>
+            <span key={i} className="text-[10px] uppercase font-bold tracking-wider bg-blue-50 border border-blue-100 text-brand-cobalt px-2 py-0.5 rounded-md">{tag}</span>
           ))}
         </div>
       )}
@@ -229,7 +229,7 @@ const ToolkitCard: React.FC<{ item: BEToolkitItem; onViewPdf: (url: string, titl
         {isPdf ? (
           <button
             onClick={() => onViewPdf(item.link, item.title)}
-            className="shrink-0 text-xs font-medium bg-indigo-600 text-white px-3 py-1.5 rounded-lg hover:bg-indigo-700 transition-colors"
+            className="shrink-0 text-xs font-bold bg-brand-cobalt text-white px-3 py-1.5 rounded-lg hover:bg-brand-indigo transition-colors"
           >
             View PDF →
           </button>
@@ -238,7 +238,7 @@ const ToolkitCard: React.FC<{ item: BEToolkitItem; onViewPdf: (url: string, titl
             href={item.link}
             target="_blank"
             rel="noopener noreferrer"
-            className="shrink-0 text-xs font-medium bg-indigo-600 text-white px-3 py-1.5 rounded-lg hover:bg-indigo-700 transition-colors"
+            className="shrink-0 text-xs font-bold bg-brand-cobalt text-white px-3 py-1.5 rounded-lg hover:bg-brand-indigo transition-colors"
           >
             View →
           </a>
@@ -266,12 +266,12 @@ const SearchResultCard: React.FC<{
     : result.link;
 
   return (
-    <div className="bg-white border border-gray-200 rounded-xl p-5 flex flex-col gap-3 hover:shadow-md hover:border-indigo-200 transition-all duration-200">
+    <div className="bg-white border border-slate-200 rounded-xl p-5 flex flex-col gap-3 hover:shadow-lg hover:-translate-y-1 hover:border-brand-indigo transition-all duration-300">
       <div className="flex items-center gap-2 flex-wrap">
         <span className="text-xs font-bold text-white bg-indigo-600 w-5 h-5 rounded-full flex items-center justify-center shrink-0">
           {index + 1}
         </span>
-        <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${diff.classes}`}>
+        <span className={`text-xs font-bold px-2 py-0.5 rounded-md ${diff.classes}`}>
           {diff.label}
         </span>
         {sourceLabel && (
@@ -283,13 +283,13 @@ const SearchResultCard: React.FC<{
           <span className="text-xs text-blue-600 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded font-medium">PDF</span>
         )}
       </div>
-      <h3 className="font-semibold text-gray-900 text-sm leading-snug">{result.title}</h3>
+      <h3 className="font-semibold text-brand-navy text-sm leading-snug">{result.title}</h3>
       <p className="text-xs text-gray-600 leading-relaxed">{result.summary}</p>
       <div className="flex items-center gap-2 mt-auto pt-2 border-t border-gray-100">
         {isPdf && !isGitHub ? (
           <button
             onClick={() => onViewPdf(pdfUrl, result.title)}
-            className="flex-1 text-center text-xs font-medium bg-indigo-600 text-white px-3 py-1.5 rounded-lg hover:bg-indigo-700 transition-colors"
+            className="flex-1 text-center text-xs font-bold bg-brand-cobalt text-white px-3 py-1.5 rounded-lg hover:bg-brand-indigo transition-colors"
           >
             📄 View PDF
           </button>
@@ -298,7 +298,7 @@ const SearchResultCard: React.FC<{
             href={result.link}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex-1 text-center text-xs font-medium bg-indigo-600 text-white px-3 py-1.5 rounded-lg hover:bg-indigo-700 transition-colors"
+            className="flex-1 text-center text-xs font-bold bg-brand-cobalt text-white px-3 py-1.5 rounded-lg hover:bg-brand-indigo transition-colors"
           >
             {isGitHub ? '⭐ View Repo' : '🔗 Open'}
           </a>
@@ -348,7 +348,7 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onResults }) => {
   };
 
   return (
-    <div className="bg-gradient-to-br from-indigo-50 to-white border border-indigo-100 rounded-2xl p-6 mb-8 shadow-sm">
+    <div className="bg-blue-50 border border-brand-cobalt/20 rounded-2xl p-6 mb-8 shadow-sm">
       <div className="flex items-center gap-2 mb-4">
         <span className="text-xl">🔍</span>
         <div>
@@ -364,8 +364,8 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onResults }) => {
             onClick={() => setCategory(opt.value)}
             className={`text-xs font-medium px-3 py-1.5 rounded-full border transition-all ${
               category === opt.value
-                ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
-                : 'bg-white text-gray-600 border-gray-200 hover:border-indigo-300 hover:text-indigo-600'
+                ? 'bg-brand-cobalt text-white border-brand-cobalt shadow-sm'
+                : 'bg-white text-gray-600 border-gray-200 hover:border-brand-cobalt hover:text-brand-cobalt'
             }`}
           >
             {opt.label}
@@ -385,7 +385,7 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onResults }) => {
         <button
           onClick={handleSearch}
           disabled={loading}
-          className="shrink-0 bg-indigo-600 text-white text-sm font-medium px-5 py-2.5 rounded-xl hover:bg-indigo-700 disabled:opacity-60 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+          className="shrink-0 bg-gradient-main text-white text-sm font-bold px-5 py-2.5 rounded-xl hover:opacity-90 disabled:opacity-60 disabled:cursor-not-allowed transition-all flex items-center gap-2"
         >
           {loading ? (
             <>
@@ -533,7 +533,7 @@ const BEToolkit: React.FC = () => {
 
       {/* Header */}
       <div className="mb-6 border-b border-gray-200 pb-6">
-        <h1 className="text-3xl font-bold text-gray-900">BE Toolkit</h1>
+        <h1 className="text-3xl font-bold text-brand-navy">BE Toolkit</h1>
         <p className="mt-2 text-gray-600">Curated projects, research papers, and case studies for BE students.</p>
         <p className="mt-1 text-xs text-gray-400">All resources link to open-access sources (arXiv, Semantic Scholar, GitHub). No paywalls.</p>
       </div>
@@ -549,8 +549,8 @@ const BEToolkit: React.FC = () => {
             onClick={() => setActiveTab(tab.key as any)}
             className={`text-sm font-medium px-4 py-2 rounded-lg transition-all ${
               activeTab === tab.key
-                ? 'bg-white text-indigo-700 shadow-sm'
-                : 'text-gray-500 hover:text-gray-700'
+                ? 'bg-brand-cobalt text-white shadow-sm'
+                : 'text-gray-500 hover:text-brand-navy'
             }`}
           >
             {tab.label}
@@ -604,7 +604,7 @@ const BEToolkit: React.FC = () => {
                   Clear
                 </button>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                 {displayedResults.map((result, i) => (
                   <SearchResultCard
                     key={i}
@@ -646,8 +646,8 @@ const BEToolkit: React.FC = () => {
             ) : (
               Object.entries(grouped).map(([branch, byType]) => (
                 <div key={branch} className="mb-10">
-                  <h2 className="text-xl font-bold text-gray-900 mb-5 flex items-center gap-2">
-                    <span className="w-1 h-6 bg-indigo-600 rounded-full inline-block"></span>
+                  <h2 className="text-xl font-bold text-brand-navy mb-5 flex items-center gap-2">
+                    <span className="w-1 h-6 bg-brand-cobalt rounded-full inline-block"></span>
                     {branch}
                   </h2>
                   {Object.entries(byType).map(([type, typeItems]) => (
@@ -655,7 +655,7 @@ const BEToolkit: React.FC = () => {
                       <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">
                         {TYPE_LABELS[type] ?? type} · {typeItems.length} item{typeItems.length !== 1 ? 's' : ''}
                       </h3>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                         {typeItems.map(item => (
                           <ToolkitCard
                             key={item.id}

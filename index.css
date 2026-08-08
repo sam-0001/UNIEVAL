@@ -27,3 +27,13 @@ body {
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
+
+.bg-gradient-main {
+  background: linear-gradient(135deg, #1F81FC 0%, #7F26FE 100%);
+}
+
+.text-gradient-main {
+  background: linear-gradient(135deg, #1F81FC 0%, #7F26FE 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
