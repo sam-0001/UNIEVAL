@@ -205,6 +205,11 @@ async function startServer() {
 
     const server = app.listen(PORT, '0.0.0.0', () => {
         logger.info(`Server ready → http://localhost:${PORT}`);
+        
+        // Tell PM2 we are ready to accept traffic (enables zero-downtime reloads)
+        if (typeof process.send === 'function') {
+            process.send('ready');
+        }
     });
 
     server.timeout = 0;
