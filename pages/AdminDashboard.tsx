@@ -1278,6 +1278,11 @@ const CreateCourseModal: React.FC<{onClose: () => void; editItem?: Course | null
                                                          </button>
                                                      </div>
                                                  </div>
+                                                 {(video as any).thumbnailUrl && (
+                                                     <div className="mt-2">
+                                                         <img src={(video as any).thumbnailUrl} alt="Thumbnail" className="h-16 aspect-video object-cover rounded shadow-sm border border-gray-200" />
+                                                     </div>
+                                                 )}
                                                  {video.fileName && <div className="text-xs text-gray-500">Video: {video.fileName}</div>}
                                                  {video.resourceFileName && <div className="text-xs text-gray-500">Resource: {video.resourceFileName}</div>}
                                                  {video.videoStatus && video.videoStatus !== 'ready' && (

@@ -786,8 +786,8 @@ const TeacherUpload: React.FC = () => {
                                                     />
                                                 </label>
                                                 {video.thumbnailUrl && (
-                                                  <div className="flex items-center gap-1 text-xs text-emerald-600 font-bold ml-auto">
-                                                    <CheckCircle className="w-3 h-3" /> Thumbnail Added
+                                                  <div className="ml-auto">
+                                                    <img src={video.thumbnailUrl} alt="Video Thumbnail" className="h-10 aspect-video object-cover rounded shadow-sm border border-gray-200" />
                                                   </div>
                                                 )}
                                               </div>
