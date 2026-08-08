@@ -537,9 +537,14 @@ const AdminDashboard: React.FC = () => {
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {courses.map(course => (
-                  <div key={course.id} className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm hover:shadow-md transition-shadow">
-                      <div className="h-40 bg-gray-200 relative">
-                          <img src={course.thumbnailUrl} alt={course.title} className="w-full h-full object-cover" />
+                  <div key={course.id} className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm hover:shadow-md transition-shadow group">
+                      <div className="aspect-video bg-gray-200 relative overflow-hidden cursor-pointer">
+                          <img 
+                              src={course.thumbnailUrl} 
+                              alt={course.title} 
+                              className="absolute inset-0 w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-500" 
+                              onError={(e) => { e.currentTarget.src = 'https://picsum.photos/800/600?random=' + course.id; }}
+                          />
                            <span className="absolute top-2 right-2 bg-black/60 text-white text-[10px] font-bold px-2 py-1 rounded">COMPUTER ENGINEERING</span>
                       </div>
                       <div className="p-4">

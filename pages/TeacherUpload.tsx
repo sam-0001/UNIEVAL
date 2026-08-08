@@ -520,11 +520,11 @@ const TeacherUpload: React.FC = () => {
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Course Thumbnail</label>
                   {thumbnailPreview ? (
-                    <div className="relative w-full max-w-xs">
+                    <div className="relative w-full max-w-xs aspect-video">
                       <img
                         src={thumbnailPreview}
                         alt="Thumbnail preview"
-                        className="w-full h-40 object-cover rounded-lg border border-gray-300 shadow-sm"
+                        className="absolute inset-0 w-full h-full object-cover rounded-lg border border-gray-300 shadow-sm"
                       />
                       <button
                         type="button"

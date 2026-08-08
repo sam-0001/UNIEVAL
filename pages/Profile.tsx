@@ -184,7 +184,12 @@ const Profile: React.FC = () => {
               <Link key={course.id} to={`/course/${course.id}`} className="group block bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition-all">
                 <div className="aspect-video bg-gray-100 relative">
                   {course.thumbnailUrl
-                    ? <img src={course.thumbnailUrl} alt={course.title} className="w-full h-full object-cover" />
+                    ? <img 
+                        src={course.thumbnailUrl} 
+                        alt={course.title} 
+                        className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-500" 
+                        onError={(e) => { e.currentTarget.src = 'https://picsum.photos/800/600?random=' + course.id; }}
+                      />
                     : <div className="w-full h-full flex items-center justify-center bg-indigo-50 text-indigo-300">
                         <svg className="w-12 h-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
