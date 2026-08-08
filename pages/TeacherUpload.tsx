@@ -106,6 +106,12 @@ const TeacherUpload: React.FC = () => {
       { id: Date.now().toString(), title: 'All Units Notes', files: [] }
   ]);
 
+  // Note Thumbnail State
+  const [noteThumbnailFile, setNoteThumbnailFile] = useState<File | null>(null);
+  const [noteThumbnailPreview, setNoteThumbnailPreview] = useState<string>('');
+  const [noteThumbnailUrl, setNoteThumbnailUrl] = useState<string>('');
+  const [noteThumbnailUploading, setNoteThumbnailUploading] = useState(false);
+
   if (!user || user.role !== UserRole.TEACHER) {
     return <div className="p-8">Access Denied. Teachers only.</div>;
   }
@@ -151,11 +157,21 @@ const TeacherUpload: React.FC = () => {
   };
 
   const handleThumbnailSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setThumbnailFile(file);
-    setThumbnailPreview(URL.createObjectURL(file));
-    setThumbnailUrl(''); // reset uploaded URL until we actually upload
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      setThumbnailFile(file);
+      setThumbnailPreview(URL.createObjectURL(file));
+      setThumbnailUrl(''); // reset uploaded URL until we actually upload
+    }
+  };
+
+  const handleNoteThumbnailSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      setNoteThumbnailFile(file);
+      setNoteThumbnailPreview(URL.createObjectURL(file));
+      setNoteThumbnailUrl('');
+    }
   };
 
   const uploadThumbnail = async (file: File): Promise<string> => {
@@ -382,19 +398,43 @@ const TeacherUpload: React.FC = () => {
   const handleNoteUpload = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    const finalSubjectId = await noteSubjectSelection.getSubjectForSave();
-    const note = await api.createNote({
-      title: noteTitle,
-      description: noteDesc,
-      subjectId: finalSubjectId,
-      teacherId: user.id,
-      price: notePrice,
-      sections: sections
-    });
-    setPublishedNoteId(note.id);
-    setShowNoteCoupons(false);
-    setLoading(false);
-    setMessage('Notes package created successfully with all sections.');
+
+    try {
+      let finalThumbnailUrl = noteThumbnailUrl;
+      if (noteThumbnailFile && !noteThumbnailUrl) {
+        setNoteThumbnailUploading(true);
+        finalThumbnailUrl = await uploadThumbnail(noteThumbnailFile);
+        setNoteThumbnailUploading(false);
+      }
+      if (!finalThumbnailUrl) {
+        finalThumbnailUrl = 'https://picsum.photos/800/600';
+      }
+
+      const finalSubjectId = await noteSubjectSelection.getSubjectForSave();
+      const note = await api.createNote({
+        title: noteTitle,
+        description: noteDesc,
+        subjectId: finalSubjectId,
+        teacherId: user.id,
+        price: notePrice,
+        thumbnailUrl: finalThumbnailUrl,
+        sections: sections
+      });
+      setPublishedNoteId(note.id);
+      setShowNoteCoupons(false);
+      setLoading(false);
+      setMessage('Notes package created successfully with all sections.');
+      
+      // Clear forms
+      setNoteTitle('');
+      setNoteDesc('');
+      setNoteThumbnailFile(null);
+      setNoteThumbnailPreview('');
+      setNoteThumbnailUrl('');
+    } catch (err: any) {
+      setError(err.message || 'Failed to publish note');
+      setLoading(false);
+    }
   };
 
   // Section Management Helper
@@ -748,6 +788,50 @@ const TeacherUpload: React.FC = () => {
                         <div className="md:col-span-2">
                             <label className="block text-sm font-medium text-gray-700">Description</label>
                             <input type="text" placeholder="Guaranteed passing..." value={noteDesc} onChange={e => setNoteDesc(e.target.value)} className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:ring-brand-cobalt focus:border-brand-cobalt sm:text-sm" />
+                        </div>
+                        
+                        {/* Note Thumbnail Upload */}
+                        <div className="md:col-span-2 mt-2">
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Package Thumbnail</label>
+                          {noteThumbnailPreview ? (
+                            <div className="relative w-full max-w-xs aspect-video">
+                              <img
+                                src={noteThumbnailPreview}
+                                alt="Thumbnail preview"
+                                className="absolute inset-0 w-full h-full object-cover rounded-lg border border-gray-300 shadow-sm"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => { setNoteThumbnailFile(null); setNoteThumbnailPreview(''); setNoteThumbnailUrl(''); }}
+                                className="absolute top-1 right-1 bg-white rounded-full p-0.5 shadow text-gray-500 hover:text-red-500"
+                              >
+                                <X className="w-4 h-4" />
+                              </button>
+                              {noteThumbnailUploading && (
+                                <div className="absolute inset-0 flex items-center justify-center bg-white/70 rounded-lg">
+                                  <Loader2 className="w-6 h-6 text-brand-cobalt animate-spin" />
+                                  <span className="ml-2 text-sm text-brand-cobalt">Uploading...</span>
+                                </div>
+                              )}
+                              {noteThumbnailUrl && (
+                                <div className="absolute bottom-1 right-1 bg-green-100 text-green-700 text-xs px-2 py-0.5 rounded-full flex items-center gap-1">
+                                  <CheckCircle className="w-3 h-3" /> Uploaded
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            <label className="flex flex-col items-center justify-center w-full max-w-xs h-32 border-2 border-dashed border-slate-300 rounded-lg bg-slate-50 hover:bg-blue-50 hover:border-brand-cobalt cursor-pointer transition-colors">
+                              <Upload className="w-7 h-7 text-brand-cobalt mb-1" />
+                              <span className="text-sm text-brand-cobalt font-medium">Click to upload thumbnail</span>
+                              <span className="text-xs text-gray-400 mt-0.5">PNG, JPG, WEBP (max 5MB)</span>
+                              <input
+                                type="file"
+                                className="hidden"
+                                accept="image/png,image/jpeg,image/jpg,image/webp"
+                                onChange={handleNoteThumbnailSelect}
+                              />
+                            </label>
+                          )}
                         </div>
                         <div className="md:col-span-2 bg-white p-4 rounded-xl border border-gray-200 mt-2">
                             <SubjectSelector 
