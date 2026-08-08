@@ -187,17 +187,7 @@ const Home: React.FC = () => {
 
       {/* ── 1. HERO ─────────────────────────────────────────────────────── */}
       <section className="relative overflow-hidden bg-brand-navy text-white">
-        {/* Dot-grid background */}
-        <div
-          className="absolute inset-0 opacity-[0.035]"
-          style={{
-            backgroundImage: 'radial-gradient(circle, #fff 1px, transparent 1px)',
-            backgroundSize: '28px 28px',
-          }}
-        />
-        {/* Ambient glow */}
-        <div className="absolute -top-40 -left-40 w-[500px] h-[500px] bg-brand-cobalt rounded-full blur-[140px] opacity-20 pointer-events-none" />
-        <div className="absolute -bottom-28 right-0 w-80 h-80 bg-brand-indigo rounded-full blur-[100px] opacity-15 pointer-events-none" />
+        <div className="absolute inset-0 bg-gradient-to-br from-brand-navy via-[#131A3F] to-[#0f172a] pointer-events-none" />
 
         <div className="relative max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-24 sm:py-32 text-center flex flex-col items-center gap-6">
           {/* Audience pill */}
