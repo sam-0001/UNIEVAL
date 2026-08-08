@@ -5,7 +5,7 @@
  *
  * Called once from server.ts at startup.
  */
-import { User } from '../models/index.js';
+import { User, Purchase } from '../models/index.js';
 import logger from '../logger.js';
 
 function msUntilMidnight(): number {
@@ -47,9 +47,29 @@ async function runDailyReset(): Promise<void> {
             }
         );
 
+        // Revoke access for purchases older than 6 months
+        const sixMonthsAgo = new Date(now);
+        sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+
+        const expiredPurchases = await Purchase.find({ createdAt: { $lt: sixMonthsAgo } }).lean();
+        
+        let expiredNotesCount = 0;
+        let expiredCoursesCount = 0;
+
+        for (const p of expiredPurchases) {
+            if (p.productType === 'course') {
+                const res = await User.updateOne({ id: p.userId }, { $pull: { purchasedCourseIds: p.productId } });
+                if (res.modifiedCount > 0) expiredCoursesCount++;
+            } else if (p.productType === 'note') {
+                const res = await User.updateOne({ id: p.userId }, { $pull: { purchasedNoteIds: p.productId } });
+                if (res.modifiedCount > 0) expiredNotesCount++;
+            }
+        }
+
         logger.info('[Scheduler] Daily reset complete', {
             quizResetsCount: result.modifiedCount,
             expiredPlansDeactivated: expiredResult.modifiedCount,
+            expiredPurchasesRevoked: expiredNotesCount + expiredCoursesCount
         });
     } catch (err: any) {
         logger.error('[Scheduler] Daily reset failed', { error: err.message });

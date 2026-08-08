@@ -602,6 +602,28 @@ const SuperAdminDashboard: React.FC = () => {
         if (creditsModal?.id === updated.id) setCreditsModal(updated);
     };
 
+    const handleRevokeAllStudents = async () => {
+        if (!confirm('Are you absolutely sure you want to revoke ALL student accesses for all purchased courses and notes? This is usually done after exams are completed.')) return;
+        try {
+            const res = await api.revokeAllStudentAccess();
+            alert(res.message);
+            fetchStudents(studentSearch);
+        } catch (err: any) {
+            alert(err.message || 'Failed to revoke access');
+        }
+    };
+
+    const handleRevertRevokeAllStudents = async () => {
+        if (!confirm('Are you sure you want to revert the last global revoke action? This will restore previously archived accesses to all students.')) return;
+        try {
+            const res = await api.revertRevokeAllStudentAccess();
+            alert(res.message);
+            fetchStudents(studentSearch);
+        } catch (err: any) {
+            alert(err.message || 'Failed to revert access');
+        }
+    };
+
     // ── Totals ────────────────────────────────────────────────────────────
 
     const totalSales    = rows.reduce((a, r) => a + r.stats.totalSales, 0);
@@ -797,7 +819,7 @@ const SuperAdminDashboard: React.FC = () => {
                 {activeTab === 'STUDENTS' && (
                     <div className="space-y-6 animate-in fade-in duration-500">
                         {/* Search Bar */}
-                        <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-200 flex gap-4">
+                        <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-200 flex flex-col sm:flex-row justify-between gap-4">
                             <div className="flex-1 relative">
                                 <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">🔍</span>
                                 <input 
@@ -814,6 +836,18 @@ const SuperAdminDashboard: React.FC = () => {
                                 className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-8 py-3 rounded-xl transition-all shadow-lg shadow-indigo-100"
                             >
                                 Search
+                            </button>
+                            <button 
+                                onClick={handleRevokeAllStudents}
+                                className="bg-red-600 hover:bg-red-700 text-white font-bold px-4 py-3 rounded-xl transition-all shadow-lg shadow-red-100 whitespace-nowrap text-sm"
+                            >
+                                Revoke All Access
+                            </button>
+                            <button 
+                                onClick={handleRevertRevokeAllStudents}
+                                className="bg-amber-500 hover:bg-amber-600 text-white font-bold px-4 py-3 rounded-xl transition-all shadow-lg shadow-amber-100 whitespace-nowrap text-sm"
+                            >
+                                Revert Revoke
                             </button>
                         </div>
 

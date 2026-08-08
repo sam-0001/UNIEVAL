@@ -554,6 +554,20 @@ export const api = {
     });
   },
 
+  revokeAllStudentAccess: async (): Promise<{ success: boolean; message: string }> => {
+    return fetchJson('/admin/revoke-all-access', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    });
+  },
+
+  revertRevokeAllStudentAccess: async (): Promise<{ success: boolean; message: string }> => {
+    return fetchJson('/admin/revert-revoke-all-access', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    });
+  },
+
   /**
    * Returns the secure proxy URL for a note file.
    * The real R2 URL is NEVER sent to the browser — the server fetches it and streams it.

@@ -186,3 +186,67 @@ export async function revokeAccess(req: express.Request, res: express.Response):
         res.status(500).json({ error: 'An internal error occurred' });
     }
 }
+
+export async function revokeAllStudentAccess(req: express.Request, res: express.Response): Promise<void> {
+    try {
+        const students = await User.find({ role: 'STUDENT' });
+        let modifiedCount = 0;
+        
+        for (const user of students) {
+            let changed = false;
+            
+            if (user.purchasedCourseIds && user.purchasedCourseIds.length > 0) {
+                user.archivedCourseIds = [...new Set([...(user.archivedCourseIds || []), ...user.purchasedCourseIds])];
+                user.purchasedCourseIds = [];
+                changed = true;
+            }
+            if (user.purchasedNoteIds && user.purchasedNoteIds.length > 0) {
+                user.archivedNoteIds = [...new Set([...(user.archivedNoteIds || []), ...user.purchasedNoteIds])];
+                user.purchasedNoteIds = [];
+                changed = true;
+            }
+            
+            if (changed) {
+                await user.save();
+                modifiedCount++;
+            }
+        }
+        
+        res.json({ success: true, message: `Revoked access for ${modifiedCount} students.` });
+    } catch (err) {
+        logger.error('[Admin] revokeAllStudentAccess:', err);
+        res.status(500).json({ error: 'An internal error occurred' });
+    }
+}
+
+export async function revertRevokeAllStudentAccess(req: express.Request, res: express.Response): Promise<void> {
+    try {
+        const students = await User.find({ role: 'STUDENT' });
+        let modifiedCount = 0;
+        
+        for (const user of students) {
+            let changed = false;
+            
+            if (user.archivedCourseIds && user.archivedCourseIds.length > 0) {
+                user.purchasedCourseIds = [...new Set([...(user.purchasedCourseIds || []), ...user.archivedCourseIds])];
+                user.archivedCourseIds = [];
+                changed = true;
+            }
+            if (user.archivedNoteIds && user.archivedNoteIds.length > 0) {
+                user.purchasedNoteIds = [...new Set([...(user.purchasedNoteIds || []), ...user.archivedNoteIds])];
+                user.archivedNoteIds = [];
+                changed = true;
+            }
+            
+            if (changed) {
+                await user.save();
+                modifiedCount++;
+            }
+        }
+        
+        res.json({ success: true, message: `Reverted access for ${modifiedCount} students.` });
+    } catch (err) {
+        logger.error('[Admin] revertRevokeAllStudentAccess:', err);
+        res.status(500).json({ error: 'An internal error occurred' });
+    }
+}

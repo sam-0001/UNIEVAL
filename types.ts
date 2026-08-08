@@ -17,6 +17,8 @@ export interface User {
   qualification?: string; // For teachers
   purchasedNoteIds: string[]; // Track purchased notes
   purchasedCourseIds: string[]; // Track purchased courses
+  archivedNoteIds?: string[];
+  archivedCourseIds?: string[];
   upiId?: string; // For teacher payouts
   phoneNumber?: string; // WhatsApp number for community access
   credits: number;

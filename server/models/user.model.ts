@@ -11,6 +11,8 @@ const userSchema = new mongoose.Schema({
   qualification: String,
   purchasedNoteIds: [String],
   purchasedCourseIds: [String],
+  archivedNoteIds: [String],
+  archivedCourseIds: [String],
   upiId: String,
   phoneNumber: { type: String, default: '' },
   credits:           { type: Number, default: 0 },
