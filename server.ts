@@ -65,7 +65,7 @@ async function startServer() {
                 fontSrc:    ["'self'", "https://fonts.gstatic.com", "data:"],
                 imgSrc:     ["'self'", "data:", "https:", "blob:"],
                 mediaSrc:   ["'self'", "https:", "blob:"],
-                connectSrc: ["'self'", "https://api.razorpay.com", "https://lumberjack.razorpay.com"],
+                connectSrc: ["'self'", "https://api.razorpay.com", "https://lumberjack.razorpay.com", "https://*.r2.cloudflarestorage.com"],
                 frameSrc:   ["'self'", "https://api.razorpay.com"],
                 workerSrc:  ["'self'", "blob:"],
                 // NOTE: upgradeInsecureRequests is intentionally omitted — server runs plain HTTP
