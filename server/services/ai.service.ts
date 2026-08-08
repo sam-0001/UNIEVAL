@@ -19,6 +19,7 @@ async function callGroq(prompt: string, apiKey: string): Promise<string> {
     const res = await fetch(GROQ_API_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+        signal: AbortSignal.timeout(45000),
         body: JSON.stringify({
             model: 'llama-3.3-70b-versatile',
             messages: [{ role: 'user', content: prompt }],
@@ -41,6 +42,7 @@ async function callGemini(prompt: string, apiKey: string): Promise<string> {
     const res = await fetch(`${GEMINI_API_URL}?key=${apiKey}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        signal: AbortSignal.timeout(45000),
         body: JSON.stringify({
             contents: [{ parts: [{ text: prompt }] }],
             generationConfig: { temperature: 0.8, maxOutputTokens: 2048 },

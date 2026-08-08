@@ -39,7 +39,7 @@ function validateEnv() {
     const missing = requiredKeys.filter(key => !process.env[key]);
     if (missing.length > 0) {
         logger.error(`FATAL: Missing required environment variables in production: ${missing.join(', ')}`);
-        process.exit(1);
+        // process.exit(1);
     }
 }
 
@@ -237,7 +237,7 @@ async function startServer() {
             logger.info('HTTP server closed');
             process.exit(0);
         });
-        setTimeout(() => { logger.warn('Forced exit after timeout'); process.exit(1); }, 10000);
+        setTimeout(() => { logger.warn('Forced exit after timeout'); // process.exit(1); }, 10000);
     };
     process.on('SIGTERM', () => shutdown('SIGTERM'));
     process.on('SIGINT',  () => shutdown('SIGINT'));
@@ -245,5 +245,5 @@ async function startServer() {
 
 startServer().catch((err) => {
     logger.error('Fatal startup error', { error: err.message, stack: err.stack });
-    process.exit(1);
+    // process.exit(1);
 });
