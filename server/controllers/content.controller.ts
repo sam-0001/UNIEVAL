@@ -38,6 +38,7 @@ function sanitizeModules(modules: any[]): any[] {
             id: v.id, title: v.title, videoUrl: v.videoUrl, duration: v.duration,
             videoStatus: v.videoStatus, videoProgress: v.videoProgress,
             videoId: v.videoId, videoKey: v.videoKey,
+            thumbnailUrl: v.thumbnailUrl,
             resources: safeResources(v.resources)
         })) : []
     }));

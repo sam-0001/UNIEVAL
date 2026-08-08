@@ -205,6 +205,7 @@ const CourseDetail: React.FC = () => {
               activeVideo?.videoUrl && activeVideo?.videoStatus !== 'processing' && activeVideo?.videoStatus !== 'finalizing' && activeVideo?.videoStatus !== 'error' ? (
                 <CustomVideoPlayer
                   src={activeVideo.videoUrl}
+                  poster={activeVideo.thumbnailUrl}
                   title={activeVideo.title}
                   nextTitle={nextVideoItem?.video.title}
                   onNext={nextVideoItem ? handleNext : undefined}
