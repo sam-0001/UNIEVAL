@@ -43,6 +43,8 @@ const SECURE_FILES_DIR = path.join(UPLOADS_DIR, 'secure-files'); // local fallba
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 });
 
+router.use('/video/playlist', express.static(TEMP_DIR));
+
 // --- FILE (NOTE / DOCUMENT) ENCRYPTION HELPERS ---
 // AES-256-GCM: a fresh random key + IV per file, key material stored only in MongoDB (FileKey),
 // never in the object's storage path or filename. The encrypted blob at rest is unreadable
@@ -483,7 +485,11 @@ export async function processVideoAsync(videoId: string, inputSource: string, te
         const keyFilePath = path.join(absoluteTempDir, 'video.key');
         const keyInfoPath = path.join(absoluteTempDir, 'key_info.txt');
         
-        const keyUri = `${API_BASE_URL}/api/video/key/${videoId}`;
+        const actualApiBase = process.env.NODE_ENV === 'production' 
+            ? (process.env.API_BASE_URL || 'https://unieval.in')
+            : (process.env.API_BASE_URL?.includes('localhost') ? process.env.API_BASE_URL : 'http://localhost:3000');
+            
+        const keyUri = `${actualApiBase}/api/video/key/${videoId}`;
         
         fs.writeFileSync(keyFilePath, encryptionKey);
         
