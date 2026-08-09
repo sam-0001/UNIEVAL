@@ -177,13 +177,7 @@ const TeacherUpload: React.FC = () => {
   const uploadThumbnail = async (file: File): Promise<string> => {
     setThumbnailUploading(true);
     try {
-      const presignRes = await fetch('/api/upload/r2-presigned-url', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ fileName: file.name, fileType: file.type, fileSize: file.size, isVideo: false })
-      });
-      if (!presignRes.ok) throw new Error('Failed to get upload URL');
-      const { uploadUrl, publicUrl } = await presignRes.json();
+      const { uploadUrl, publicUrl } = await api.getPresignedUrl(file.name, file.type, file.size, false);
 
       await new Promise<void>((resolve, reject) => {
         const xhr = new XMLHttpRequest();
@@ -193,8 +187,6 @@ const TeacherUpload: React.FC = () => {
         xhr.onerror = () => reject(new Error('Upload failed'));
         xhr.send(file);
       });
-
-      setThumbnailUrl(publicUrl);
       return publicUrl;
     } finally {
       setThumbnailUploading(false);
