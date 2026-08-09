@@ -914,10 +914,8 @@ const CreateCourseModal: React.FC<{onClose: () => void; editItem?: Course | null
                 title: v.title,
                 fileName: v.videoUrl && v.videoUrl !== '#' ? 'Saved Video File (Ready)' : '',
                 videoUrl: v.videoUrl,
-                videoStatus: (v.videoStatus === 'processing' || v.videoStatus === 'finalizing')
-                    ? 'error' as const
-                    : (v.videoStatus || 'ready'),
-                videoProgress: 100,
+                videoStatus: (v.videoStatus || 'ready'),
+                videoProgress: v.videoStatus === 'processing' ? 0 : 100,
                 videoId: v.videoId,
                 videoKey: v.videoKey,
                 resources: v.resources || [],
@@ -927,9 +925,7 @@ const CreateCourseModal: React.FC<{onClose: () => void; editItem?: Course | null
                 title: 'Video 1',
                 fileName: m.videoUrl && m.videoUrl !== '#' ? 'Saved Video File (Ready)' : '',
                 videoUrl: m.videoUrl,
-                videoStatus: (m.videoStatus === 'processing' || m.videoStatus === 'finalizing')
-                    ? 'error' as const
-                    : (m.videoStatus || 'ready'),
+                videoStatus: (m.videoStatus || 'ready'),
                 videoProgress: 100,
                 videoId: m.videoId,
                 videoKey: m.videoKey,
@@ -1164,9 +1160,9 @@ const CreateCourseModal: React.FC<{onClose: () => void; editItem?: Course | null
     };
 
     const handleSave = async () => {
-        let allReady = true;
-        modules.forEach(m => { m.videos.forEach(v => { if (v.fileName && v.videoStatus !== 'ready') { allReady = false; } }); });
-        if (!allReady) { alert("Please wait for all videos to finish processing before saving."); return; }
+        let uploading = false;
+        modules.forEach(m => { m.videos.forEach(v => { if (v.videoStatus === 'uploading') { uploading = true; } }); });
+        if (uploading) { alert("Please wait for all videos to finish uploading before saving."); return; }
         
         let finalCourseThumbnail = editItem?.thumbnailUrl || 'https://picsum.photos/800/600?random=' + Date.now();
         if (courseThumbnailFile) {
@@ -1385,12 +1381,24 @@ const CreateCourseModal: React.FC<{onClose: () => void; editItem?: Course | null
                         </div>
                     </div>
                 </div>
-                <div className="p-6 border-t border-gray-100 flex justify-end gap-3 bg-gray-50 rounded-b-2xl">
-                    <button onClick={onClose} className="px-6 py-2.5 font-bold text-gray-600 hover:bg-gray-200 rounded-lg transition">Cancel</button>
-                    <button onClick={handleSave} disabled={modules.some(m => m.videos.some(v => v.videoStatus && v.videoStatus !== 'ready' && v.fileName))}
-                        className="px-6 py-2.5 font-bold text-white bg-indigo-800 hover:bg-indigo-900 rounded-lg shadow-lg shadow-indigo-200 transition disabled:opacity-50 disabled:cursor-not-allowed">
-                        Save Course
-                    </button>
+                <div className="p-6 border-t border-gray-100 flex justify-between items-center bg-gray-50 rounded-b-2xl">
+                    <div className="text-sm font-bold text-amber-600 flex-1 flex items-center">
+                        {modules.some(m => m.videos.some(v => v.videoStatus === 'processing' || v.videoStatus === 'uploading')) && 
+                            <>
+                                <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                                {modules.some(m => m.videos.some(v => v.videoStatus === 'uploading')) 
+                                    ? "Wait for upload to finish..."
+                                    : "Auto-save is active. You can click Save Course and safely leave!"}
+                            </>
+                        }
+                    </div>
+                    <div className="flex gap-3">
+                        <button onClick={onClose} className="px-6 py-2.5 font-bold text-gray-600 hover:bg-gray-200 rounded-lg transition">Cancel</button>
+                        <button onClick={handleSave} disabled={modules.some(m => m.videos.some(v => v.videoStatus === 'uploading'))}
+                            className="px-6 py-2.5 font-bold text-white bg-indigo-800 hover:bg-indigo-900 rounded-lg shadow-lg shadow-indigo-200 transition disabled:opacity-50 disabled:cursor-not-allowed">
+                            Save Course
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
