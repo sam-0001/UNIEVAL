@@ -348,8 +348,8 @@ const CourseDetail: React.FC = () => {
                           <div className="flex items-center justify-between">
                             <div className="flex items-center">
                               {(video as any).thumbnailUrl ? (
-                                <div className="relative flex-shrink-0 w-12 h-7 mr-3 rounded overflow-hidden shadow-sm">
-                                  <img src={(video as any).thumbnailUrl} alt={video.title} className="absolute inset-0 w-full h-full object-cover" />
+                                <div className="relative flex-shrink-0 w-20 aspect-video mr-3 rounded overflow-hidden shadow-sm border border-gray-200 group-hover:scale-105 transition-transform duration-300">
+                                  <img src={(video as any).thumbnailUrl} alt={video.title} className="absolute inset-0 w-full h-full object-contain cursor-pointer" />
                                   {isModuleLocked && (
                                     <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
                                       <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">

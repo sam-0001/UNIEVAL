@@ -598,7 +598,7 @@ const TeacherUpload: React.FC = () => {
                       <img
                         src={thumbnailPreview}
                         alt="Thumbnail preview"
-                        className="absolute inset-0 w-full h-full object-cover rounded-lg border border-gray-300 shadow-sm"
+                        className="absolute inset-0 w-full h-full object-contain rounded-lg border border-gray-300 shadow-sm"
                       />
                       <button
                         type="button"
@@ -779,7 +779,7 @@ const TeacherUpload: React.FC = () => {
                                                 </label>
                                                 {video.thumbnailUrl && (
                                                   <div className="ml-auto">
-                                                    <img src={video.thumbnailUrl} alt="Video Thumbnail" className="h-10 aspect-video object-cover rounded shadow-sm border border-gray-200" />
+                                                    <img src={video.thumbnailUrl} alt="Video Thumbnail" className="h-10 aspect-video object-contain rounded shadow-sm border border-gray-200" />
                                                   </div>
                                                 )}
                                               </div>
@@ -848,7 +848,7 @@ const TeacherUpload: React.FC = () => {
                               <img
                                 src={noteThumbnailPreview}
                                 alt="Thumbnail preview"
-                                className="absolute inset-0 w-full h-full object-cover rounded-lg border border-gray-300 shadow-sm"
+                                className="absolute inset-0 w-full h-full object-contain rounded-lg border border-gray-300 shadow-sm"
                               />
                               <button
                                 type="button"

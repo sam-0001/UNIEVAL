@@ -542,7 +542,7 @@ const AdminDashboard: React.FC = () => {
                           <img 
                               src={course.thumbnailUrl} 
                               alt={course.title} 
-                              className="absolute inset-0 w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-500" 
+                              className="absolute inset-0 w-full h-full object-contain transform group-hover:scale-105 transition-transform duration-500" 
                               onError={(e) => { e.currentTarget.src = 'https://picsum.photos/800/600?random=' + course.id; }}
                           />
                            <span className="absolute top-2 right-2 bg-black/60 text-white text-[10px] font-bold px-2 py-1 rounded">COMPUTER ENGINEERING</span>
@@ -1226,7 +1226,7 @@ const CreateCourseModal: React.FC<{onClose: () => void; editItem?: Course | null
                                     }
                                 }} />
                                 {courseThumbnailPreview ? (
-                                    <img src={courseThumbnailPreview} alt="Course Cover" className="w-full h-full object-cover" />
+                                    <img src={courseThumbnailPreview} alt="Course Cover" className="w-full h-full object-contain" />
                                 ) : (
                                     <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-400">
                                         <svg className="w-8 h-8 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
@@ -1328,7 +1328,7 @@ const CreateCourseModal: React.FC<{onClose: () => void; editItem?: Course | null
                                                  </div>
                                                  {(video as any).thumbnailUrl && (
                                                      <div className="mt-2">
-                                                         <img src={(video as any).thumbnailUrl} alt="Thumbnail" className="h-16 aspect-video object-cover rounded shadow-sm border border-gray-200" />
+                                                         <img src={(video as any).thumbnailUrl} alt="Thumbnail" className="h-16 aspect-video object-contain rounded shadow-sm border border-gray-200" />
                                                      </div>
                                                  )}
                                                  {video.fileName && <div className="text-xs text-gray-500">Video: {video.fileName}</div>}

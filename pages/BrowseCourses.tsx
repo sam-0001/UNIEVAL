@@ -133,11 +133,11 @@ const BrowseCourses: React.FC = () => {
                                 {subjectCourses.map(course => (
                                     <Link to={`/course/${course.id}`} key={course.id} className="group block h-full">
                                         <div className="bg-white rounded-lg border border-gray-200 overflow-hidden group-hover:border-indigo-300 transition-colors h-full flex flex-col">
-                                            <div className="aspect-w-16 aspect-h-9 bg-gray-200 relative overflow-hidden">
+                                            <div className="aspect-video bg-gray-200 relative overflow-hidden">
                                                 <img 
                                                     src={course.thumbnailUrl} 
                                                     alt={course.title} 
-                                                    className="absolute inset-0 object-cover w-full h-full transform group-hover:scale-105 transition-transform duration-500"
+                                                    className="absolute inset-0 object-contain w-full h-full transform group-hover:scale-105 transition-transform duration-500 cursor-pointer"
                                                     onError={(e) => { e.currentTarget.src = 'https://picsum.photos/800/600?random=' + course.id; }}
                                                 />
                                                 <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-10 transition-opacity flex items-center justify-center">
