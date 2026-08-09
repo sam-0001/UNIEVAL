@@ -485,9 +485,9 @@ export async function processVideoAsync(videoId: string, inputSource: string, te
         const keyFilePath = path.join(absoluteTempDir, 'video.key');
         const keyInfoPath = path.join(absoluteTempDir, 'key_info.txt');
         
-        const actualApiBase = process.env.NODE_ENV === 'production' 
-            ? (process.env.API_BASE_URL || 'https://unieval.in')
-            : (process.env.API_BASE_URL?.includes('localhost') ? process.env.API_BASE_URL : 'http://localhost:3000');
+        const actualApiBase = process.env.API_BASE_URL 
+            ? process.env.API_BASE_URL 
+            : (process.env.NODE_ENV === 'production' ? 'https://unieval.in' : 'http://localhost:3000');
             
         const keyUri = `${actualApiBase}/api/video/key/${videoId}`;
         
