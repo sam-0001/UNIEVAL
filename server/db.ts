@@ -56,6 +56,26 @@ const connectDB = async () => {
       logger.info('Subjects seeded');
     }
 
+    // Setup MongoDB Change Streams for automatic cache invalidation
+    try {
+      const { Course } = await import('./models/index.js');
+      const { cache } = await import('./services/cache.service.js');
+      
+      const changeStream = Course.watch([], { fullDocument: 'updateLookup' });
+      
+      changeStream.on('change', async (change) => {
+        if (change.operationType === 'insert' || change.operationType === 'update' || change.operationType === 'replace' || change.operationType === 'delete') {
+          logger.info('[ChangeStream] Course collection changed remotely, auto-syncing local cache...');
+          await cache.invalidate('courses:*');
+          await cache.invalidate('course:*');
+        }
+      });
+      
+      logger.info('MongoDB Change Stream initialized for Course collection');
+    } catch (err: any) {
+      logger.warn(`Could not initialize Change Stream (DB might not be replica set): ${err.message}`);
+    }
+
     // Monitor connection events
     mongoose.connection.on('disconnected', () => {
       logger.warn('MongoDB disconnected');
