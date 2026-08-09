@@ -820,8 +820,22 @@ const AdminDashboard: React.FC = () => {
     <div className="min-h-screen bg-slate-50 pb-20">
       <div className="bg-white border-b border-gray-200">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-              <h1 className="text-3xl font-bold text-slate-900">Publisher Dashboard</h1>
-              <p className="text-slate-500 mt-1">Manage Content, Analytics & Payouts</p>
+              <div className="flex justify-between items-start">
+                  <div>
+                      <h1 className="text-3xl font-bold text-slate-900">Publisher Dashboard</h1>
+                      <p className="text-slate-500 mt-1">Manage Content, Analytics & Payouts</p>
+                  </div>
+                  <button onClick={async () => {
+                      if (!window.confirm("Clear the live server cache? Use this if you just uploaded a video locally and want the live site to see it instantly.")) return;
+                      try {
+                          await fetch('/api/admin/clear-cache', { method: 'POST', headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }});
+                          alert('Server cache cleared successfully!');
+                          window.location.reload();
+                      } catch(e) { alert('Failed to clear cache'); }
+                  }} className="text-sm font-bold text-slate-500 hover:text-indigo-600 bg-slate-100 hover:bg-slate-200 px-4 py-2 rounded-lg transition-colors border border-slate-200">
+                      Sync Live Server (Clear Cache)
+                  </button>
+              </div>
               <div className="mt-8 flex gap-2 overflow-x-auto no-scrollbar">
                   {[
                       { id: 'courses', label: 'Courses' },

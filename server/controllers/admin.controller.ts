@@ -250,3 +250,14 @@ export async function revertRevokeAllStudentAccess(req: express.Request, res: ex
         res.status(500).json({ error: 'An internal error occurred' });
     }
 }
+
+export async function clearCache(req: express.Request, res: express.Response): Promise<void> {
+    try {
+        const { cache } = await import('../services/cache.service.js');
+        await cache.invalidate('*');
+        res.json({ message: 'Global cache cleared successfully.' });
+    } catch (err) {
+        logger.error('[Admin] clearCache:', err);
+        res.status(500).json({ error: 'Failed to clear cache' });
+    }
+}

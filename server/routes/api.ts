@@ -48,6 +48,7 @@ router.delete('/admin/users/:userId/access',     requireRole(UserRole.SUPER_ADMI
 
 router.post('/admin/revoke-all-access',          requireRole(UserRole.SUPER_ADMIN), AdminCtrl.revokeAllStudentAccess);
 router.post('/admin/revert-revoke-all-access',   requireRole(UserRole.SUPER_ADMIN), AdminCtrl.revertRevokeAllStudentAccess);
+router.post('/admin/clear-cache',                requireRole(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.TEACHER), AdminCtrl.clearCache);
 
 // ─── Subjects ─────────────────────────────────────────────────────────────────
 router.get( '/subjects',  UserCtrl.getSubjects);
