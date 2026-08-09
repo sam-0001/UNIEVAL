@@ -401,7 +401,7 @@ const AdminDashboard: React.FC = () => {
   };
 
   const handleDeleteCourse = async (course: Course) => {
-      if (!window.confirm(`Are you sure you want to delete the course "${course.title}" and all its videos?`)) return;
+      if (!window.confirm(`WARNING: Are you sure you want to delete the course "${course.title}"?\n\nThis will permanently delete all associated videos and thumbnails from the database and Cloudflare R2 storage. This action CANNOT be undone and data CANNOT be restored.`)) return;
       try {
           const urlsToDelete: string[] = [];
           if (course.thumbnailUrl) urlsToDelete.push(course.thumbnailUrl);
@@ -424,7 +424,7 @@ const AdminDashboard: React.FC = () => {
   };
 
   const handleDeleteNote = async (note: Note) => {
-      if (!window.confirm(`Are you sure you want to delete the note package "${note.title}" and all its files?`)) return;
+      if (!window.confirm(`WARNING: Are you sure you want to delete the note package "${note.title}"?\n\nThis will permanently delete all associated PDF files from the database and Cloudflare R2 storage. This action CANNOT be undone and data CANNOT be restored.`)) return;
       try {
           const urlsToDelete: string[] = [];
           note.sections?.forEach(s => { s.files?.forEach(f => { if (f.url && f.url !== '#') urlsToDelete.push(f.url); }); });
@@ -437,7 +437,7 @@ const AdminDashboard: React.FC = () => {
   };
 
   const handleDeleteQuiz = async (quiz: Quiz) => {
-      if (!window.confirm(`Are you sure you want to delete the quiz "${quiz.title}"?`)) return;
+      if (!window.confirm(`WARNING: Are you sure you want to delete the quiz "${quiz.title}"?\n\nThis will permanently delete the quiz and all student progress data. This action CANNOT be undone and data CANNOT be restored.`)) return;
       try {
           if (api.deleteQuiz) { await api.deleteQuiz(quiz.id); } else { await fetch(`/api/quizzes/${quiz.id}`, { method: 'DELETE' }); }
           setQuizzes(quizzes.filter(q => q.id !== quiz.id));
@@ -445,7 +445,7 @@ const AdminDashboard: React.FC = () => {
   };
 
   const handleDeleteViva = async (vivaItem: Viva) => {
-      if (!window.confirm(`Are you sure you want to delete the viva set "${vivaItem.title}"?`)) return;
+      if (!window.confirm(`WARNING: Are you sure you want to delete the viva set "${vivaItem.title}"?\n\nThis will permanently delete this viva and all associated data. This action CANNOT be undone and data CANNOT be restored.`)) return;
       try {
           if (api.deleteViva) { await api.deleteViva(vivaItem.id); } else { await fetch(`/api/viva/${vivaItem.id}`, { method: 'DELETE' }); }
           setViva(viva.filter(v => v.id !== vivaItem.id));
