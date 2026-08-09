@@ -200,7 +200,7 @@ const CourseDetail: React.FC = () => {
       <div className="lg:grid lg:grid-cols-3 lg:gap-8">
         {/* Main Content (Video Player) */}
         <div className="lg:col-span-2">
-          <div className="mb-6 relative">
+          <div className="mb-6 relative aspect-video bg-slate-900 rounded-xl overflow-hidden shadow-sm">
             {hasAccess ? (
               activeVideo?.videoUrl && activeVideo?.videoStatus !== 'processing' && activeVideo?.videoStatus !== 'finalizing' && activeVideo?.videoStatus !== 'error' ? (
                 <CustomVideoPlayer
