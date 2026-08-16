@@ -130,14 +130,18 @@ const CustomVideoPlayer: React.FC<CustomVideoPlayerProps> = ({
     video.addEventListener('pause',          handlePause);
     video.addEventListener('ended',          handleEnded);
 
+    console.log('[CustomVideoPlayer] Initializing with src:', src);
+
     if (Hls.isSupported() && src.includes('.m3u8')) {
       const hls = new Hls({
         // Let hls.js handle its own default buffer limits!
         xhrSetup: (xhr: XMLHttpRequest, url: string) => {
           if (url.includes('/api/video/key/')) {
-            // Dynamically rewrite the URL to point to the current frontend's domain!
-            // This forces the video player to ask for the decryption key from the same server it loaded the website from.
-            const videoId = url.split('/').pop();
+            // Strip any query params or quotes that hls.js might have left
+            let videoId = url.split('/').pop() || '';
+            if (videoId.includes('?')) videoId = videoId.split('?')[0];
+            videoId = videoId.replace(/["']/g, '');
+
             const localApiBase = `${window.location.origin}/api`;
             const newUrl = `${localApiBase}/video/key/${videoId}`;
             

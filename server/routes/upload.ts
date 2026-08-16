@@ -45,6 +45,32 @@ const SECURE_FILES_DIR = path.join(UPLOADS_DIR, 'secure-files'); // local fallba
 
 router.use('/video/playlist', express.static(TEMP_DIR));
 
+// Dynamic fallback for playlist/chunks:
+router.get('/video/playlist/:videoId/:file', async (req: Request, res: Response, next: express.NextFunction): Promise<void> => {
+    try {
+        const { videoId, file } = req.params;
+        const videoKeyDoc = await VideoKey.findOne({ videoId });
+        
+        // If it's ready and has an R2 url, redirect to R2!
+        if (videoKeyDoc && videoKeyDoc.status === 'ready' && videoKeyDoc.videoUrl && videoKeyDoc.videoUrl.includes('r2.dev')) {
+            const baseUrl = videoKeyDoc.videoUrl.replace(/\/playlist\.m3u8$/, '');
+            res.redirect(302, `${baseUrl}/${file}`);
+            return;
+        }
+        
+        // Otherwise, serve it from TEMP_DIR if it exists locally
+        const localPath = path.join(TEMP_DIR, videoId, file);
+        if (fs.existsSync(localPath)) {
+            res.sendFile(localPath);
+            return;
+        }
+        
+        res.status(404).send('Not found');
+    } catch (err) {
+        next(err);
+    }
+});
+
 // --- FILE (NOTE / DOCUMENT) ENCRYPTION HELPERS ---
 // AES-256-GCM: a fresh random key + IV per file, key material stored only in MongoDB (FileKey),
 // never in the object's storage path or filename. The encrypted blob at rest is unreadable
