@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { Send, Users, AlertCircle, CheckCircle } from 'lucide-react';
-import axios from 'axios';
 
 const AdminBroadcastModal: React.FC = () => {
     const [isOpen, setIsOpen] = useState(false);
@@ -23,15 +22,21 @@ const AdminBroadcastModal: React.FC = () => {
         setStatus('idle');
         try {
             const token = localStorage.getItem('token');
-            await axios.post(
-                '/api/admin/broadcast-offers',
-                {
+            const res = await fetch('/api/admin/broadcast-offers', {
+                method: 'POST',
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}` 
+                },
+                body: JSON.stringify({
                     target: targetType,
                     campaignName,
                     creditsToAdd
-                },
-                { headers: { Authorization: `Bearer ${token}` } }
-            );
+                })
+            });
+            
+            if (!res.ok) throw new Error('Broadcast failed');
+            
             setStatus('success');
             setTimeout(() => setIsOpen(false), 3000);
         } catch (error) {

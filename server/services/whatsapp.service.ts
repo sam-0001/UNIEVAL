@@ -1,4 +1,3 @@
-import axios from 'axios';
 import logger from '../logger.js';
 
 export interface WhatsAppBroadcastParams {
@@ -25,13 +24,23 @@ export const sendWhatsAppBroadcast = async (params: WhatsAppBroadcastParams) => 
             templateParams: params.templateParams || [],
         };
 
-        const response = await axios.post('https://backend.aisensy.com/campaign/t1/api/v2', payload);
+        const res = await fetch('https://backend.aisensy.com/campaign/t1/api/v2', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
         
-        logger.info(`WhatsApp broadcast sent to ${params.destination}. Response:`, response.data);
+        const data = await res.json();
+        
+        if (!res.ok) {
+            throw new Error(JSON.stringify(data));
+        }
+        
+        logger.info(`WhatsApp broadcast sent to ${params.destination}. Response:`, data);
         return true;
     } catch (error: any) {
         // We catch the error so it never breaks the main app loop
-        logger.error(`Failed to send WhatsApp broadcast to ${params.destination}:`, error?.response?.data || error.message);
+        logger.error(`Failed to send WhatsApp broadcast to ${params.destination}:`, error.message);
         return false;
     }
 };
