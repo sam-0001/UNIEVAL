@@ -136,7 +136,7 @@ const Login: React.FC = () => {
   const [duplicateField, setDuplicateField] = useState<'email' | 'phone' | null>(null);
 
   // Resend countdown
-  const RESEND_COOLDOWN = 45;
+  const RESEND_COOLDOWN = 30;
   const [resendCountdown, setResendCountdown] = useState(0);
   const resendTimerRef = React.useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -425,7 +425,23 @@ const Login: React.FC = () => {
                   <div className="bg-blue-50 text-blue-800 text-xs p-3 rounded-lg mb-4">
                     A verification code has been sent to <strong>{email}</strong>. Please check your inbox.
                   </div>
-                  <label className="block text-sm font-semibold text-gray-700">Enter OTP</label>
+                  <div className="flex justify-between items-center">
+                    <label className="block text-sm font-semibold text-gray-700">Enter OTP</label>
+                    {resendCountdown === 0 ? (
+                      <button type="button" disabled={anyLoading}
+                        onClick={async () => {
+                          try {
+                            await sendOtp(email);
+                            startResendCountdown();
+                          } catch {}
+                        }}
+                        className="text-xs font-bold text-indigo-600 hover:text-indigo-500 transition-colors">
+                        Resend OTP
+                      </button>
+                    ) : (
+                      <span className="text-xs text-gray-400">Resend in {resendCountdown}s</span>
+                    )}
+                  </div>
                   <input type="text" required value={otp} onChange={(e) => setOtp(e.target.value)}
                     placeholder="123456"
                     className="block w-full px-4 py-3 rounded-xl border-gray-200 border bg-gray-50 focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all outline-none text-sm tracking-widest font-mono text-center text-lg" />

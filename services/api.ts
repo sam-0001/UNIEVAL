@@ -577,4 +577,31 @@ export const api = {
     const token = (() => { try { return localStorage.getItem('token') || ''; } catch { return ''; } })();
     return `${API_BASE}/secure-file/${noteId}/${fileId}?t=${encodeURIComponent(token)}`;
   },
+
+  getMyLiveClassSchedule: async (): Promise<{ liveClasses: any[] }> => {
+    return fetchJson('/live-classes/my-schedule', {
+      headers: authHeaders()
+    });
+  },
+
+  startLiveClass: async (classId: string): Promise<{ token: string; roomUrl: string; liveClass: any }> => {
+    return fetchJson(`/live-classes/${classId}/start`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() }
+    });
+  },
+
+  joinLiveClass: async (classId: string): Promise<{ token: string; roomUrl: string; liveClass: any }> => {
+    return fetchJson(`/live-classes/${classId}/join`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() }
+    });
+  },
+
+  endLiveClass: async (classId: string): Promise<{ message: string }> => {
+    return fetchJson(`/live-classes/${classId}/end`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() }
+    });
+  },
 };

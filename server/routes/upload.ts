@@ -546,7 +546,6 @@ export async function processVideoAsync(videoId: string, inputSource: string, te
                     '-hls_time', '4',
                     '-hls_playlist_type', 'vod',
                     '-hls_flags', 'independent_segments',
-                    '-hls_segment_filename', path.join(absoluteTempDir, `stream_${i}_%03d.ts`),
                     '-hls_key_info_file', keyInfoPath,
                 );
 

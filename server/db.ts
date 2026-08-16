@@ -71,6 +71,12 @@ const connectDB = async () => {
         }
       });
       
+      changeStream.on('error', (err) => {
+        logger.error(`[ChangeStream] Error (connection likely dropped): ${err.message}`);
+        // Let mongoose handle reconnects. The stream might need manual re-init in production
+        // but catching this prevents the uncaughtException from crashing the entire app.
+      });
+      
       logger.info('MongoDB Change Stream initialized for Course collection');
     } catch (err: any) {
       logger.warn(`Could not initialize Change Stream (DB might not be replica set): ${err.message}`);

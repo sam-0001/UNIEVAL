@@ -3,15 +3,17 @@ import { useAuth } from '../context/AuthContext';
 import { useCredits } from '../context/AuthContext';
 import { api } from '../services/api';
 import { Course, Note, UserRole } from '../types';
-import { Link, Navigate } from 'react-router-dom';
+import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { BuyCreditsModal } from './QuizDetail';
 
 const Profile: React.FC = () => {
   const { user, logout } = useAuth();
+  const navigate = useNavigate();
   const { credits, freeLeft, freeQuizLimit, freeQuizUsed, isUnlimited, unlimitedPlan, refresh: refreshCredits } = useCredits();
 
   const [courses, setCourses] = useState<Course[]>([]);
   const [notes, setNotes] = useState<Note[]>([]);
+  const [liveClasses, setLiveClasses] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showBuyModal, setShowBuyModal] = useState(false);
 
@@ -19,13 +21,14 @@ const Profile: React.FC = () => {
     if (user) {
       const fetchPurchases = async () => {
         try {
-          const [allCourses, allNotes] = await Promise.all([api.getCourses(), api.getNotes()]);
+          const [allCourses, allNotes, scheduleRes] = await Promise.all([api.getCourses(), api.getNotes(), api.getMyLiveClassSchedule().catch(() => ({ liveClasses: [] }))]);
           setCourses(allCourses.filter(c => user.purchasedNoteIds.includes(c.id) || c.price === 0));
           setNotes(allNotes.filter(n =>
             user.purchasedNoteIds.includes(n.id) ||
             n.price === 0 ||
             (n.collegeConfig && user.email.endsWith(n.collegeConfig.emailDomain.trim()))
           ));
+          setLiveClasses(scheduleRes.liveClasses || []);
         } catch (error) {
           console.error('Failed to fetch purchases', error);
         } finally {
@@ -172,6 +175,58 @@ const Profile: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* ── My Live Classes Schedule ────────────────────────────────────── */}
+      <div id="live-classes-section" className="mb-8">
+        <h2 className="text-xl font-extrabold text-gray-900 mb-5 flex items-center gap-2">
+          <span>🔴</span> Live Classes Schedule
+        </h2>
+        {loading ? (
+          <div className="text-gray-400 text-sm">Loading...</div>
+        ) : liveClasses.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+            {liveClasses.map(lc => {
+              const isLive = lc.status === 'live';
+              const startTime = new Date(lc.scheduledStartTime);
+              const isToday = new Date().toDateString() === startTime.toDateString();
+              return (
+                <div key={lc.id} className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden p-5 flex flex-col hover:shadow-md transition-shadow">
+                  <div className="flex justify-between items-start mb-3">
+                    <span className={`px-2.5 py-1 rounded-md text-xs font-bold ${isLive ? 'bg-red-100 text-red-600 animate-pulse' : 'bg-indigo-100 text-indigo-700'}`}>
+                      {isLive ? 'LIVE NOW' : (isToday ? 'TODAY' : 'UPCOMING')}
+                    </span>
+                    <span className="text-xs font-semibold text-gray-500 bg-gray-50 px-2 py-1 rounded">
+                      {startTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      {!isToday && ` - ${startTime.toLocaleDateString([], { month: 'short', day: 'numeric' })}`}
+                    </span>
+                  </div>
+                  <h3 className="font-bold text-gray-900 mb-1 line-clamp-1">{lc.title}</h3>
+                  <p className="text-sm text-gray-500 mb-4 line-clamp-2 flex-grow">{lc.description}</p>
+                  
+                  {isLive ? (
+                    <button 
+                      onClick={() => navigate(`/live-class/${lc.id}`)}
+                      className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-2.5 rounded-lg text-sm transition-colors shadow-sm shadow-red-200 animate-pulse"
+                    >
+                      Join Live Class
+                    </button>
+                  ) : (
+                    <button disabled className="w-full bg-gray-100 text-gray-400 font-bold py-2.5 rounded-lg text-sm cursor-not-allowed">
+                      Starts at {startTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="bg-white rounded-xl border border-gray-100 p-8 text-center">
+            <span className="text-4xl block mb-3">📅</span>
+            <h3 className="text-lg font-bold text-gray-900 mb-1">No upcoming live classes</h3>
+            <p className="text-gray-500 text-sm">Your enrolled courses don't have any scheduled live classes right now.</p>
+          </div>
+        )}
+      </div>
 
       {/* ── My Courses ──────────────────────────────────────────────────── */}
       <div className="mb-8">

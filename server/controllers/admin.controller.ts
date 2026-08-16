@@ -5,6 +5,7 @@ import { signToken } from '../middleware/auth.js';
 import { sanitizeUser } from './auth.controller.js';
 import logger from '../logger.js';
 import { randomUUID } from 'crypto';
+import { sendWhatsAppBroadcast } from '../services/whatsapp.service.js';
 
 export async function superAdminLogin(req: express.Request, res: express.Response): Promise<void> {
     const { email, otp } = req.body;
@@ -259,5 +260,67 @@ export async function clearCache(req: express.Request, res: express.Response): P
     } catch (err) {
         logger.error('[Admin] clearCache:', err);
         res.status(500).json({ error: 'Failed to clear cache' });
+    }
+}
+
+export async function broadcastOffers(req: express.Request, res: express.Response): Promise<void> {
+    const { target, campaignName, creditsToAdd } = req.body; // target: 'all' or array of user ids
+
+    if (!campaignName) {
+        res.status(400).json({ error: 'campaignName is required' });
+        return;
+    }
+
+    try {
+        let users: any[] = [];
+        
+        if (target === 'all') {
+            users = await User.find({ role: 'STUDENT' });
+        } else if (Array.isArray(target) && target.length > 0) {
+            users = await User.find({ id: { $in: target } });
+        } else {
+            res.status(400).json({ error: 'Invalid target specified' });
+            return;
+        }
+
+        const credits = typeof creditsToAdd === 'number' ? creditsToAdd : 50;
+
+        // Run the heavy operations in the background so we don't block the HTTP request
+        // The API returns immediately to the admin UI
+        res.json({ message: `Broadcast started for ${users.length} users in the background.` });
+
+        // Background worker loop
+        setImmediate(async () => {
+            for (const user of users) {
+                try {
+                    // Update credits safely
+                    await User.updateOne({ id: user.id }, { $inc: { credits: credits } });
+                    
+                    // Call WhatsApp Service
+                    // Wait, we need their phone number in international format, check if they have one
+                    if (user.phoneNumber) {
+                        const destination = user.phoneNumber.replace(/[^0-9]/g, ''); // Ensure numbers only
+                        if (destination.length >= 10) {
+                            await sendWhatsAppBroadcast({
+                                campaignName,
+                                destination,
+                                userName: user.name || 'Student',
+                                templateParams: [user.name || 'Student', credits.toString()] // example params
+                            });
+                        }
+                    }
+                } catch (innerErr) {
+                    logger.error(`Failed to process broadcast for user ${user.id}:`, innerErr);
+                }
+                
+                // Add a small delay (e.g. 100ms) between requests to prevent hitting rate limits
+                await new Promise(resolve => setTimeout(resolve, 100));
+            }
+            logger.info(`Completed background broadcast loop for ${users.length} users.`);
+        });
+
+    } catch (err) {
+        logger.error('[Admin] broadcastOffers:', err);
+        res.status(500).json({ error: 'Failed to start broadcast' });
     }
 }

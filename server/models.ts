@@ -163,13 +163,13 @@ const otpSchema = new mongoose.Schema({
 });
 // Note: email index is defined inline above; no separate .index() needed
 
-export const User = mongoose.model('User', userSchema);
-export const Subject = mongoose.model('Subject', subjectSchema);
-export const Course = mongoose.model('Course', courseSchema);
-export const Note = mongoose.model('Note', noteSchema);
-export const Quiz = mongoose.model('Quiz', quizSchema);
-export const Viva = mongoose.model('Viva', vivaSchema);
-export const OTP = mongoose.model('OTP', otpSchema);
+export const User = mongoose.models.User || mongoose.model('User', userSchema);
+export const Subject = mongoose.models.Subject || mongoose.model('Subject', subjectSchema);
+export const Course = mongoose.models.Course || mongoose.model('Course', courseSchema);
+export const Note = mongoose.models.Note || mongoose.model('Note', noteSchema);
+export const Quiz = mongoose.models.Quiz || mongoose.model('Quiz', quizSchema);
+export const Viva = mongoose.models.Viva || mongoose.model('Viva', vivaSchema);
+export const OTP = mongoose.models.OTP || mongoose.model('OTP', otpSchema);
 
 // Stores AES-128 encryption keys for HLS segments — never exposed publicly
 const videoKeySchema = new mongoose.Schema({
@@ -177,7 +177,7 @@ const videoKeySchema = new mongoose.Schema({
   keyHex:  { type: String, required: true }   // 16-byte key stored as 32-char hex
 }, { timestamps: true });
 
-export const VideoKey = mongoose.model('VideoKey', videoKeySchema);
+export const VideoKey = mongoose.models.VideoKey || mongoose.model('VideoKey', videoKeySchema);
 
 // ─── Exam Intelligence ────────────────────────────────────────────────────────
 
@@ -214,7 +214,7 @@ const examIntelligenceSchema = new mongoose.Schema({
 examIntelligenceSchema.index({ branch: 1, subject: 1, semester: 1 }, { unique: true });
 examIntelligenceSchema.index({ branch: 1, year: 1 });
 
-export const ExamIntelligence = mongoose.model('ExamIntelligence', examIntelligenceSchema);
+export const ExamIntelligence = mongoose.models.ExamIntelligence || mongoose.model('ExamIntelligence', examIntelligenceSchema);
 // ─── BE Toolkit ───────────────────────────────────────────────────────────────
 
 const beToolkitItemSchema = new mongoose.Schema({
@@ -232,7 +232,7 @@ const beToolkitItemSchema = new mongoose.Schema({
 beToolkitItemSchema.index({ branch: 1, type: 1, difficulty: 1 });
 beToolkitItemSchema.index({ tags: 1 });
 
-export const BEToolkitItem = mongoose.model('BEToolkitItem', beToolkitItemSchema);
+export const BEToolkitItem = mongoose.models.BEToolkitItem || mongoose.model('BEToolkitItem', beToolkitItemSchema);
 
 // ─── Generated Quiz Pool (up to 10 quizzes per difficulty level) ─────────────
 
@@ -268,7 +268,7 @@ const quizPoolSchema = new mongoose.Schema({
 
 quizPoolSchema.index({ branch: 1, subject: 1, semester: 1, unit: 1 }, { unique: true });
 
-export const QuizPool = mongoose.model('QuizPool', quizPoolSchema);
+export const QuizPool = mongoose.models.QuizPool || mongoose.model('QuizPool', quizPoolSchema);
 
 const payoutSchema = new mongoose.Schema({
   id:            { type: String, required: true, unique: true, index: true },
@@ -283,7 +283,7 @@ const payoutSchema = new mongoose.Schema({
  
 payoutSchema.index({ teacherId: 1, status: 1 });
  
-export const Payout = mongoose.model('Payout', payoutSchema);
+export const Payout = mongoose.models.Payout || mongoose.model('Payout', payoutSchema);
 
  
 const purchaseSchema = new mongoose.Schema({
@@ -299,4 +299,23 @@ const purchaseSchema = new mongoose.Schema({
  
 purchaseSchema.index({ teacherId: 1, createdAt: -1 });
  
-export const Purchase = mongoose.model('Purchase', purchaseSchema);
+export const Purchase = mongoose.models.Purchase || mongoose.model('Purchase', purchaseSchema);
+
+// ─── Live Classes (Daily.co) ──────────────────────────────────────────────────
+const liveClassSchema = new mongoose.Schema({
+  id: { type: String, required: true, unique: true, index: true },
+  courseId: { type: String, required: true, index: true },
+  title: { type: String, required: true },
+  description: { type: String },
+  teacherId: { type: String, required: true, index: true },
+  scheduledStartTime: { type: Date, required: true },
+  scheduledEndTime: { type: Date, required: true },
+  dailyRoomName: { type: String, required: true },
+  dailyRoomUrl: { type: String, required: true },
+  status: { type: String, enum: ['scheduled', 'live', 'completed'], default: 'scheduled', index: true },
+  recordingUrl: { type: String, default: null },
+}, { timestamps: true });
+
+liveClassSchema.index({ courseId: 1, status: 1 });
+
+export const LiveClass = mongoose.models.LiveClass || mongoose.model('LiveClass', liveClassSchema);

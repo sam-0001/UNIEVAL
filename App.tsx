@@ -24,6 +24,7 @@ const AdminDashboard      = lazy(() => import('./pages/AdminDashboard'));
 const SuperAdminDashboard = lazy(() => import('./pages/SuperAdminDashboard'));
 const ExamIntelligence    = lazy(() => import('./pages/ExamIntelligence'));
 const BEToolkit           = lazy(() => import('./pages/BEToolkit'));
+const LiveClassRoom       = lazy(() => import('./pages/LiveClassRoom'));
 
 // ── Loading fallback ──────────────────────────────────────────────────────────
 const PageLoader: React.FC = () => (
@@ -104,6 +105,7 @@ const App: React.FC = () => {
                                 <Route path="/super-admin"      element={<SuperAdminDashboard />} />
                                 <Route path="/exam-intelligence" element={<ExamIntelligence />} />
                                 <Route path="/be-toolkit"       element={<BEToolkit />} />
+                                <Route path="/live-class/:id"   element={<LiveClassRoom />} />
                                 <Route path="*"                 element={<Navigate to="/" replace />} />
                             </Routes>
                         </Suspense>

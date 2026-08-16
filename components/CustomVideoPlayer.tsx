@@ -135,6 +135,14 @@ const CustomVideoPlayer: React.FC<CustomVideoPlayerProps> = ({
         // Let hls.js handle its own default buffer limits!
         xhrSetup: (xhr: XMLHttpRequest, url: string) => {
           if (url.includes('/api/video/key/')) {
+            // Dynamically rewrite the URL to point to the current frontend's domain!
+            // This forces the video player to ask for the decryption key from the same server it loaded the website from.
+            const videoId = url.split('/').pop();
+            const localApiBase = `${window.location.origin}/api`;
+            const newUrl = `${localApiBase}/video/key/${videoId}`;
+            
+            xhr.open('GET', newUrl, true);
+            
             const token = localStorage.getItem('token');
             if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`);
           }

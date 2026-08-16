@@ -60,13 +60,20 @@ const Navbar: React.FC = () => {
 
             {user ? (
               <div className="flex items-center gap-3 pl-4 border-l border-gray-200">
-                {/* Credit Badge — students only */}
+                {/* Live Classes & Credit Badge — students only */}
                 {isStudent && (
-                  <Link to="/profile" title="Quiz Credits"
-                    className="flex items-center gap-1.5 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 px-3 py-1.5 rounded-full transition-colors">
-                    <span className="text-sm">{isUnlimited ? '⚡' : '🪙'}</span>
-                    <span className="text-xs font-extrabold text-indigo-700">{isUnlimited ? '∞' : credits}</span>
-                  </Link>
+                  <>
+                    <Link to="/profile#live-classes-section" title="Live Classes"
+                      className="flex items-center gap-1.5 bg-red-50 hover:bg-red-100 border border-red-200 px-3 py-1.5 rounded-full transition-colors">
+                      <span className="text-sm animate-pulse">🔴</span>
+                      <span className="text-xs font-extrabold text-red-700">Live</span>
+                    </Link>
+                    <Link to="/profile" title="Quiz Credits"
+                      className="flex items-center gap-1.5 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 px-3 py-1.5 rounded-full transition-colors">
+                      <span className="text-sm">{isUnlimited ? '⚡' : '🪙'}</span>
+                      <span className="text-xs font-extrabold text-indigo-700">{isUnlimited ? '∞' : credits}</span>
+                    </Link>
+                  </>
                 )}
                 <Link to="/profile" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
                   <div className="h-8 w-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold text-sm">
@@ -102,9 +109,14 @@ const Navbar: React.FC = () => {
                     <p className="text-xs text-gray-500">View Profile</p>
                   </div>
                   {isStudent && (
-                    <span className="flex items-center gap-1 bg-indigo-50 border border-indigo-200 px-2 py-1 rounded-full text-xs font-extrabold text-indigo-700">
-                      {isUnlimited ? '⚡ ∞' : `🪙 ${credits}`}
-                    </span>
+                    <div className="flex flex-col gap-1 items-end">
+                      <span className="flex items-center gap-1 bg-red-50 border border-red-200 px-2 py-1 rounded-full text-xs font-extrabold text-red-700">
+                        <span className="animate-pulse">🔴</span> Live
+                      </span>
+                      <span className="flex items-center gap-1 bg-indigo-50 border border-indigo-200 px-2 py-1 rounded-full text-xs font-extrabold text-indigo-700">
+                        {isUnlimited ? '⚡ ∞' : `🪙 ${credits}`}
+                      </span>
+                    </div>
                   )}
                 </Link>
                 <Link to="/browse" onClick={closeMobileMenu} className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-indigo-600 hover:bg-gray-50">Browse Content</Link>

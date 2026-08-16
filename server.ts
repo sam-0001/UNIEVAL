@@ -15,9 +15,11 @@ import beToolkitSearchRoutes from "./server/routes/beToolkitSearch.js";
 import generateQuizRoutes from "./server/routes/generateQuiz.js";
 import payoutRoutes from "./server/routes/payout.js";
 import secureFileRoutes from "./server/routes/secureFile.js";
+import liveClassRoutes from "./server/routes/liveClass.js";
 import connectDB, { getDBStatus } from "./server/db.js";
 import { connectRedis, isRedisAvailable } from "./server/redis.js";
 import { startScheduler } from "./server/services/scheduler.service.js";
+import { initSocket } from "./server/socket.js";
 import logger from "./server/logger.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -174,6 +176,7 @@ async function startServer() {
     app.use('/api', generateQuizRoutes);
     app.use('/api', payoutRoutes);
     app.use('/api', secureFileRoutes);  // Secure PDF/file proxy — never exposes R2 URLs
+    app.use('/api/live-classes', liveClassRoutes);
 
     // ── Health check ──────────────────────────────────────────────────────────
     app.get('/api/health', async (_req, res) => {
@@ -226,6 +229,9 @@ async function startServer() {
             process.send('ready');
         }
     });
+
+    // Initialize Socket.io
+    initSocket(server);
 
     server.timeout = 0;
     server.keepAliveTimeout = 65000;

@@ -258,7 +258,7 @@ export async function sendOtp(req: express.Request, res: express.Response): Prom
     const existing = await OTP.findOne({ email: email.toLowerCase().trim() });
     if (existing) {
         const age = Date.now() - new Date((existing as any).createdAt).getTime();
-        const cooldownMs = 45 * 1000;
+        const cooldownMs = 30 * 1000;
         if (age < cooldownMs) {
             const waitSec = Math.ceil((cooldownMs - age) / 1000);
             res.status(429).json({

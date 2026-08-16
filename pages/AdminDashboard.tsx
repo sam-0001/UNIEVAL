@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../services/api';
 import { Course, Note, Quiz, Viva, UserRole, Question } from '../types';
@@ -299,6 +300,54 @@ const AdminDashboard: React.FC = () => {
   const [editingViva, setEditingViva] = useState<Viva | null>(null);
   const [expandedCouponProduct, setExpandedCouponProduct] = useState<string | null>(null);
 
+  const navigate = useNavigate();
+  const [showLiveModal, setShowLiveModal] = useState(false);
+  const [liveCourseId, setLiveCourseId] = useState<string | null>(null);
+  const [liveTitle, setLiveTitle] = useState('');
+  const [liveScheduledAt, setLiveScheduledAt] = useState('');
+  const [liveClasses, setLiveClasses] = useState<any[]>([]);
+
+  const fetchLiveClasses = async (courseId: string) => {
+      try {
+          const res = await fetch(`/api/live-classes/course/${courseId}`, {
+              headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+          });
+          if (res.ok) {
+              const data = await res.json();
+              setLiveClasses(data.liveClasses || []);
+          }
+      } catch (e) { console.error(e); }
+  };
+
+  const openLiveModal = (courseId: string) => {
+      setLiveCourseId(courseId);
+      setShowLiveModal(true);
+      fetchLiveClasses(courseId);
+  };
+
+  const handleScheduleLive = async () => {
+      if (!liveCourseId || !liveTitle || !liveScheduledAt) return;
+      try {
+          const startTime = new Date(liveScheduledAt);
+          const endTime = new Date(startTime.getTime() + 60 * 60 * 1000); // 1 hour later
+          const res = await fetch('/api/live-classes/schedule', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token')}` },
+              body: JSON.stringify({ 
+                  courseId: liveCourseId, 
+                  title: liveTitle, 
+                  scheduledStartTime: startTime.toISOString(),
+                  scheduledEndTime: endTime.toISOString() 
+              })
+          });
+          if (res.ok) {
+              fetchLiveClasses(liveCourseId);
+              setLiveTitle('');
+              setLiveScheduledAt('');
+          }
+      } catch (e) { console.error(e); }
+  };
+
   useEffect(() => {
     if (user && user.role !== 'STUDENT') {
         api.getCourses().then(all => setCourses(all.filter(c => c.teacherId === user.id)));
@@ -561,6 +610,7 @@ const AdminDashboard: React.FC = () => {
                                 )}
                               </div>
                               <div className="flex gap-4">
+                                  <button onClick={() => openLiveModal(course.id)} className="text-blue-600 text-sm font-bold hover:underline">Live Classes</button>
                                   <button onClick={() => setExpandedCouponProduct(prev => prev === course.id ? null : course.id)} className="text-slate-600 text-sm font-bold hover:underline">Coupons</button>
                                   <button onClick={() => handleEditCourse(course)} className="text-indigo-600 text-sm font-bold hover:underline">Edit</button>
                                   <button onClick={() => handleDeleteCourse(course)} className="text-red-600 text-sm font-bold hover:underline">Delete</button>
@@ -867,6 +917,13 @@ const AdminDashboard: React.FC = () => {
       {showNoteModal && <CreateNoteModal onClose={() => setShowNoteModal(false)} editItem={editingNote} onSave={handleSaveNote} />}
       {showQuizModal && <CreateQuizModal onClose={() => setShowQuizModal(false)} editItem={editingQuiz} onSave={handleSaveQuiz} />}
       {showVivaModal && <CreateVivaModal onClose={() => setShowVivaModal(false)} editItem={editingViva} onSave={handleSaveViva} />}
+      
+      <LiveModal
+          isOpen={showLiveModal} onClose={() => setShowLiveModal(false)}
+          liveClasses={liveClasses} title={liveTitle} setTitle={setLiveTitle}
+          scheduledAt={liveScheduledAt} setScheduledAt={setLiveScheduledAt}
+          onSchedule={handleScheduleLive} navigate={navigate}
+      />
     </div>
   );
 };
@@ -1710,6 +1767,57 @@ const CreateVivaModal: React.FC<{onClose: () => void; editItem?: Viva | null; on
                 <div className="p-6 border-t border-gray-100 flex justify-end gap-3 bg-gray-50 rounded-b-2xl">
                     <button onClick={onClose} className="px-6 py-2.5 font-bold text-gray-600 hover:bg-gray-200 rounded-lg transition">Cancel</button>
                     <button onClick={handleSave} className="px-6 py-2.5 font-bold text-white bg-indigo-800 hover:bg-indigo-900 rounded-lg shadow-lg shadow-indigo-200 transition">Publish Viva Set</button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+// Add LiveModal inline
+const LiveModal: React.FC<{
+    isOpen: boolean; onClose: () => void;
+    liveClasses: any[]; title: string; setTitle: (v: string) => void;
+    scheduledAt: string; setScheduledAt: (v: string) => void;
+    onSchedule: () => void; navigate: (path: string) => void;
+}> = ({ isOpen, onClose, liveClasses, title, setTitle, scheduledAt, setScheduledAt, onSchedule, navigate }) => {
+    if (!isOpen) return null;
+    return (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
+                <div className="p-6 border-b border-gray-100 bg-gray-50 flex justify-between items-center">
+                    <h2 className="text-xl font-bold text-gray-900">Manage Live Classes</h2>
+                    <button onClick={onClose} className="text-gray-400 hover:text-gray-600">✕</button>
+                </div>
+                <div className="p-6 overflow-y-auto space-y-4">
+                    <div className="bg-blue-50 border border-blue-200 p-4 rounded-xl">
+                        <h3 className="font-bold text-blue-900 mb-2">Schedule New Class</h3>
+                        <div className="space-y-3">
+                            <input type="text" placeholder="Class Title (e.g., Doubts Session)" value={title} onChange={(e) => setTitle(e.target.value)} className="w-full border border-blue-300 rounded p-2 text-sm outline-none focus:border-blue-500" />
+                            <input type="datetime-local" value={scheduledAt} onChange={(e) => setScheduledAt(e.target.value)} className="w-full border border-blue-300 rounded p-2 text-sm outline-none focus:border-blue-500" />
+                            <button onClick={onSchedule} className="w-full bg-blue-600 text-white font-bold py-2 rounded shadow hover:bg-blue-700">Schedule Class</button>
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <h3 className="font-bold text-gray-800 mb-2 border-b pb-1">Scheduled Classes</h3>
+                        {liveClasses.length === 0 ? (
+                            <p className="text-sm text-gray-500">No upcoming live classes.</p>
+                        ) : (
+                            <ul className="space-y-2">
+                                {liveClasses.map(lc => (
+                                    <li key={lc.id} className="border border-gray-200 rounded p-3 flex justify-between items-center bg-gray-50">
+                                        <div>
+                                            <p className="font-bold text-sm text-gray-900">{lc.title}</p>
+                                            <p className="text-xs text-gray-500">{new Date(lc.scheduledAt).toLocaleString()}</p>
+                                        </div>
+                                        <button onClick={() => navigate(`/live-class/${lc.id}`)} className="bg-indigo-600 text-white text-xs font-bold px-3 py-1.5 rounded hover:bg-indigo-700">
+                                            Start Class
+                                        </button>
+                                    </li>
+                                ))}
+                            </ul>
+                        )}
+                    </div>
                 </div>
             </div>
         </div>

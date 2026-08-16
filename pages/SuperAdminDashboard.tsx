@@ -3,6 +3,7 @@ import { User, UserRole, Course, Note } from '../types';
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { uploadExamIntelligence } from '../services/examIntelligenceApi';
+import AdminBroadcastModal from '../components/AdminBroadcastModal';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -818,6 +819,11 @@ const SuperAdminDashboard: React.FC = () => {
                 {/* ── STUDENTS TAB ── */}
                 {activeTab === 'STUDENTS' && (
                     <div className="space-y-6 animate-in fade-in duration-500">
+                        {/* WhatsApp Broadcast Module */}
+                        <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-200">
+                            <AdminBroadcastModal />
+                        </div>
+
                         {/* Search Bar */}
                         <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-200 flex flex-col sm:flex-row justify-between gap-4">
                             <div className="flex-1 relative">
