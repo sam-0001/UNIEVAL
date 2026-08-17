@@ -14,7 +14,56 @@ const LiveTimer = () => {
   return <span>{h}:{m}:{s}</span>;
 };
 import { Mic, MicOff, Camera, CameraOff, MonitorUp, Circle as Record, Square, Users, MessageSquare, Hand, X, Settings } from 'lucide-react';
-import { useLocalParticipant, useDaily, useScreenShare } from '@daily-co/daily-react';
+import { useLocalParticipant, useDaily, useScreenShare, useDevices } from '@daily-co/daily-react';
+
+const DeviceSettingsModal = ({ onClose }: { onClose: () => void }) => {
+  const { cameras, microphones, setCamera, setMicrophone, currentCam, currentMic } = useDevices();
+
+  return (
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[500]" onClick={onClose}>
+      <div className="bg-slate-900 border border-slate-700 p-6 rounded-2xl shadow-2xl w-full max-w-md mx-4" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-xl font-semibold text-white">Device Settings</h2>
+          <button onClick={onClose} className="p-1 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-white transition-colors">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-slate-300 mb-1.5">Camera</label>
+            <select 
+              value={(currentCam as any)?.device?.deviceId || (currentCam as any)?.deviceId || ''} 
+              onChange={(e) => setCamera(e.target.value)}
+              className="w-full bg-slate-800 border border-slate-700 text-white rounded-lg p-2.5 outline-none focus:border-blue-500 transition-colors"
+            >
+              {cameras.map((cam: any, i: number) => {
+                const id = cam.device?.deviceId || cam.deviceId;
+                const label = cam.device?.label || cam.label || `Camera ${i + 1}`;
+                return <option key={id} value={id}>{label}</option>;
+              })}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-300 mb-1.5">Microphone</label>
+            <select 
+              value={(currentMic as any)?.device?.deviceId || (currentMic as any)?.deviceId || ''} 
+              onChange={(e) => setMicrophone(e.target.value)}
+              className="w-full bg-slate-800 border border-slate-700 text-white rounded-lg p-2.5 outline-none focus:border-blue-500 transition-colors"
+            >
+              {microphones.map((mic: any, i: number) => {
+                const id = mic.device?.deviceId || mic.deviceId;
+                const label = mic.device?.label || mic.label || `Microphone ${i + 1}`;
+                return <option key={id} value={id}>{label}</option>;
+              })}
+            </select>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 interface TeacherControlsProps {
   onEndClass: () => void;
@@ -28,6 +77,7 @@ export const TeacherControls: React.FC<TeacherControlsProps> = ({ onEndClass, is
   const localParticipant = useLocalParticipant();
   const daily = useDaily();
   const { isSharingScreen, startScreenShare, stopScreenShare } = useScreenShare();
+  const [showSettings, setShowSettings] = useState(false);
   
   const micEnabled = localParticipant?.audio;
   const camEnabled = localParticipant?.video;
@@ -50,6 +100,7 @@ export const TeacherControls: React.FC<TeacherControlsProps> = ({ onEndClass, is
   };
 
   return (
+    <>
     <div className={`w-full bg-slate-900/95 backdrop-blur-md border-t border-slate-800 p-3 pb-6 md:p-4 md:pb-4 flex flex-col md:flex-row items-center justify-between gap-4 md:gap-3 z-[100] ${className}`}>
       
       {/* Center: Core Controls (Moved to top on mobile for easy access) */}
@@ -111,13 +162,18 @@ export const TeacherControls: React.FC<TeacherControlsProps> = ({ onEndClass, is
           <Record className="w-4 h-4 text-emerald-500 animate-pulse" />
           <span className="text-sm font-medium"><LiveTimer /></span>
         </div>
-        <button 
-          onClick={onEndClass}
-          className={`${isTeacher ? 'bg-red-500 hover:bg-red-600' : 'bg-slate-700 hover:bg-slate-600'} text-white font-medium px-4 py-2 text-sm rounded-lg transition-all flex items-center gap-2 shadow-lg`}
-        >
-          <X className="w-4 h-4" />
-          {isTeacher ? 'End' : 'Leave'}
-        </button>
+        <div className="flex items-center gap-2">
+          <button onClick={() => setShowSettings(true)} className="text-slate-400 hover:text-white transition-colors p-2 rounded-lg hover:bg-slate-800 border border-slate-700/50 bg-slate-800/30">
+            <Settings className="w-4 h-4" />
+          </button>
+          <button 
+            onClick={onEndClass}
+            className={`${isTeacher ? 'bg-red-500 hover:bg-red-600' : 'bg-slate-700 hover:bg-slate-600'} text-white font-medium px-4 py-2 text-sm rounded-lg transition-all flex items-center gap-2 shadow-lg`}
+          >
+            <X className="w-4 h-4" />
+            {isTeacher ? 'End' : 'Leave'}
+          </button>
+        </div>
       </div>
 
       {/* Desktop Left: Class Info / Quick Settings */}
@@ -126,7 +182,7 @@ export const TeacherControls: React.FC<TeacherControlsProps> = ({ onEndClass, is
           <Record className="w-4 h-4 text-emerald-500 animate-pulse" />
           <span className="text-sm font-medium"><LiveTimer /></span>
         </div>
-        <button className="text-slate-400 hover:text-white transition-colors p-2 rounded-lg hover:bg-slate-800">
+        <button onClick={() => setShowSettings(true)} className="text-slate-400 hover:text-white transition-colors p-2 rounded-lg hover:bg-slate-800">
           <Settings className="w-5 h-5" />
         </button>
       </div>
@@ -142,6 +198,9 @@ export const TeacherControls: React.FC<TeacherControlsProps> = ({ onEndClass, is
         </button>
       </div>
     </div>
+    
+    {showSettings && <DeviceSettingsModal onClose={() => setShowSettings(false)} />}
+    </>
   );
 };
 
