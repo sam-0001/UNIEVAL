@@ -7,13 +7,13 @@ import { redis } from '../redis.js';
 
 export const scheduleLiveClass = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { courseId, title, description, scheduledStartTime, scheduledEndTime } = req.body;
+    const { courseId, moduleId, title, description, scheduledStartTime, scheduledEndTime } = req.body;
     // Assuming req.user is set by auth middleware
     const teacherId = (req as any).currentUser?.id;
 
-    if (!teacherId || !courseId || !scheduledStartTime || !scheduledEndTime) {
-      logger.error('Missing required fields', { teacherId, courseId, scheduledStartTime, scheduledEndTime, title });
-      res.status(400).json({ error: 'Missing required fields', details: { teacherId, courseId, scheduledStartTime, scheduledEndTime, title } });
+    if (!teacherId || !courseId || !title || !scheduledStartTime || !scheduledEndTime) {
+      logger.error('Missing required fields', { teacherId, courseId, title, scheduledStartTime, scheduledEndTime });
+      res.status(400).json({ error: 'Missing required fields: courseId, title, scheduledStartTime, scheduledEndTime are required' });
       return;
     }
 
@@ -31,7 +31,8 @@ export const scheduleLiveClass = async (req: Request, res: Response): Promise<vo
     const liveClass = await LiveClass.create({
       id: crypto.randomUUID(),
       courseId,
-      title,
+      moduleId: moduleId || null,
+      title: title || 'Live Class',
       description,
       teacherId,
       scheduledStartTime,
@@ -83,12 +84,7 @@ export const joinLiveClass = async (req: Request, res: Response): Promise<void> 
       return;
     }
 
-    // Anti-Piracy Concurrency Check using Redis
-    if (redis) {
-      // Temporarily bypass strict 409 lockout so students can refresh the page without getting locked out for an hour.
-      // A proper implementation should use Socket.io disconnects to clear this key.
-      await redis.setex(`liveclass:${id}:user:${userId}`, 3600, 'joined');
-    }
+    // Anti-Piracy Concurrency Check is now handled strictly in socket.ts via force-disconnect.
 
     const token = await createMeetingToken(liveClass.dailyRoomName, false, userName);
     res.status(200).json({ token, roomUrl: liveClass.dailyRoomUrl, liveClass });
@@ -123,7 +119,7 @@ export const endLiveClass = async (req: Request, res: Response): Promise<void> =
 export const getLiveClassesForCourse = async (req: Request, res: Response): Promise<void> => {
   try {
     const { courseId } = req.params;
-    const liveClasses = await LiveClass.find({ courseId }).sort({ scheduledStartTime: 1 });
+    const liveClasses = await LiveClass.find({ courseId, status: { $ne: 'completed' } }).sort({ scheduledStartTime: 1 });
     res.status(200).json({ liveClasses });
   } catch (error: any) {
     logger.error('Error fetching live classes', { error: error.message });
@@ -161,5 +157,84 @@ export const getMyLiveClassSchedule = async (req: Request, res: Response): Promi
   } catch (error: any) {
     logger.error('Error fetching my schedule', { error: error.message });
     res.status(500).json({ error: 'Failed to fetch schedule' });
+  }
+};
+
+// Daily.co Webhook Handler
+export const dailyWebhook = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const event = req.body;
+    if (event.type === 'recording.ready') {
+      const roomName = event.payload.room_name;
+      const rawMp4Url = event.payload.download_link; // Assuming standard Daily payload
+      
+      const liveClass = await LiveClass.findOne({ dailyRoomName: roomName });
+      if (liveClass) {
+        await import('../models.js').then(({ PendingRecording }) => {
+          PendingRecording.create({
+            id: crypto.randomUUID(),
+            courseId: liveClass.courseId,
+            moduleId: liveClass.moduleId,
+            title: liveClass.title,
+            rawMp4Url,
+            status: 'pending'
+          });
+        });
+      }
+    }
+    res.status(200).send('OK');
+  } catch (error) {
+    res.status(500).send('Webhook Error');
+  }
+};
+
+// Admin Endpoints for Pending Recordings
+export const getPendingRecordings = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const PendingRecording = (await import('../models.js')).PendingRecording;
+    const recordings = await PendingRecording.find({ status: 'pending' });
+    res.status(200).json({ recordings });
+  } catch (error: any) {
+    res.status(500).json({ error: 'Failed to fetch pending recordings' });
+  }
+};
+
+export const finalizeRecording = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { recordingId, videoUrl, videoKey, resources } = req.body;
+    const PendingRecording = (await import('../models.js')).PendingRecording;
+    
+    const recording = await PendingRecording.findOne({ id: recordingId });
+    if (!recording) {
+      res.status(404).json({ error: 'Recording not found' });
+      return;
+    }
+    
+    // Add to Course Module
+    const course = await Course.findOne({ id: recording.courseId });
+    if (course) {
+      const module = course.modules.find((m: any) => m.id === recording.moduleId);
+      if (module) {
+        module.videos.push({
+          id: crypto.randomUUID(),
+          title: recording.title,
+          videoUrl,
+          videoStatus: 'ready',
+          videoProgress: 100,
+          videoId: crypto.randomUUID(),
+          videoKey,
+          resources: resources || []
+        });
+        await course.save();
+      }
+    }
+    
+    // Cleanup
+    await PendingRecording.deleteOne({ id: recordingId });
+    await LiveClass.deleteOne({ courseId: recording.courseId, moduleId: recording.moduleId, title: recording.title });
+    
+    res.status(200).json({ message: 'Recording finalized' });
+  } catch (error: any) {
+    res.status(500).json({ error: 'Failed to finalize recording' });
   }
 };

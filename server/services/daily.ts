@@ -19,7 +19,8 @@ export const createDailyRoom = async (exp: number) => {
         properties: {
           exp, // Expiration time in seconds since epoch
           enable_chat: true,
-          enable_screenshare: true
+          enable_screenshare: true,
+          owner_only_broadcast: true
         },
       }),
     });

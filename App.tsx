@@ -1,5 +1,5 @@
 import React, { Suspense, lazy } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import Navbar from './components/Navbar';
 import LoginModal from './components/LoginModal';
@@ -80,37 +80,46 @@ const AuthModalWrapper = () => {
     return showLoginModal ? <LoginModal /> : null;
 };
 
+const AppContent = () => {
+    const location = useLocation();
+    const isLiveClass = location.pathname.startsWith('/live-class');
+
+    return (
+        <div className={`min-h-screen ${isLiveClass ? 'bg-[#0a0a0a]' : 'bg-slate-50'}`}>
+            {!isLiveClass && <Navbar />}
+            <AuthModalWrapper />
+            <ErrorBoundary>
+                <Suspense fallback={<PageLoader />}>
+                    <Routes>
+                        <Route path="/"                 element={<Home />} />
+                        <Route path="/login"            element={<Login />} />
+                        <Route path="/about"            element={<About />} />
+                        <Route path="/browse"           element={<BrowseCourses />} />
+                        <Route path="/course/:id"       element={<CourseDetail />} />
+                        <Route path="/note/:id"         element={<NoteDetail />} />
+                        <Route path="/quiz/:id"         element={<QuizDetail />} />
+                        <Route path="/viva/:id"         element={<VivaDetail />} />
+                        <Route path="/notes"            element={<NotesLibrary />} />
+                        <Route path="/profile"          element={<Profile />} />
+                        <Route path="/admin"            element={<AdminDashboard />} />
+                        <Route path="/teacher/upload"   element={<AdminDashboard />} />
+                        <Route path="/super-admin"      element={<SuperAdminDashboard />} />
+                        <Route path="/exam-intelligence" element={<ExamIntelligence />} />
+                        <Route path="/be-toolkit"       element={<BEToolkit />} />
+                        <Route path="/live-class/:id"   element={<LiveClassRoom />} />
+                        <Route path="*"                 element={<Navigate to="/" replace />} />
+                    </Routes>
+                </Suspense>
+            </ErrorBoundary>
+        </div>
+    );
+};
+
 const App: React.FC = () => {
     return (
         <AuthProvider>
             <Router>
-                <div className="min-h-screen bg-slate-50">
-                    <Navbar />
-                    <AuthModalWrapper />
-                    <ErrorBoundary>
-                        <Suspense fallback={<PageLoader />}>
-                            <Routes>
-                                <Route path="/"                 element={<Home />} />
-                                <Route path="/login"            element={<Login />} />
-                                <Route path="/about"            element={<About />} />
-                                <Route path="/browse"           element={<BrowseCourses />} />
-                                <Route path="/course/:id"       element={<CourseDetail />} />
-                                <Route path="/note/:id"         element={<NoteDetail />} />
-                                <Route path="/quiz/:id"         element={<QuizDetail />} />
-                                <Route path="/viva/:id"         element={<VivaDetail />} />
-                                <Route path="/notes"            element={<NotesLibrary />} />
-                                <Route path="/profile"          element={<Profile />} />
-                                <Route path="/admin"            element={<AdminDashboard />} />
-                                <Route path="/teacher/upload"   element={<AdminDashboard />} />
-                                <Route path="/super-admin"      element={<SuperAdminDashboard />} />
-                                <Route path="/exam-intelligence" element={<ExamIntelligence />} />
-                                <Route path="/be-toolkit"       element={<BEToolkit />} />
-                                <Route path="/live-class/:id"   element={<LiveClassRoom />} />
-                                <Route path="*"                 element={<Navigate to="/" replace />} />
-                            </Routes>
-                        </Suspense>
-                    </ErrorBoundary>
-                </div>
+                <AppContent />
             </Router>
         </AuthProvider>
     );

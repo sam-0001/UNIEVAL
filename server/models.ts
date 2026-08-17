@@ -305,6 +305,7 @@ export const Purchase = mongoose.models.Purchase || mongoose.model('Purchase', p
 const liveClassSchema = new mongoose.Schema({
   id: { type: String, required: true, unique: true, index: true },
   courseId: { type: String, required: true, index: true },
+  moduleId: { type: String, default: null, index: true },
   title: { type: String, required: true },
   description: { type: String },
   teacherId: { type: String, required: true, index: true },
@@ -319,3 +320,64 @@ const liveClassSchema = new mongoose.Schema({
 liveClassSchema.index({ courseId: 1, status: 1 });
 
 export const LiveClass = mongoose.models.LiveClass || mongoose.model('LiveClass', liveClassSchema);
+
+const pendingRecordingSchema = new mongoose.Schema({
+  id: { type: String, required: true, unique: true, index: true },
+  courseId: { type: String, required: true, index: true },
+  moduleId: { type: String, required: true, index: true },
+  title: { type: String, required: true },
+  rawMp4Url: { type: String, required: true },
+  status: { type: String, enum: ['pending', 'processing', 'completed', 'error'], default: 'pending' }
+}, { timestamps: true });
+
+export const PendingRecording = mongoose.models.PendingRecording || mongoose.model('PendingRecording', pendingRecordingSchema);
+
+const liveChatSchema = new mongoose.Schema({
+  id: { type: String, required: true, unique: true, index: true },
+  classId: { type: String, required: true, index: true },
+  senderId: { type: String, required: true },
+  senderName: { type: String, required: true },
+  text: { type: String, required: true },
+  timestamp: { type: Date, default: Date.now }
+}, { timestamps: true });
+
+export const LiveChat = mongoose.models.LiveChat || mongoose.model('LiveChat', liveChatSchema);
+
+const liveQuestionSchema = new mongoose.Schema({
+  id: { type: String, required: true, unique: true, index: true },
+  classId: { type: String, required: true, index: true },
+  studentId: { type: String, required: true },
+  studentName: { type: String, required: true },
+  content: { type: String, required: true },
+  upvotes: { type: [String], default: [] },
+  isAnswered: { type: Boolean, default: false },
+  timestamp: { type: Date, default: Date.now }
+}, { timestamps: true });
+
+export const LiveQuestion = mongoose.models.LiveQuestion || mongoose.model('LiveQuestion', liveQuestionSchema);
+
+const livePollSchema = new mongoose.Schema({
+  id: { type: String, required: true, unique: true, index: true },
+  classId: { type: String, required: true, index: true },
+  question: { type: String, required: true },
+  options: [{
+    id: { type: String, required: true },
+    text: { type: String, required: true }
+  }],
+  correctOptionId: { type: String },
+  status: { type: String, enum: ['active', 'closed'], default: 'active' },
+  createdAt: { type: Date, default: Date.now }
+}, { timestamps: true });
+
+export const LivePoll = mongoose.models.LivePoll || mongoose.model('LivePoll', livePollSchema);
+
+const livePollResponseSchema = new mongoose.Schema({
+  id: { type: String, required: true, unique: true, index: true },
+  pollId: { type: String, required: true, index: true },
+  studentId: { type: String, required: true },
+  studentName: { type: String, required: true },
+  selectedOptionId: { type: String, required: true },
+  responseTime: { type: Number, required: true } // Time in ms taken to answer
+}, { timestamps: true });
+
+export const LivePollResponse = mongoose.models.LivePollResponse || mongoose.model('LivePollResponse', livePollResponseSchema);

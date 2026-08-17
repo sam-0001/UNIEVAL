@@ -17,76 +17,89 @@ This document serves as the brainstorming and architectural whiteboard for new f
 
 ## 🚀 Approved Features (Ready for Implementation)
 
-### Feature: Live Classes (Powered by Daily.co)
-**Goal**: Enable real-time, interactive, and secure video classes directly within the platform using Daily.co, with strict access control and custom UI.
+### Feature: Live Classes (Powered by Daily.co & Socket.io)
+**Goal**: Enable real-time, interactive, and secure video classes directly within the platform. The UI will mirror our `CustomVideoPlayer` for a seamless full-screen experience, enhanced with real-time Chat, Q&A, and interactive Live Polls.
 
-#### 1. Technical Flow & Architecture
+#### 1. Technical Flow, Architecture, and Data Structures
 
-**Backend (Express & MongoDB)**
-*   **Daily.co API Integration**: The backend uses the Daily REST API (`https://api.daily.co/v1/rooms`) to create meeting rooms dynamically.
-*   **Token Generation**: To enforce security and "app-only" access, the backend generates Daily.co meeting tokens (`https://api.daily.co/v1/meeting-tokens`). Tokens are signed with specific permissions (e.g., `is_owner` for teachers, restricted to specific `room_name`).
-*   **Database**: 
-    *   Create a `LiveClass` Mongoose model.
-    *   Fields: `courseId`, `title`, `description`, `teacherId`, `scheduledStartTime`, `scheduledEndTime`, `dailyRoomName`, `dailyRoomUrl`, `status` (scheduled, live, completed), `recordingUrl`.
+**Backend (Express, MongoDB, & Socket.io)**
+*   **Video Delivery**: Daily.co API Integration for dynamic room creation and token generation.
+*   **Real-time Engine (Socket.io)**: 
+    *   Create a dedicated namespace or room for each Live Class (`room_${classId}`).
+    *   Handle events for Chat (`CHAT_MESSAGE`), Q&A (`NEW_QUESTION`, `UPVOTE_QUESTION`), and Polls (`POLL_START`, `POLL_ANSWER`, `POLL_END`).
+*   **Database Models (MongoDB)**: 
+    *   `LiveClass`: Fields for `courseId`, `title`, `scheduledStartTime`, `dailyRoomName`, `status`.
+    *   `LiveChat` (Optional persistence): Array of messages `{ senderId, text, timestamp }`.
+    *   `LiveQuestion`: `{ classId, studentId, content, upvotes: [studentIds], timestamp, isAnswered }`.
+    *   `LivePoll`: `{ classId, question, options: [{ id, text }], correctOptionId, status: 'active' | 'closed' }`.
+    *   `LivePollResponse`: `{ pollId, studentId, selectedOptionId, responseTime }`.
 *   **Anti-Piracy (Concurrency Check)**:
-    *   Before issuing a token to a student, the backend checks Redis to ensure the user does not already have an active session for this class.
-    *   Once joined, the student's socket connection registers their presence. If a second login is detected, the first session is invalidated.
-*   **Webhooks**: Configure Daily.co webhooks (`recording.ready`) to notify our Express server when a cloud recording is finished. The server then pulls the MP4 and uploads it to our Cloudflare R2 bucket.
-
-**Frontend (React & Vite)**
-*   **Library**: Install `@daily-co/daily-react` and `@daily-co/daily-js`.
-*   **Custom UI Engine**: Instead of Daily's prebuilt UI, we use the `DailyProvider` to gain access to the raw video/audio tracks via hooks (`useLocalParticipant`, `useParticipantIds`, `useVideoTrack`). This allows 100% custom styling in Tailwind CSS.
+    *   Redis checks ensure a student only has one active connection.
 
 #### 2. UI Design & Layout Recommendations
 
 **Live Room Layout (`LiveClassRoom.tsx`)**
-*   **Theme**: Dark mode preferred for video to reduce eye strain.
-*   **Left Pane (Main Stage)**: Large responsive video player displaying the Teacher's camera or Screen Share.
-*   **Right Sidebar (Collapsible)**:
-    *   **Tab 1 - Chat**: Real-time messaging (powered by Socket.io).
-    *   **Tab 2 - Participants**: List of active students. Features a "Raise Hand" icon next to students who request to speak.
-*   **Bottom Control Bar**:
-    *   **Teacher**: Mute/Unmute, Start/Stop Video, Screen Share, Start Recording, End Class for All.
-    *   **Student**: Mute/Unmute (if allowed by teacher), Raise Hand, Leave Class.
-*   **Floating Student Grid**: A small PIP (Picture-in-Picture) grid of student video feeds floating at the top or bottom of the Main Stage.
+*   **Immersive Video Player Engine**: The layout will closely mimic `CustomVideoPlayer`.
+*   **Main Stage (Full-Screen)**: The Teacher's video feed or Screen Share will occupy the entire screen for students. No distracting floating student grids.
+*   **Auto-hiding Controls**: Like a standard video player, mouse inactivity hides the bottom control bar and overlays.
+*   **Side Drawer / Overlay Panel (The "Interactive Zone")**: A toggleable right-side drawer containing tabs:
+    *   **Tab 1 - Chat**: A global chat room visible to all students and the teacher. Auto-scrolls to the newest message.
+    *   **Tab 2 - Q&A**: 
+        *   Students can submit questions.
+        *   Each question has a "Heart/Upvote" button.
+        *   List is dynamically sorted by `upvote` count to bubble up common doubts.
+    *   **Tab 3 - Polls / Leaderboard**: Appears when a poll is active or recently closed.
 
-#### 3. Teacher's Side Workflow
+#### 3. Interactive Features Details
 
-1.  **Scheduling**: 
-    *   Teacher navigates to the Course Management dashboard.
-    *   Clicks "Schedule Live Class", enters Title, Date, and Time.
-    *   *Behind the scenes*: Backend creates a Daily.co room with `exp` (expiration) set to a few hours after the scheduled time, saves to MongoDB.
-2.  **Starting the Class**:
-    *   At the scheduled time, Teacher clicks "Start Class".
-    *   *Behind the scenes*: Backend generates an `is_owner: true` meeting token and sends it to the frontend.
-3.  **Pre-Join Lobby**:
-    *   Teacher sees a custom pre-join screen to test camera and microphone.
-    *   Clicks "Join Room".
-4.  **In-Class Controls**:
-    *   Teacher has full control. Can forcefully mute students, accept "Hand Raises" to grant mic access, share screen, and click a prominent "Record" button.
-5.  **Ending**:
-    *   Teacher clicks "End Class for All". The backend terminates the Daily room, kicks all users, and updates the class status to `completed`.
+**A. Live Polls (Teacher Side)**
+*   **Creation**: Teacher clicks a "Create Poll" icon. A modal prompts for the Question, Options, and marking the Correct Option.
+*   **Execution**: Teacher clicks "Launch". Emits `POLL_START`.
+*   **Analytics**: When the poll closes, the teacher receives real-time UI charts showing the percentage of students who chose each option.
 
-#### 4. Student's Side Workflow
+**B. Live Polls (Student Side & Leaderboard)**
+*   **Taking the Poll**: An overlay appears on the student's screen with the poll question and a countdown timer.
+*   **Answering**: Student clicks an option. Emits `POLL_ANSWER` with the selected option and timestamp.
+*   **Leaderboard**: After the poll closes, a leaderboard overlay appears highlighting the students who answered **correctly** and **fastest**.
 
-1.  **Discovery**:
-    *   Student navigates to `CourseDetail.tsx`.
-    *   Sees an "Upcoming Live Classes" section.
-2.  **Joining**:
-    *   When the class is LIVE, a pulsing red "Join Live" button appears.
-    *   Student clicks "Join Live".
-    *   *Behind the scenes*: Backend verifies enrollment, checks concurrency (ensuring no other active session for this user), and generates a read-only or restricted meeting token.
-3.  **Pre-Join Lobby**:
-    *   Student tests their local hardware on the pre-join screen.
-    *   Clicks "Enter Class".
-4.  **In-Class Experience**:
-    *   Student is placed in the custom UI. Their mic is muted by default.
-    *   They watch the stream, can type in the Socket.io chat sidebar, or click the "Raise Hand" button to request audio permissions from the Teacher.
-5.  **Post-Class**:
-    *   Once the teacher ends the class, the student is redirected back to the Course page. After the webhook processes the video, a "Watch Recording" button will appear in place of the live link.
+#### 4. Workflows
+
+**Teacher Workflow**:
+1. Starts class via scheduled link.
+2. Gets full-screen UI with specialized controls (Manage Polls, View Q&A sorted by upvotes).
+3. Can launch polls on the fly and monitor comprehension analytics.
+4. Ends class, triggering cloud recording upload to R2.
+
+**Student Workflow**:
+1. Joins class via a pulsing "Join Live" button.
+2. Enters a full-screen, cinema-like view of the teacher.
+3. Can open the side drawer to chat, ask/upvote questions, and participate in lightning-fast polls to climb the leaderboard.
 
 ---
 
 ## 📦 Implemented Features
 
 *(Empty)*
+
+---
+
+### Feature: Live Class Recording & Archival Workflow
+**Goal**: Seamlessly transition completed Live Classes into permanent VOD (Video on Demand) resources in the assigned Course Modules, while offloading the heavy video processing (HLS + AES encryption) to the admin's local machine to save VPS CPU load.
+
+#### 1. Scheduling & UI/UX (Teacher Side)
+*   **Module Assignment**: The "Schedule Live Class" modal will include a new "Assign to Module" dropdown.
+*   **On-the-Fly Creation**: The dropdown will list existing modules (e.g., "Unit 1") and a "Create New Module" option, which reveals an inline text input to instantly create a new section for the recording.
+
+#### 2. Cloud Recording & Webhook (Backend)
+*   **Recording Trigger**: When the teacher ends the live class, Daily.co generates a raw cloud `.mp4` recording.
+*   **Webhook & Storage**: The backend listens for Daily.co's `recording.ready` webhook. Instead of processing it, the backend downloads the raw `.mp4` and uploads it to a *private* Cloudflare R2 bucket (e.g., `raw-recordings/`). This secures the raw video independently of Daily.co's retention policy.
+*   **Queueing**: The backend creates a `PendingRecording` document in MongoDB, storing the raw R2 link and the assigned `moduleId`.
+
+#### 3. Local Processing & Archival (The Distributed Worker)
+*   **Pending Queue UI**: The Admin Dashboard features a "Pending Recordings" queue.
+*   **Local FFmpeg Processing**: The teacher clicks "Process" from their local development environment. The local machine downloads the raw `.mp4` from the private R2 bucket and uses FFmpeg to generate the AES-128 encrypted HLS streams (`.m3u8` / `.ts`).
+*   **Finalization**: 
+    1. The local machine uploads the processed chunks to the public Cloudflare R2 bucket.
+    2. A permanent `VideoResource` is added to the assigned Course Module in MongoDB.
+    3. The backend deletes the raw `.mp4` from R2 to save space.
+    4. The backend completely deletes the original `LiveClass` and `PendingRecording` documents, leaving the database perfectly clean.

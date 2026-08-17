@@ -9,8 +9,16 @@ import {
 } from '../controllers/liveClassController.js';
 import { requireAuth } from '../middleware/auth.js';
 import { requireAdmin } from '../middleware/admin.js'; // Assuming teacher needs admin privileges or similar, adjust if needed
+import { dailyWebhook, getPendingRecordings, finalizeRecording } from '../controllers/liveClassController.js';
 
 const router = express.Router();
+
+// Webhooks
+router.post('/webhook', dailyWebhook);
+
+// Admin Routes for Recording Archival
+router.get('/pending-recordings', requireAuth, getPendingRecordings);
+router.post('/finalize-recording', requireAuth, finalizeRecording);
 
 // Teacher routes
 router.post('/schedule', requireAuth, scheduleLiveClass); // Add requireAdmin if needed

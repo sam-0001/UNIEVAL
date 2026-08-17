@@ -20,9 +20,11 @@ interface TeacherControlsProps {
   onEndClass: () => void;
   isTeacher?: boolean;
   className?: string;
+  onRaiseHand?: () => void;
+  isHandRaised?: boolean;
 }
 
-export const TeacherControls: React.FC<TeacherControlsProps> = ({ onEndClass, isTeacher = false, className = '' }) => {
+export const TeacherControls: React.FC<TeacherControlsProps> = ({ onEndClass, isTeacher = false, className = '', onRaiseHand, isHandRaised = false }) => {
   const localParticipant = useLocalParticipant();
   const daily = useDaily();
   const { isSharingScreen, startScreenShare, stopScreenShare } = useScreenShare();
@@ -98,6 +100,20 @@ export const TeacherControls: React.FC<TeacherControlsProps> = ({ onEndClass, is
         >
           <MonitorUp className="w-5 h-5" />
         </button>
+        
+        {!isTeacher && (
+          <button 
+            onClick={onRaiseHand}
+            className={`p-3.5 rounded-full transition-all ${
+              isHandRaised 
+                ? 'bg-yellow-500 hover:bg-yellow-400 text-white shadow-[0_0_15px_rgba(234,179,8,0.4)]' 
+                : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700'
+            }`}
+            title={isHandRaised ? 'Lower Hand' : 'Raise Hand'}
+          >
+            <Hand className="w-5 h-5" />
+          </button>
+        )}
       </div>
 
       {/* Right: End Class & Sidebar Toggles */}
