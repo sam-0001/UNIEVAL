@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../services/api';
 import { Course, Note, Quiz, Viva, UserRole, Question } from '../types';
-import { Loader2, CheckCircle, AlertCircle } from 'lucide-react';
+import { Loader2, CheckCircle, AlertCircle, Trash2 } from 'lucide-react';
 import { SubjectSelector } from '../components/SubjectSelector';
 import { useSubjectSelection } from '../hooks/useSubjectSelection';
 import CouponManager from '../components/CouponManager';
@@ -344,6 +344,19 @@ const AdminDashboard: React.FC = () => {
               fetchLiveClasses(liveCourseId);
               setLiveTitle('');
               setLiveScheduledAt('');
+          }
+      } catch (e) { console.error(e); }
+  };
+
+  const handleDeleteLiveClass = async (classId: string) => {
+      if (!confirm('Are you sure you want to delete this scheduled class?')) return;
+      try {
+          const res = await fetch(`/api/live-classes/${classId}`, {
+              method: 'DELETE',
+              headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+          });
+          if (res.ok && liveCourseId) {
+              fetchLiveClasses(liveCourseId);
           }
       } catch (e) { console.error(e); }
   };
@@ -1810,9 +1823,14 @@ const LiveModal: React.FC<{
                                             <p className="font-bold text-sm text-gray-900">{lc.title}</p>
                                             <p className="text-xs text-gray-500">{new Date(lc.scheduledAt).toLocaleString()}</p>
                                         </div>
-                                        <button onClick={() => navigate(`/live-class/${lc.id}`)} className="bg-indigo-600 text-white text-xs font-bold px-3 py-1.5 rounded hover:bg-indigo-700">
-                                            Start Class
-                                        </button>
+                                        <div className="flex items-center gap-2">
+                                            <button onClick={() => navigate(`/live-class/${lc.id}`)} className="bg-indigo-600 text-white text-xs font-bold px-3 py-1.5 rounded hover:bg-indigo-700 transition">
+                                                Start Class
+                                            </button>
+                                            <button onClick={() => handleDeleteLiveClass(lc.id)} className="bg-red-50 text-red-600 hover:bg-red-100 border border-red-200 text-xs font-bold px-2 py-1.5 rounded transition" title="Cancel Class">
+                                                <Trash2 className="w-3.5 h-3.5" />
+                                            </button>
+                                        </div>
                                     </li>
                                 ))}
                             </ul>

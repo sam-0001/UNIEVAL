@@ -137,6 +137,31 @@ export const getLiveClassesForCourse = async (req: Request, res: Response): Prom
   }
 };
 
+export const deleteLiveClass = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const teacherId = (req as any).currentUser?.id;
+
+    const liveClass = await LiveClass.findOne({ id, teacherId });
+    if (!liveClass) {
+      res.status(404).json({ error: 'Live class not found or unauthorized' });
+      return;
+    }
+
+    try {
+      await deleteDailyRoom(liveClass.dailyRoomName);
+    } catch (e) {
+      // Room might already be deleted or expired, ignore
+    }
+
+    await LiveClass.deleteOne({ id, teacherId });
+    res.status(200).json({ message: 'Live class deleted successfully' });
+  } catch (error: any) {
+    logger.error('Error deleting live class', { error: error.message });
+    res.status(500).json({ error: 'Failed to delete live class' });
+  }
+};
+
 export const getMyLiveClassSchedule = async (req: Request, res: Response): Promise<void> => {
   try {
     const user = (req as any).currentUser;
