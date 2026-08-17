@@ -19,46 +19,57 @@ const ParticipantVideo = React.memo(({ id, isLocal = false }: { id: string, isLo
   const videoTrack = useVideoTrack(id);
   const audioTrack = useAudioTrack(id);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const audioRef = useRef<HTMLAudioElement>(null);
 
   // isVideoOn is false when camera is explicitly turned off
   const isVideoOn = videoTrack.state !== 'off' && !!videoTrack.persistentTrack;
 
+  // Handle Video
   useEffect(() => {
     const video = videoRef.current;
-    if (!video) return;
-
-    if (!isVideoOn) {
-      // Clear srcObject so the frozen last-frame is removed
-      video.srcObject = null;
-      return;
+    if (video) {
+      if (isVideoOn && videoTrack.persistentTrack) {
+        video.srcObject = new MediaStream([videoTrack.persistentTrack]);
+      } else {
+        video.srcObject = null;
+      }
     }
+  }, [videoTrack.persistentTrack, isVideoOn]);
 
-    const tracks: MediaStreamTrack[] = [videoTrack.persistentTrack!];
-    if (!isLocal && audioTrack.persistentTrack) tracks.push(audioTrack.persistentTrack);
-    video.srcObject = new MediaStream(tracks);
-  }, [videoTrack.persistentTrack, videoTrack.state, audioTrack.persistentTrack, isLocal, isVideoOn]);
-
-  if (!isVideoOn) {
-    return (
-      <div className="w-full h-full flex items-center justify-center bg-[#0f1115]">
-        <div className="flex flex-col items-center gap-3">
-          <div className="w-20 h-20 rounded-full bg-slate-800 border-2 border-slate-700 flex items-center justify-center">
-            <Users className="w-9 h-9 text-slate-500" />
-          </div>
-          <span className="text-xs text-slate-500 font-medium">Camera off</span>
-        </div>
-      </div>
-    );
-  }
+  // Handle Audio independently
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (audio && !isLocal) {
+      if (audioTrack.persistentTrack) {
+        audio.srcObject = new MediaStream([audioTrack.persistentTrack]);
+      } else {
+        audio.srcObject = null;
+      }
+    }
+  }, [audioTrack.persistentTrack, isLocal]);
 
   return (
-    <video
-      autoPlay
-      muted={isLocal}
-      playsInline
-      ref={videoRef}
-      className={`w-full h-full object-cover ${isLocal ? 'scale-x-[-1]' : ''}`}
-    />
+    <>
+      {!isLocal && <audio autoPlay playsInline ref={audioRef} />}
+      {!isVideoOn ? (
+        <div className="w-full h-full flex items-center justify-center bg-[#0f1115]">
+          <div className="flex flex-col items-center gap-3">
+            <div className="w-20 h-20 rounded-full bg-slate-800 border-2 border-slate-700 flex items-center justify-center">
+              <Users className="w-9 h-9 text-slate-500" />
+            </div>
+            <span className="text-xs text-slate-500 font-medium">Camera off</span>
+          </div>
+        </div>
+      ) : (
+        <video
+          autoPlay
+          muted={true} // Audio is handled by the <audio> tag for remotes, and local should always be muted
+          playsInline
+          ref={videoRef}
+          className={`w-full h-full object-cover ${isLocal ? 'scale-x-[-1]' : ''}`}
+        />
+      )}
+    </>
   );
 });
 
