@@ -314,7 +314,7 @@ const AdminDashboard: React.FC = () => {
           });
           if (res.ok) {
               const data = await res.json();
-              setLiveClasses(data.liveClasses || []);
+              setLiveClasses((data.liveClasses || []).filter((lc: any) => lc.status !== 'completed'));
           }
       } catch (e) { console.error(e); }
   };

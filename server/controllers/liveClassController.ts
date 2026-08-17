@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { LiveClass, Course, User } from '../models.js';
-import { createDailyRoom, createMeetingToken, deleteDailyRoom } from '../services/daily.js';
+import { createDailyRoom, createMeetingToken, deleteDailyRoom, getDailyRoom } from '../services/daily.js';
 import logger from '../logger.js';
 import crypto from 'crypto';
 import { redis } from '../redis.js';
@@ -59,6 +59,16 @@ export const startLiveClass = async (req: Request, res: Response): Promise<void>
     if (!liveClass) {
       res.status(404).json({ error: 'Live class not found or unauthorized' });
       return;
+    }
+
+    try {
+      await getDailyRoom(liveClass.dailyRoomName);
+    } catch (e) {
+      // Room was deleted or expired, recreate it
+      const exp = Math.floor(new Date().getTime() / 1000) + 7200; // 2 hours from now
+      const newRoom = await createDailyRoom(exp);
+      liveClass.dailyRoomName = newRoom.name;
+      liveClass.dailyRoomUrl = newRoom.url;
     }
 
     liveClass.status = 'live';

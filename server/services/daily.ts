@@ -83,3 +83,12 @@ export const deleteDailyRoom = async (roomName: string) => {
     throw err;
   }
 };
+
+export const getDailyRoom = async (roomName: string) => {
+  const res = await fetch(`${DAILY_API_URL}/rooms/${roomName}`, {
+    method: 'GET',
+    headers: getHeaders(),
+  });
+  if (!res.ok) throw new Error('Room not found');
+  return res.json();
+};
