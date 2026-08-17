@@ -6,7 +6,8 @@ import {
   endLiveClass, 
   getLiveClassesForCourse,
   getMyLiveClassSchedule,
-  deleteLiveClass
+  deleteLiveClass,
+  getTeacherLiveClassSchedule
 } from '../controllers/liveClassController.js';
 import { requireAuth } from '../middleware/auth.js';
 import { requireAdmin } from '../middleware/admin.js'; // Assuming teacher needs admin privileges or similar, adjust if needed
@@ -22,6 +23,7 @@ router.get('/pending-recordings', requireAuth, getPendingRecordings);
 router.post('/finalize-recording', requireAuth, finalizeRecording);
 
 // Teacher routes
+router.get('/teacher-schedule', requireAuth, getTeacherLiveClassSchedule);
 router.post('/schedule', requireAuth, scheduleLiveClass); // Add requireAdmin if needed
 router.post('/:id/start', requireAuth, startLiveClass);
 router.post('/:id/end', requireAuth, endLiveClass);

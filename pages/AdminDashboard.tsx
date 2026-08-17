@@ -306,6 +306,20 @@ const AdminDashboard: React.FC = () => {
   const [liveTitle, setLiveTitle] = useState('');
   const [liveScheduledAt, setLiveScheduledAt] = useState('');
   const [liveClasses, setLiveClasses] = useState<any[]>([]);
+  const [globalLiveClasses, setGlobalLiveClasses] = useState<any[]>([]);
+  const [isScheduling, setIsScheduling] = useState(false);
+
+  const fetchGlobalLiveClasses = async () => {
+      try {
+          const res = await fetch('/api/live-classes/teacher-schedule', {
+              headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+          });
+          if (res.ok) {
+              const data = await res.json();
+              setGlobalLiveClasses(data.liveClasses || []);
+          }
+      } catch (e) { console.error(e); }
+  };
 
   const fetchLiveClasses = async (courseId: string) => {
       try {
@@ -326,7 +340,8 @@ const AdminDashboard: React.FC = () => {
   };
 
   const handleScheduleLive = async () => {
-      if (!liveCourseId || !liveTitle || !liveScheduledAt) return;
+      if (!liveCourseId || !liveTitle || !liveScheduledAt || isScheduling) return;
+      setIsScheduling(true);
       try {
           const startTime = new Date(liveScheduledAt);
           const endTime = new Date(startTime.getTime() + 60 * 60 * 1000); // 1 hour later
@@ -345,7 +360,9 @@ const AdminDashboard: React.FC = () => {
               setLiveTitle('');
               setLiveScheduledAt('');
           }
-      } catch (e) { console.error(e); }
+      } catch (e) { console.error(e); } finally {
+          setIsScheduling(false);
+      }
   };
 
   const handleDeleteLiveClass = async (classId: string) => {
@@ -355,8 +372,9 @@ const AdminDashboard: React.FC = () => {
               method: 'DELETE',
               headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
           });
-          if (res.ok && liveCourseId) {
-              fetchLiveClasses(liveCourseId);
+          if (res.ok) {
+              if (liveCourseId) fetchLiveClasses(liveCourseId);
+              fetchGlobalLiveClasses();
           }
       } catch (e) { console.error(e); }
   };
@@ -367,6 +385,7 @@ const AdminDashboard: React.FC = () => {
         api.getNotes().then(all => setNotes(all.filter(n => n.teacherId === user.id)));
         api.getQuizzes().then(all => setQuizzes(all.filter(q => q.teacherId === user.id)));
         api.getViva().then(all => setViva(all.filter(v => v.teacherId === user.id)));
+        fetchGlobalLiveClasses();
     }
   }, [user]);
 
@@ -591,6 +610,38 @@ const AdminDashboard: React.FC = () => {
 
   const renderCoursesList = () => (
       <div className="space-y-6 animate-in fade-in duration-300">
+          {/* Dashboard Global Live Classes */}
+          {globalLiveClasses.length > 0 && (
+              <div className="mb-8">
+                  <h2 className="text-xl font-bold text-slate-700 mb-4 flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
+                      My Upcoming Live Classes
+                  </h2>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {globalLiveClasses.map(lc => {
+                          const course = courses.find(c => c.id === lc.courseId);
+                          return (
+                              <div key={lc.id} className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm flex flex-col gap-3">
+                                  <div>
+                                      <div className="text-xs font-bold text-indigo-600 mb-1">{course?.title || 'Course'}</div>
+                                      <h3 className="font-bold text-gray-900">{lc.title}</h3>
+                                      <p className="text-xs text-gray-500 mt-1">{new Date(lc.scheduledStartTime).toLocaleString()}</p>
+                                  </div>
+                                  <div className="flex items-center gap-2 mt-auto pt-2 border-t border-gray-100">
+                                      <button onClick={() => navigate(`/live-class/${lc.id}`)} className="flex-1 bg-indigo-600 text-white text-xs font-bold px-3 py-2 rounded hover:bg-indigo-700 transition text-center">
+                                          Start Class
+                                      </button>
+                                      <button onClick={() => handleDeleteLiveClass(lc.id)} className="bg-red-50 text-red-600 hover:bg-red-100 border border-red-200 text-xs font-bold px-3 py-2 rounded transition flex items-center justify-center" title="Cancel Class">
+                                          <Trash2 className="w-4 h-4" />
+                                      </button>
+                                  </div>
+                              </div>
+                          );
+                      })}
+                  </div>
+              </div>
+          )}
+
           <div className="flex justify-between items-center">
               <h2 className="text-xl font-bold text-slate-700">My Courses ({courses.length})</h2>
               <button onClick={handleCreateCourse} className="bg-indigo-900 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-indigo-800 transition shadow-sm flex items-center gap-2">
@@ -936,6 +987,7 @@ const AdminDashboard: React.FC = () => {
           liveClasses={liveClasses} title={liveTitle} setTitle={setLiveTitle}
           scheduledAt={liveScheduledAt} setScheduledAt={setLiveScheduledAt}
           onSchedule={handleScheduleLive} navigate={navigate} onDelete={handleDeleteLiveClass}
+          isScheduling={isScheduling}
       />
     </div>
   );
@@ -1793,7 +1845,8 @@ const LiveModal: React.FC<{
     scheduledAt: string; setScheduledAt: (v: string) => void;
     onSchedule: () => void; navigate: (path: string) => void;
     onDelete: (id: string) => void;
-}> = ({ isOpen, onClose, liveClasses, title, setTitle, scheduledAt, setScheduledAt, onSchedule, navigate, onDelete }) => {
+    isScheduling: boolean;
+}> = ({ isOpen, onClose, liveClasses, title, setTitle, scheduledAt, setScheduledAt, onSchedule, navigate, onDelete, isScheduling }) => {
     if (!isOpen) return null;
     return (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
@@ -1808,7 +1861,9 @@ const LiveModal: React.FC<{
                         <div className="space-y-3">
                             <input type="text" placeholder="Class Title (e.g., Doubts Session)" value={title} onChange={(e) => setTitle(e.target.value)} className="w-full border border-blue-300 rounded p-2 text-sm outline-none focus:border-blue-500" />
                             <input type="datetime-local" value={scheduledAt} onChange={(e) => setScheduledAt(e.target.value)} className="w-full border border-blue-300 rounded p-2 text-sm outline-none focus:border-blue-500" />
-                            <button onClick={onSchedule} className="w-full bg-blue-600 text-white font-bold py-2 rounded shadow hover:bg-blue-700">Schedule Class</button>
+                            <button disabled={isScheduling} onClick={onSchedule} className={`w-full text-white font-bold py-2 rounded shadow transition ${isScheduling ? 'bg-blue-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'}`}>
+                                {isScheduling ? 'Scheduling...' : 'Schedule Class'}
+                            </button>
                         </div>
                     </div>
                     

@@ -195,6 +195,26 @@ export const getMyLiveClassSchedule = async (req: Request, res: Response): Promi
   }
 };
 
+export const getTeacherLiveClassSchedule = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const teacherId = (req as any).currentUser?.id;
+    if (!teacherId) {
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
+    }
+
+    const liveClasses = await LiveClass.find({
+      teacherId,
+      status: { $in: ['scheduled', 'live'] }
+    }).sort({ scheduledStartTime: 1 });
+
+    res.status(200).json({ liveClasses });
+  } catch (error: any) {
+    logger.error('Error fetching teacher schedule', { error: error.message });
+    res.status(500).json({ error: 'Failed to fetch schedule' });
+  }
+};
+
 // Daily.co Webhook Handler
 export const dailyWebhook = async (req: Request, res: Response): Promise<void> => {
   try {
