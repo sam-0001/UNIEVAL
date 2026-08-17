@@ -105,7 +105,7 @@ const LiveClassRoomContent: React.FC<{ callObject: DailyCall, classId?: string }
   const daily = useDaily();
   // Track active screen sharers via Daily events — more reliable than useScreenShare().screens for remote participants
   const [screenSharerSessionId, setScreenSharerSessionId] = useState<string | null>(null);
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(window.innerWidth >= 768);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showControls, setShowControls] = useState(true);
   const controlsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -402,18 +402,25 @@ const LiveClassRoomContent: React.FC<{ callObject: DailyCall, classId?: string }
 
 
   return (
-    <div className="h-screen w-full bg-[#0a0a0a] text-slate-200 flex flex-col overflow-hidden font-sans">
-      <header className="h-14 bg-slate-900/80 backdrop-blur-md border-b border-slate-800 flex items-center justify-between px-6 shrink-0 z-10">
-        <div className="flex items-center gap-3">
+    <div className="h-[100dvh] w-full bg-[#0a0a0a] text-slate-200 flex flex-col overflow-hidden font-sans">
+      <header className="h-14 bg-slate-900/80 backdrop-blur-md border-b border-slate-800 flex items-center justify-between px-3 md:px-6 shrink-0 z-10">
+        <div className="flex items-center gap-2 md:gap-3">
           <div className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse"></div>
-          <h1 className="text-lg font-semibold text-white tracking-tight">{liveClassData?.title || 'Live Class'}</h1>
-          <span className="bg-blue-500/20 text-blue-400 text-xs px-2 py-0.5 rounded-md font-medium border border-blue-500/20">LIVE</span>
+          <h1 className="text-sm md:text-lg font-semibold text-white tracking-tight truncate max-w-[150px] md:max-w-md">{liveClassData?.title || 'Live Class'}</h1>
+          <span className="bg-blue-500/20 text-blue-400 text-[10px] md:text-xs px-2 py-0.5 rounded-md font-medium border border-blue-500/20">LIVE</span>
         </div>
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2 bg-slate-800/50 px-3 py-1.5 rounded-lg text-sm font-medium border border-slate-700/50">
+        <div className="flex items-center gap-2 md:gap-4">
+          <div className="hidden sm:flex items-center gap-2 bg-slate-800/50 px-3 py-1.5 rounded-lg text-sm font-medium border border-slate-700/50">
             <ShieldAlert className="w-4 h-4 text-emerald-400" />
             <span className="text-emerald-400">End-to-End Encrypted</span>
           </div>
+          <button 
+            onClick={() => setSidebarOpen(!sidebarOpen)}
+            className={`p-2 rounded-lg transition-colors flex items-center gap-2 ${sidebarOpen ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white border border-slate-700'}`}
+          >
+            <MessageSquare className="w-5 h-5" />
+            <span className="hidden md:inline text-sm font-medium">{sidebarOpen ? 'Close Panel' : 'Chat & Polls'}</span>
+          </button>
         </div>
       </header>
 
