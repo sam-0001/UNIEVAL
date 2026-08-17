@@ -107,10 +107,35 @@ const LiveClassRoomContent: React.FC<{ callObject: DailyCall, classId?: string }
   const [screenSharerSessionId, setScreenSharerSessionId] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [showControls, setShowControls] = useState(true);
+  const controlsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
   const { user } = useAuth();
   const navigate = useNavigate();
   const socketRef = useRef<Socket | null>(null);
   const fullscreenContainerRef = useRef<HTMLDivElement>(null);
+
+  const handleUserActivity = useCallback(() => {
+    setShowControls(true);
+    if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
+    if (isFullscreen) {
+      controlsTimeoutRef.current = setTimeout(() => {
+        setShowControls(false);
+      }, 3000);
+    }
+  }, [isFullscreen]);
+
+  useEffect(() => {
+    if (isFullscreen) {
+      handleUserActivity();
+    } else {
+      setShowControls(true);
+      if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
+    }
+    return () => {
+      if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
+    };
+  }, [isFullscreen, handleUserActivity]);
 
   // Sync state with native browser fullscreen changes (e.g. when user presses ESC)
   useEffect(() => {
@@ -398,10 +423,13 @@ const LiveClassRoomContent: React.FC<{ callObject: DailyCall, classId?: string }
             <div 
               ref={fullscreenContainerRef}
               className={`w-full flex-1 bg-slate-900 shadow-2xl overflow-hidden relative flex items-center justify-center transition-all min-h-0 ${isFullscreen ? 'rounded-none border-none' : 'rounded-2xl border border-slate-800'}`}
+              onMouseMove={handleUserActivity}
+              onClick={handleUserActivity}
+              onTouchStart={handleUserActivity}
             >
               <button
                 onClick={toggleFullscreen}
-                className="absolute top-4 right-4 z-50 p-2 bg-black/50 hover:bg-black/70 rounded-lg text-white transition-all backdrop-blur-sm group"
+                className={`absolute top-4 right-4 z-50 p-2 bg-black/50 hover:bg-black/70 rounded-lg text-white transition-opacity duration-300 backdrop-blur-sm group ${showControls ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
                 title={isFullscreen ? "Exit Fullscreen" : "Fullscreen"}
               >
                 {isFullscreen ? <Minimize className="w-5 h-5" /> : <Maximize className="w-5 h-5" />}
@@ -428,6 +456,16 @@ const LiveClassRoomContent: React.FC<{ callObject: DailyCall, classId?: string }
                   <div className="absolute bottom-1 left-1 bg-black/60 backdrop-blur-sm px-2 py-0.5 rounded text-[10px] font-medium truncate max-w-[90%] text-white">
                     {teacherId === localParticipant?.session_id ? 'You' : <ParticipantName id={teacherId} />}
                   </div>
+                </div>
+              )}
+
+              {/* Fullscreen Overlay Controls */}
+              {isFullscreen && (
+                <div 
+                  className={`absolute bottom-0 left-0 right-0 z-[200] transition-opacity duration-300 ${showControls ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <TeacherControls onEndClass={handleEndClass} isTeacher={isTeacher} onRaiseHand={toggleRaiseHand} isHandRaised={localParticipant ? raisedHands.includes(localParticipant.session_id) : false} />
                 </div>
               )}
             </div>
@@ -458,7 +496,9 @@ const LiveClassRoomContent: React.FC<{ callObject: DailyCall, classId?: string }
             </div>
           )}
 
-          <TeacherControls onEndClass={handleEndClass} isTeacher={isTeacher} onRaiseHand={toggleRaiseHand} isHandRaised={localParticipant ? raisedHands.includes(localParticipant.session_id) : false} />
+          {!isFullscreen && (
+            <TeacherControls onEndClass={handleEndClass} isTeacher={isTeacher} onRaiseHand={toggleRaiseHand} isHandRaised={localParticipant ? raisedHands.includes(localParticipant.session_id) : false} />
+          )}
         </main>
 
         <aside className={`absolute top-0 right-0 h-full w-full md:w-96 bg-slate-900 border-l border-slate-800 flex flex-col transition-transform duration-300 z-20 shadow-2xl ${sidebarOpen ? 'translate-x-0' : 'translate-x-full'}`}>
