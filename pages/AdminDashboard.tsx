@@ -935,7 +935,7 @@ const AdminDashboard: React.FC = () => {
           isOpen={showLiveModal} onClose={() => setShowLiveModal(false)}
           liveClasses={liveClasses} title={liveTitle} setTitle={setLiveTitle}
           scheduledAt={liveScheduledAt} setScheduledAt={setLiveScheduledAt}
-          onSchedule={handleScheduleLive} navigate={navigate}
+          onSchedule={handleScheduleLive} navigate={navigate} onDelete={handleDeleteLiveClass}
       />
     </div>
   );
@@ -1792,7 +1792,8 @@ const LiveModal: React.FC<{
     liveClasses: any[]; title: string; setTitle: (v: string) => void;
     scheduledAt: string; setScheduledAt: (v: string) => void;
     onSchedule: () => void; navigate: (path: string) => void;
-}> = ({ isOpen, onClose, liveClasses, title, setTitle, scheduledAt, setScheduledAt, onSchedule, navigate }) => {
+    onDelete: (id: string) => void;
+}> = ({ isOpen, onClose, liveClasses, title, setTitle, scheduledAt, setScheduledAt, onSchedule, navigate, onDelete }) => {
     if (!isOpen) return null;
     return (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
@@ -1827,7 +1828,7 @@ const LiveModal: React.FC<{
                                             <button onClick={() => navigate(`/live-class/${lc.id}`)} className="bg-indigo-600 text-white text-xs font-bold px-3 py-1.5 rounded hover:bg-indigo-700 transition">
                                                 Start Class
                                             </button>
-                                            <button onClick={() => handleDeleteLiveClass(lc.id)} className="bg-red-50 text-red-600 hover:bg-red-100 border border-red-200 text-xs font-bold px-2 py-1.5 rounded transition" title="Cancel Class">
+                                            <button onClick={() => onDelete(lc.id)} className="bg-red-50 text-red-600 hover:bg-red-100 border border-red-200 text-xs font-bold px-2 py-1.5 rounded transition" title="Cancel Class">
                                                 <Trash2 className="w-3.5 h-3.5" />
                                             </button>
                                         </div>
