@@ -382,8 +382,8 @@ const LiveClassRoomContent: React.FC<{ callObject: DailyCall, classId?: string }
       </header>
 
       <div className="flex-1 flex overflow-hidden relative">
-        <main className={`flex-1 flex flex-col relative transition-all duration-300 ${sidebarOpen ? 'mr-96' : ''}`}>
-          <div className="flex-1 p-4 flex flex-col min-h-0">
+        <main className={`flex-1 flex flex-col relative transition-all duration-300 ${sidebarOpen ? 'md:mr-96' : ''}`}>
+          <div className="flex-1 p-2 md:p-4 flex flex-col min-h-0">
             <div 
               ref={fullscreenContainerRef}
               className={`w-full flex-1 bg-slate-900 shadow-2xl overflow-hidden relative flex items-center justify-center transition-all min-h-0 ${isFullscreen ? 'rounded-none border-none' : 'rounded-2xl border border-slate-800'}`}
@@ -410,7 +410,7 @@ const LiveClassRoomContent: React.FC<{ callObject: DailyCall, classId?: string }
               
               {/* PiP: show teacher cam when screen sharing is active */}
               {screenSharerSessionId && teacherId && !isFullscreen && (
-                <div className="absolute bottom-4 right-4 w-48 aspect-video bg-slate-800 rounded-xl border-2 border-slate-700 shadow-2xl overflow-hidden z-10">
+                <div className="absolute bottom-4 right-4 w-32 md:w-48 aspect-video bg-slate-800 rounded-xl border-2 border-slate-700 shadow-2xl overflow-hidden z-10">
                   <div className="absolute inset-0">
                     <ParticipantVideo id={teacherId} isLocal={teacherId === localParticipant?.session_id} />
                   </div>
@@ -424,7 +424,7 @@ const LiveClassRoomContent: React.FC<{ callObject: DailyCall, classId?: string }
           
           {/* Horizontal Student Strip for Teacher */}
           {isTeacher && !isFullscreen && (
-            <div className="w-full h-32 px-4 pb-4 shrink-0 flex gap-4 overflow-x-auto snap-x scrollbar-hide">
+            <div className="w-full h-24 md:h-32 px-2 md:px-4 pb-2 md:pb-4 shrink-0 flex gap-2 md:gap-4 overflow-x-auto snap-x scrollbar-hide">
               {remoteParticipantIds.map((id) => (
                 <div key={id} className="h-full aspect-video bg-slate-900 rounded-xl border border-slate-800 shadow-lg overflow-hidden shrink-0 relative snap-start group hover:border-blue-500/50 transition-colors">
                   <ParticipantVideo id={id} />
@@ -440,7 +440,7 @@ const LiveClassRoomContent: React.FC<{ callObject: DailyCall, classId?: string }
                 </div>
               ))}
               {remoteParticipantIds.length === 0 && (
-                <div className="h-full flex-1 flex items-center justify-center text-sm text-slate-500 border border-dashed border-slate-700/50 rounded-xl">
+                <div className="h-full flex-1 flex items-center justify-center text-xs md:text-sm text-slate-500 border border-dashed border-slate-700/50 rounded-xl">
                   Waiting for students to join...
                 </div>
               )}
@@ -450,7 +450,7 @@ const LiveClassRoomContent: React.FC<{ callObject: DailyCall, classId?: string }
           <TeacherControls onEndClass={handleEndClass} isTeacher={isTeacher} onRaiseHand={toggleRaiseHand} isHandRaised={localParticipant ? raisedHands.includes(localParticipant.session_id) : false} />
         </main>
 
-        <aside className={`absolute top-0 right-0 h-full w-96 bg-slate-900 border-l border-slate-800 flex flex-col transition-transform duration-300 z-20 shadow-2xl ${sidebarOpen ? 'translate-x-0' : 'translate-x-full'}`}>
+        <aside className={`absolute top-0 right-0 h-full w-full md:w-96 bg-slate-900 border-l border-slate-800 flex flex-col transition-transform duration-300 z-20 shadow-2xl ${sidebarOpen ? 'translate-x-0' : 'translate-x-full'}`}>
           <div className="flex border-b border-slate-800 p-2 gap-1 bg-slate-900/50">
             <button onClick={() => setActiveTab('chat')} className={`flex-1 py-2 text-xs font-medium rounded-lg flex items-center justify-center gap-1.5 transition-all ${activeTab === 'chat' ? 'bg-slate-800 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'}`}>
               <MessageSquare className="w-4 h-4" /> Chat
