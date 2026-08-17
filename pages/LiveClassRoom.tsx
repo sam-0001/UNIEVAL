@@ -140,7 +140,19 @@ const LiveClassRoomContent: React.FC<{ callObject: DailyCall, classId?: string }
   // Sync state with native browser fullscreen changes (e.g. when user presses ESC)
   useEffect(() => {
     const handleFullscreenChange = () => {
-      setIsFullscreen(!!document.fullscreenElement);
+      const isFull = !!document.fullscreenElement;
+      setIsFullscreen(isFull);
+      
+      // Auto-rotate to landscape on mobile devices
+      try {
+        if (isFull && window.screen?.orientation?.lock) {
+          window.screen.orientation.lock('landscape').catch(() => {});
+        } else if (!isFull && window.screen?.orientation?.unlock) {
+          window.screen.orientation.unlock();
+        }
+      } catch (e) {
+        // Ignore errors if API is unsupported or blocked
+      }
     };
     document.addEventListener('fullscreenchange', handleFullscreenChange);
     return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
@@ -424,15 +436,17 @@ const LiveClassRoomContent: React.FC<{ callObject: DailyCall, classId?: string }
         </div>
       </header>
 
-      <div className="flex-1 flex overflow-hidden relative">
-        <main className={`flex-1 flex flex-col relative transition-all duration-300 ${sidebarOpen ? 'md:mr-96' : ''}`}>
-          <div className="flex-1 p-2 md:p-4 flex flex-col min-h-0">
+      <div 
+        ref={fullscreenContainerRef}
+        className={`flex-1 flex overflow-hidden relative ${isFullscreen ? 'bg-[#0f1115]' : ''}`}
+        onMouseMove={handleUserActivity}
+        onClick={handleUserActivity}
+        onTouchStart={handleUserActivity}
+      >
+        <main className={`flex-1 flex flex-col relative transition-all duration-300 ${sidebarOpen && !isFullscreen ? 'md:mr-96' : ''}`}>
+          <div className={`flex-1 flex flex-col min-h-0 ${isFullscreen ? 'p-0' : 'p-2 md:p-4'}`}>
             <div 
-              ref={fullscreenContainerRef}
               className={`w-full flex-1 bg-slate-900 shadow-2xl overflow-hidden relative flex items-center justify-center transition-all min-h-0 ${isFullscreen ? 'rounded-none border-none' : 'rounded-2xl border border-slate-800'}`}
-              onMouseMove={handleUserActivity}
-              onClick={handleUserActivity}
-              onTouchStart={handleUserActivity}
             >
               <button
                 onClick={toggleFullscreen}
@@ -508,7 +522,7 @@ const LiveClassRoomContent: React.FC<{ callObject: DailyCall, classId?: string }
           )}
         </main>
 
-        <aside className={`absolute top-0 right-0 h-full w-full md:w-96 bg-slate-900 border-l border-slate-800 flex flex-col transition-transform duration-300 z-20 shadow-2xl ${sidebarOpen ? 'translate-x-0' : 'translate-x-full'}`}>
+        <aside className={`absolute top-0 right-0 h-full w-full md:w-96 bg-slate-900 border-l border-slate-800 flex flex-col transition-transform duration-300 z-[300] shadow-2xl ${sidebarOpen ? 'translate-x-0' : 'translate-x-full'}`}>
           <div className="flex border-b border-slate-800 p-2 gap-1 bg-slate-900/50">
             <button onClick={() => setActiveTab('chat')} className={`flex-1 py-2 text-xs font-medium rounded-lg flex items-center justify-center gap-1.5 transition-all ${activeTab === 'chat' ? 'bg-slate-800 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'}`}>
               <MessageSquare className="w-4 h-4" /> Chat
