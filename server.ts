@@ -16,6 +16,7 @@ import generateQuizRoutes from "./server/routes/generateQuiz.js";
 import payoutRoutes from "./server/routes/payout.js";
 import secureFileRoutes from "./server/routes/secureFile.js";
 import liveClassRoutes from "./server/routes/liveClass.js";
+import whatsappRoutes from './server/routes/whatsapp.js';
 import connectDB, { getDBStatus } from "./server/db.js";
 import { connectRedis, isRedisAvailable } from "./server/redis.js";
 import { startScheduler } from "./server/services/scheduler.service.js";
@@ -177,6 +178,7 @@ async function startServer() {
     app.use('/api', payoutRoutes);
     app.use('/api', secureFileRoutes);  // Secure PDF/file proxy — never exposes R2 URLs
     app.use('/api/live-classes', liveClassRoutes);
+    app.use('/api/whatsapp', whatsappRoutes);
 
     // ── Health check ──────────────────────────────────────────────────────────
     app.get('/api/health', async (_req, res) => {
