@@ -86,7 +86,7 @@ async function startServer() {
                 imgSrc:     ["'self'", "data:", "https:", "blob:"],
                 mediaSrc:   ["'self'", "https:", "blob:"],
                 connectSrc: ["'self'", "https://api.cashfree.com", "https://sandbox.cashfree.com", "https://*.r2.cloudflarestorage.com", "https://*.r2.dev", "https://*.daily.co", "wss://*.daily.co", "https://*.sentry.io"],
-                frameSrc:   ["'self'", "https://sandbox.cashfree.com", "https://payments.cashfree.com"],
+                frameSrc:   ["'self'", "https://sandbox.cashfree.com", "https://payments.cashfree.com", "https://sdk.cashfree.com", "https://api.cashfree.com"],
                 workerSrc:  ["'self'", "blob:"],
                 // NOTE: upgradeInsecureRequests is intentionally omitted — server runs plain HTTP
             },
