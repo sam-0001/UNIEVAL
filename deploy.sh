@@ -33,7 +33,7 @@ echo ""
 
 # ── 4. Restart PM2 ───────────────────────────────────────────
 echo "♻️  Restarting PM2 processes..."
-pm2 restart ecosystem.config.cjs --env production
+pm2 restart ecosystem.config.cjs --env production --update-env
 echo "✅ PM2 restarted"
 echo ""
 
