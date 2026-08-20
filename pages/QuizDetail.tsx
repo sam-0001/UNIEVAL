@@ -42,7 +42,7 @@ export const BuyCreditsModal: React.FC<{
         return;
       }
       const plan = PLANS.find(p => p.id === selected)!;
-      const cashfree = Cashfree({ mode: "sandbox" });
+      const cashfree = Cashfree({ mode: import.meta.env.PROD ? "production" : "sandbox" });
       cashfree.checkout({
         paymentSessionId: orderData.paymentSessionId,
         redirectTarget: "_modal"

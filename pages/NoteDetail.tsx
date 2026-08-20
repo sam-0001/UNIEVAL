@@ -158,7 +158,7 @@ const NoteDetail: React.FC = () => {
         return;
       }
       setPaymentLoading(false);
-      const cashfree = window.Cashfree({ mode: "sandbox" });
+      const cashfree = window.Cashfree({ mode: import.meta.env.PROD ? "production" : "sandbox" });
       cashfree.checkout({
         paymentSessionId: orderData.paymentSessionId,
         redirectTarget: "_modal"

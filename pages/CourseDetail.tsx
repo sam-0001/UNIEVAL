@@ -141,7 +141,7 @@ const CourseDetail: React.FC = () => {
           return;
         }
 
-        const cashfree = window.Cashfree({ mode: "sandbox" }); // or production based on your need
+        const cashfree = window.Cashfree({ mode: import.meta.env.PROD ? "production" : "sandbox" }); // or production based on your need
         cashfree.checkout({
           paymentSessionId: orderData.paymentSessionId,
           redirectTarget: "_modal"
