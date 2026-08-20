@@ -8,6 +8,8 @@ import path from "path";
 import { fileURLToPath } from "url";
 import rateLimit from "express-rate-limit";
 import apiRoutes from "./server/routes/api.js";
+import webhookRoutes from './server/routes/webhook.js';
+
 import uploadRoutes from "./server/routes/upload.js";
 import examIntelligenceRoutes from "./server/routes/examIntelligence.js";
 import beToolkitRoutes from "./server/routes/beToolkit.js";
@@ -176,6 +178,8 @@ async function startServer() {
     app.use('/api', beToolkitSearchRoutes);
     app.use('/api', generateQuizRoutes);
     app.use('/api', payoutRoutes);
+    app.use('/api/webhooks', webhookRoutes);
+
     app.use('/api', secureFileRoutes);  // Secure PDF/file proxy — never exposes R2 URLs
     app.use('/api/live-classes', liveClassRoutes);
     app.use('/api/whatsapp', whatsappRoutes);
