@@ -131,10 +131,10 @@ export async function createSubject(req: express.Request, res: express.Response)
 
 // ─── Note Purchases ───────────────────────────────────────────────────────────
 
-function getRazorpayKeys(): { keyId: string | undefined; keySecret: string | undefined } {
+function getCashfreeKeys(): { appId: string | undefined; secretKey: string | undefined } {
     return {
-        keyId: process.env.RAZORPAY_KEY_ID,
-        keySecret: process.env.RAZORPAY_KEY_SECRET,
+        appId: process.env.CASHFREE_APP_ID,
+        secretKey: process.env.CASHFREE_SECRET_KEY,
     };
 }
 
@@ -143,24 +143,46 @@ function assertString(val: string | undefined, name: string): string {
     return val;
 }
 
-async function createRazorpayOrder(amount: number, receipt: string, notes: Record<string, string>, keyId: string, keySecret: string) {
-    const auth = Buffer.from(`${keyId}:${keySecret}`).toString('base64');
-    const orderRes = await fetch('https://api.razorpay.com/v1/orders', {
+async function createCashfreeOrder(amount: number, receipt: string, notes: Record<string, string>, appId: string, secretKey: string) {
+    const url = process.env.NODE_ENV === 'production' ? 'https://api.cashfree.com/pg/orders' : 'https://sandbox.cashfree.com/pg/orders';
+    const orderRes = await fetch(url, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Basic ${auth}` },
-        body: JSON.stringify({ amount, currency: 'INR', receipt, notes })
+        headers: {
+            'Content-Type': 'application/json',
+            'x-client-id': appId,
+            'x-client-secret': secretKey,
+            'x-api-version': '2023-08-01'
+        },
+        body: JSON.stringify({
+            order_amount: amount / 100, // Cashfree expects amount in INR
+            order_currency: 'INR',
+            order_id: receipt,
+            customer_details: {
+                customer_id: notes.userId || 'user_123',
+                customer_phone: '9999999999',
+            },
+            order_meta: {
+                return_url: `https://unieval.in/payment-callback?order_id={order_id}`
+            },
+            order_tags: notes
+        })
     });
     const order = await orderRes.json() as any;
-    if (!orderRes.ok) throw new Error(order.error?.description || 'Failed to create order');
+    if (!orderRes.ok) throw new Error(order.message || 'Failed to create order');
     return order;
 }
 
-async function verifyRazorpaySignature(orderId: string, paymentId: string, signature: string, keySecret: string): Promise<boolean> {
-    const crypto = await import('crypto');
-    const expected = crypto.createHmac('sha256', keySecret)
-        .update(`${orderId}|${paymentId}`)
-        .digest('hex');
-    return expected === signature;
+async function verifyCashfreePayment(orderId: string, appId: string, secretKey: string): Promise<boolean> {
+    const url = process.env.NODE_ENV === 'production' ? 'https://api.cashfree.com/pg/orders' : 'https://sandbox.cashfree.com/pg/orders';
+    const res = await fetch(`${url}/${orderId}`, {
+        headers: {
+            'x-client-id': appId,
+            'x-client-secret': secretKey,
+            'x-api-version': '2023-08-01'
+        }
+    });
+    const data = await res.json();
+    return data.order_status === 'PAID';
 }
 
 async function resolveNoteCoupon(noteId: string, couponId?: string): Promise<{
@@ -198,8 +220,8 @@ export async function createNoteOrder(req: express.Request, res: express.Respons
         if (!note) { res.status(404).json({ error: 'Note not found' }); return; }
         const couponPricing = await resolveNoteCoupon(noteId, couponId);
 
-        const { keyId, keySecret } = getRazorpayKeys();
-        if (!keyId || !keySecret || couponPricing.discountedPrice <= 0) {
+        const { appId, secretKey } = getCashfreeKeys();
+        if (!appId || !secretKey || couponPricing.discountedPrice <= 0) {
             // Dev mode, or a 100% coupon: grant access directly after server-side validation.
             const session = await mongoose.startSession();
             session.startTransaction();
@@ -225,17 +247,18 @@ export async function createNoteOrder(req: express.Request, res: express.Respons
             return;
         }
 
-        const order = await createRazorpayOrder(
+        const order = await createCashfreeOrder(
             Math.round(couponPricing.discountedPrice * 100),
             `note_${noteId.slice(0, 8)}_${Date.now().toString().slice(-10)}`,
             { noteId, userId, couponId: couponPricing.couponId || '', discountAmount: String(couponPricing.discountAmount) },
-            keyId!, keySecret!
+            appId!, secretKey!
         );
         res.json({
-            orderId: order.id,
-            amount: order.amount,
-            currency: order.currency,
-            keyId: keyId!,
+            orderId: order.order_id,
+            paymentSessionId: order.payment_session_id,
+            amount: order.order_amount,
+            currency: order.order_currency,
+            appId: appId!,
             couponId: couponPricing.couponId,
             discountAmount: couponPricing.discountAmount,
         });
@@ -248,16 +271,15 @@ export async function createNoteOrder(req: express.Request, res: express.Respons
 export async function verifyNotePurchase(req: express.Request, res: express.Response): Promise<void> {
     const noteId = req.params.id as string;
     const userId = (req as any).currentUser.id as string;
-    const razorpay_order_id = req.body.razorpay_order_id as string;
-    const razorpay_payment_id = req.body.razorpay_payment_id as string;
-    const razorpay_signature = req.body.razorpay_signature as string;
+    const cashfree_order_id = req.body.cashfree_order_id as string;
+    const cashfree_payment_session_id = req.body.cashfree_payment_session_id as string;
     const couponId = req.body.couponId as string | undefined;
 
-    const { keySecret } = getRazorpayKeys();
-    if (!keySecret) { res.status(500).json({ error: 'Payment not configured' }); return; }
+    const { appId, secretKey } = getCashfreeKeys();
+    if (!appId || !secretKey) { res.status(500).json({ error: 'Payment not configured' }); return; }
 
     try {
-        const isValid = await verifyRazorpaySignature(razorpay_order_id, razorpay_payment_id, razorpay_signature, keySecret!);
+        const isValid = await verifyCashfreePayment(cashfree_order_id, appId!, secretKey!);
         if (!isValid) { res.status(400).json({ error: 'Invalid payment signature — possible fraud attempt' }); return; }
 
         const session = await mongoose.startSession();
@@ -280,8 +302,8 @@ export async function verifyNotePurchase(req: express.Request, res: express.Resp
                     amountPaid: couponPricing.discountedPrice,
                     couponId: couponPricing.couponId,
                     discountAmount: couponPricing.discountAmount,
-                    razorpayOrderId: razorpay_order_id,
-                    razorpayPaymentId: razorpay_payment_id,
+                    cashfreeOrderId: cashfree_order_id,
+                    cashfreePaymentId: cashfree_payment_session_id,
                 }], { session });
                 if (couponPricing.couponId) await incrementCouponUsage(couponPricing.couponId);
             }
@@ -361,8 +383,8 @@ export async function createCourseOrder(req: express.Request, res: express.Respo
         if (!course) { res.status(404).json({ error: 'Course not found' }); return; }
         const couponPricing = await resolveCourseCoupon(courseId, couponId);
 
-        const { keyId, keySecret } = getRazorpayKeys();
-        if (!keyId || !keySecret || couponPricing.discountedPrice <= 0) {
+        const { appId, secretKey } = getCashfreeKeys();
+        if (!appId || !secretKey || couponPricing.discountedPrice <= 0) {
             // Dev mode, or a 100% coupon: grant access directly.
             const session = await mongoose.startSession();
             session.startTransaction();
@@ -388,17 +410,18 @@ export async function createCourseOrder(req: express.Request, res: express.Respo
             return;
         }
 
-        const order = await createRazorpayOrder(
+        const order = await createCashfreeOrder(
             Math.round(couponPricing.discountedPrice * 100),
             `course_${courseId.slice(0, 8)}_${Date.now().toString().slice(-10)}`,
             { courseId, userId, couponId: couponPricing.couponId || '', discountAmount: String(couponPricing.discountAmount) },
-            keyId!, keySecret!
+            appId!, secretKey!
         );
         res.json({
-            orderId: order.id,
-            amount: order.amount,
-            currency: order.currency,
-            keyId: keyId!,
+            orderId: order.order_id,
+            paymentSessionId: order.payment_session_id,
+            amount: order.order_amount,
+            currency: order.order_currency,
+            appId: appId!,
             couponId: couponPricing.couponId,
             discountAmount: couponPricing.discountAmount,
         });
@@ -411,16 +434,15 @@ export async function createCourseOrder(req: express.Request, res: express.Respo
 export async function verifyCoursePayment(req: express.Request, res: express.Response): Promise<void> {
     const courseId = req.params.id as string;
     const userId = (req as any).currentUser.id as string;
-    const razorpay_order_id = req.body.razorpay_order_id as string;
-    const razorpay_payment_id = req.body.razorpay_payment_id as string;
-    const razorpay_signature = req.body.razorpay_signature as string;
+    const cashfree_order_id = req.body.cashfree_order_id as string;
+    const cashfree_payment_session_id = req.body.cashfree_payment_session_id as string;
     const couponId = req.body.couponId as string | undefined;
 
-    const { keySecret } = getRazorpayKeys();
-    if (!keySecret) { res.status(500).json({ error: 'Payment not configured' }); return; }
+    const { appId, secretKey } = getCashfreeKeys();
+    if (!appId || !secretKey) { res.status(500).json({ error: 'Payment not configured' }); return; }
 
     try {
-        const isValid = await verifyRazorpaySignature(razorpay_order_id, razorpay_payment_id, razorpay_signature, keySecret!);
+        const isValid = await verifyCashfreePayment(cashfree_order_id, appId!, secretKey!);
         if (!isValid) { res.status(400).json({ error: 'Invalid payment signature — possible fraud attempt' }); return; }
 
         const session = await mongoose.startSession();
@@ -443,8 +465,8 @@ export async function verifyCoursePayment(req: express.Request, res: express.Res
                     amountPaid: couponPricing.discountedPrice,
                     couponId: couponPricing.couponId,
                     discountAmount: couponPricing.discountAmount,
-                    razorpayOrderId: razorpay_order_id,
-                    razorpayPaymentId: razorpay_payment_id,
+                    cashfreeOrderId: cashfree_order_id,
+                    cashfreePaymentId: cashfree_payment_session_id,
                 }], { session });
                 if (couponPricing.couponId) await incrementCouponUsage(couponPricing.couponId);
             }
@@ -561,10 +583,10 @@ export async function createCreditOrder(req: express.Request, res: express.Respo
         const selected = CREDIT_PLANS[plan];
         if (!selected) { res.status(400).json({ error: 'Invalid plan' }); return; }
 
-        const { keyId, keySecret } = getRazorpayKeys();
+        const { appId, secretKey } = getCashfreeKeys();
         const userId = (req as any).currentUser.id;
 
-        if (!keyId || !keySecret) {
+        if (!appId || !secretKey) {
             // Dev mode
             if (selected.unlimited) {
                 const expiresAt = new Date(Date.now() + selected.hours! * 3600000);
@@ -577,11 +599,11 @@ export async function createCreditOrder(req: express.Request, res: express.Respo
             return;
         }
 
-        const order = await createRazorpayOrder(
+        const order = await createCashfreeOrder(
             selected.price,
             `credit_${plan}_${Date.now().toString().slice(-10)}`,
             { plan, userId },
-            keyId!, keySecret!
+            appId!, secretKey!
         );
         res.json({ orderId: order.id, amount: order.amount, currency: order.currency, keyId });
     } catch (err) {
@@ -592,14 +614,13 @@ export async function createCreditOrder(req: express.Request, res: express.Respo
 
 export async function verifyCreditPayment(req: express.Request, res: express.Response): Promise<void> {
     try {
-        const razorpay_order_id = req.body.razorpay_order_id as string;
-    const razorpay_payment_id = req.body.razorpay_payment_id as string;
-    const razorpay_signature = req.body.razorpay_signature as string;
+    const cashfree_order_id = req.body.cashfree_order_id as string;
+    const cashfree_payment_session_id = req.body.cashfree_payment_session_id as string;
     const plan = req.body.plan as string;
-        const { keySecret } = getRazorpayKeys();
-        if (!keySecret) { res.status(500).json({ error: 'Payment not configured' }); return; }
+        const { appId, secretKey } = getCashfreeKeys();
+        if (!appId || !secretKey) { res.status(500).json({ error: 'Payment not configured' }); return; }
 
-        const isValid = await verifyRazorpaySignature(razorpay_order_id, razorpay_payment_id, razorpay_signature, keySecret!);
+        const isValid = await verifyCashfreePayment(cashfree_order_id, appId!, secretKey!);
         if (!isValid) { res.status(400).json({ error: 'Invalid payment signature' }); return; }
 
         const userId = (req as any).currentUser.id;

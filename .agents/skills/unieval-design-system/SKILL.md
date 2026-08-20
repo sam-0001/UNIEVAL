@@ -24,7 +24,7 @@ This document defines the strict visual and architectural standards for the UniE
 | `Canvas Sub` | `#F8FAFC` | Subtle offset for sidebars (`AdminDashboard`, `BEToolkit`) and cards. |
 | `Text Primary` | `#1F2937` | Body text (`Slate-800`). Never use pure `#000000`. |
 | `Text Muted` | `#6B7280` | Helper text, timestamps, table headers. |
-| `Success` | `#10B981` | Completed courses, Razorpay success, `.edu` verified badges. |
+| `Success` | `#10B981` | Completed courses, Cashfree success, `.edu` verified badges. |
 | `Warning` | `#FBBF24` | Review states, pending BullMQ processes. |
 | `Destructive` | `#EF4444` | Deletion tasks, failed payments. |
 
@@ -62,9 +62,9 @@ The following component rules must be adhered to when building out the specific 
 *   **Note Package Builder:** Use a drag-and-drop sortable list for modules. Fields should be clearly separated (Title, Description, Pricing, Attachments). 
 
 ### 4.3 Security & Monetization
-*   **Razorpay Paywall:**
+*   **Cashfree Paywall:**
     *   Overlay the premium content with a beautiful glassmorphism blur (`backdrop-blur-sm bg-white/50`).
-    *   Center a pricing card. The CTA button to trigger Razorpay must use the `$gradient-main`.
+    *   Center a pricing card. The CTA button to trigger Cashfree must use the `$gradient-main`.
 *   **`.edu` Domain Free Access Badge:**
     *   If a student is verified via college email, display a prominent badge: `bg-emerald-100 text-emerald-800 border border-emerald-200`. Include the Lucide `BadgeCheck` icon.
 *   **RBAC (Role-Based Access Control):** Ensure `STUDENT`, `TEACHER`, and `SUPER_ADMIN` views are visibly distinct. Admin toolbars should be dark (`$brand-navy`) to contrast with the standard app canvas.

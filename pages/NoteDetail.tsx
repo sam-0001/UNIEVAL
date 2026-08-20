@@ -8,7 +8,7 @@ import SecureHtmlViewer from '../components/SecureHtmlViewer';
 
 declare global {
   interface Window {
-    Razorpay: new (options: Record<string, unknown>) => { open: () => void };
+    Cashfree: (options: { mode: string }) => { checkout: (options: any) => Promise<any> };
   }
 }
 
@@ -158,32 +158,25 @@ const NoteDetail: React.FC = () => {
         return;
       }
       setPaymentLoading(false);
-      const rzp = new window.Razorpay({
-        key: orderData.keyId,
-        amount: orderData.amount,
-        currency: orderData.currency || 'INR',
-        name: 'UNIEVAL',
-        description: `Unlock: ${note.title}`,
-        image: `${window.location.origin}/img/logo.jpeg`,
-        order_id: orderData.orderId,
-        prefill: { name: currentUser.name, email: currentUser.email },
-        theme: { color: '#4f46e5' },
-        handler: async function (response: { razorpay_payment_id: string; razorpay_order_id: string; razorpay_signature: string }) {
-          try {
-            const result = await api.verifyNotePurchase(note.id, {
-              razorpay_order_id: response.razorpay_order_id,
-              razorpay_payment_id: response.razorpay_payment_id,
-              razorpay_signature: response.razorpay_signature,
+      const cashfree = window.Cashfree({ mode: "sandbox" });
+      cashfree.checkout({
+        paymentSessionId: orderData.paymentSessionId,
+        redirectTarget: "_modal"
+      }).then((result: any) => {
+        if(result.error) {
+           setPaymentError(result.error.message || 'Payment failed');
+        } else {
+           api.verifyNotePurchase(note.id, {
+              cashfree_order_id: orderData.orderId,
+              cashfree_payment_session_id: orderData.paymentSessionId,
               couponId: appliedCoupon?.couponId,
-            });
-            updateUser(result.user);
-          } catch (e: any) {
-            setPaymentError('Payment received but verification failed. Contact support with your payment ID: ' + response.razorpay_payment_id);
-          }
-        },
-        modal: { ondismiss: () => { setPaymentLoading(false); } }
+           }).then((res: any) => {
+              if (res.success) updateUser(res.user);
+           }).catch((e: any) => {
+              setPaymentError('Payment received but verification failed. Contact support with your payment ID: ' + orderData.orderId);
+           });
+        }
       });
-      rzp.open();
     } catch (e: any) {
       setPaymentError(e.message || 'Payment initialization failed. Please try again.');
       setPaymentLoading(false);

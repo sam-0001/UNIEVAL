@@ -11,7 +11,7 @@ This file serves as the permanent memory and architectural guide for the UniEval
 - **Database**: MongoDB (Mongoose) hosted on MongoDB Atlas.
 - **Storage & CDN**: Cloudflare R2 (Zero egress fee storage for Videos, PDFs, and Thumbnails).
 - **Video Processing**: FFmpeg (for generating Adaptive Bitrate HLS streams).
-- **Payments**: Razorpay.
+- **Payments**: Cashfree.
 
 ## 3. Core Features
 - **Authentication & Roles**: JWT-based authentication. Users are either students or admins. The Super Admin is defined by a strict email check in the environment variables.
@@ -21,7 +21,7 @@ This file serves as the permanent memory and architectural guide for the UniEval
   - Adaptive Bitrate Streaming (ABS) supports 360p, 480p, 720p, and optionally 1080p depending on `.env` configuration (`MAX_VIDEO_RESOLUTION`).
   - **Security**: AES-128 encryption is applied during FFmpeg processing. The decryption keys are stored securely in MongoDB and served exclusively through authenticated backend routes.
 - **Study Materials**: PDF Note Packages, Quizzes, and Viva assessments.
-- **Monetization**: Razorpay integration. Course purchases are granted a strict 6-month validity period, managed by an automated background scheduler (`node-cron`).
+- **Monetization**: Cashfree integration. Course purchases are granted a strict 6-month validity period, managed by an automated background scheduler (`node-cron`).
 - **Exam Intelligence**: Automated analysis of past papers and syllabus topics.
 
 ## 4. Architectural Decisions & Workflows

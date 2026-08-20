@@ -5,10 +5,10 @@ import { Course, CourseModule, CourseVideo, User } from '../types';
 import { useAuth } from '../context/AuthContext';
 import CustomVideoPlayer from '../components/CustomVideoPlayer';
 
-// Extend window object to support Razorpay
+// Extend window object to support Cashfree
 declare global {
   interface Window {
-    Razorpay: new (options: Record<string, unknown>) => { open: () => void };
+    Cashfree: (options: { mode: string }) => { checkout: (options: any) => Promise<any> };
   }
 }
 
@@ -141,32 +141,25 @@ const CourseDetail: React.FC = () => {
           return;
         }
 
-        const options = {
-          key: orderData.keyId,
-          amount: orderData.amount,
-          currency: orderData.currency || 'INR',
-          name: 'UNIEVAL',
-          description: `Unlock ${course.title}`,
-          image: 'https://cdn-icons-png.flaticon.com/512/337/337946.png',
-          order_id: orderData.orderId,
-          handler: async (response: { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string }) => {
-            try {
-              const result = await api.verifyCoursePayment(course.id, {
-                razorpay_order_id: response.razorpay_order_id,
-                razorpay_payment_id: response.razorpay_payment_id,
-                razorpay_signature: response.razorpay_signature,
+        const cashfree = window.Cashfree({ mode: "sandbox" }); // or production based on your need
+        cashfree.checkout({
+          paymentSessionId: orderData.paymentSessionId,
+          redirectTarget: "_modal"
+        }).then((result: any) => {
+          if(result.error) {
+             setPaymentError(result.error.message || 'Payment failed');
+          } else {
+             api.verifyCoursePayment(course.id, {
+                cashfree_order_id: orderData.orderId,
+                cashfree_payment_session_id: orderData.paymentSessionId,
                 couponId: appliedCoupon?.couponId,
-              });
-              if (result.success) updateUser(result.user);
-            } catch (e: any) {
-              setPaymentError(e.message || 'Payment verification failed. Please contact support.');
-            }
-          },
-          prefill: { name: currentUser.name, email: currentUser.email, contact: '' },
-          theme: { color: '#4f46e5' },
-        };
-        const rzp = new window.Razorpay(options);
-        rzp.open();
+             }).then((res: any) => {
+                if (res.success) updateUser(res.user);
+             }).catch((e: any) => {
+                setPaymentError(e.message || 'Payment verification failed. Please contact support.');
+             });
+          }
+        });
       })
       .catch(e => setPaymentError(e.message || 'Could not initiate payment.'));
   };

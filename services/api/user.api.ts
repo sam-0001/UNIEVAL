@@ -41,12 +41,12 @@ export const creditsApi = {
         ),
 
     createOrder: (plan: string) =>
-        fetchJson<{ orderId?: string; amount?: number; currency?: string; keyId?: string; devMode?: boolean; ok?: boolean; credits?: number }>(
+        fetchJson<{ orderId?: string; amount?: number; currency?: string; appId?: string; devMode?: boolean; ok?: boolean; credits?: number }>(
             '/credits/create-order',
             { method: 'POST', headers: { 'Content-Type': 'application/json', ...authHeaders() }, body: JSON.stringify({ plan }) }
         ),
 
-    verifyPayment: (data: { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string; plan: string }) =>
+    verifyPayment: (data: { cashfree_order_id: string; cashfree_payment_session_id: string; plan: string }) =>
         fetchJson<{ ok: boolean; credits?: number; unlimitedPlan?: { active: boolean; expiresAt: string } }>(
             '/credits/verify-payment',
             { method: 'POST', headers: { 'Content-Type': 'application/json', ...authHeaders() }, body: JSON.stringify(data) }

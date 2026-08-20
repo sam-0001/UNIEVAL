@@ -24,7 +24,7 @@ async function calcTeacherStats(teacherId: string) {
     ]);
 
     // FIX: Sum actual amounts paid from Purchase ledger — never use current product price.
-    // This correctly handles: price changes, free products, and real Razorpay amounts.
+    // This correctly handles: price changes, free products, and real Cashfree amounts.
     const revenueAgg = await Purchase.aggregate([
         { $match: { teacherId } },
         { $group: { _id: null, total: { $sum: '$amountPaid' }, count: { $sum: 1 } } }

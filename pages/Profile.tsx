@@ -171,7 +171,7 @@ const Profile: React.FC = () => {
               ))}
             </div>
 
-            <p className="text-xs text-gray-400 text-center mt-3">Credits never expire · Secured via Razorpay</p>
+            <p className="text-xs text-gray-400 text-center mt-3">Credits never expire · Secured via Cashfree</p>
           </div>
         </div>
       )}

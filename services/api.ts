@@ -152,7 +152,7 @@ export const api = {
     return res.user;
   },
 
-  createNoteOrder: async (noteId: string, couponId?: string): Promise<{ orderId?: string; amount?: number; currency?: string; keyId?: string; devMode?: boolean; user?: User; couponId?: string | null; discountAmount?: number }> => {
+  createNoteOrder: async (noteId: string, couponId?: string): Promise<{ orderId?: string; amount?: number; currency?: string; appId?: string; devMode?: boolean; user?: User; couponId?: string | null; discountAmount?: number }> => {
     return fetchJson(`/notes/${noteId}/create-order`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...authHeaders() },
@@ -160,7 +160,7 @@ export const api = {
     });
   },
 
-  verifyNotePurchase: async (noteId: string, data: { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string; couponId?: string }): Promise<{ success: boolean; user: User }> => {
+  verifyNotePurchase: async (noteId: string, data: { cashfree_order_id: string; cashfree_payment_session_id: string; couponId?: string }): Promise<{ success: boolean; user: User }> => {
     return fetchJson(`/notes/${noteId}/verify-purchase`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...authHeaders() },
@@ -176,7 +176,7 @@ export const api = {
     });
   },
 
-  createCourseOrder: async (courseId: string, couponId?: string): Promise<{ orderId?: string; amount?: number; currency?: string; keyId?: string; devMode?: boolean; user?: User; couponId?: string | null; discountAmount?: number }> => {
+  createCourseOrder: async (courseId: string, couponId?: string): Promise<{ orderId?: string; amount?: number; currency?: string; appId?: string; devMode?: boolean; user?: User; couponId?: string | null; discountAmount?: number }> => {
     return fetchJson(`/courses/${courseId}/create-order`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...authHeaders() },
@@ -184,7 +184,7 @@ export const api = {
     });
   },
 
-  verifyCoursePayment: async (courseId: string, data: { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string; couponId?: string }): Promise<{ success: boolean; user: User }> => {
+  verifyCoursePayment: async (courseId: string, data: { cashfree_order_id: string; cashfree_payment_session_id: string; couponId?: string }): Promise<{ success: boolean; user: User }> => {
     return fetchJson(`/courses/${courseId}/verify-payment`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...authHeaders() },
@@ -463,7 +463,7 @@ export const api = {
     });
   },
 
-  createCreditOrder: async (plan: string): Promise<{ orderId?: string; amount?: number; currency?: string; keyId?: string; devMode?: boolean; ok?: boolean; credits?: number }> => {
+  createCreditOrder: async (plan: string): Promise<{ orderId?: string; amount?: number; currency?: string; appId?: string; devMode?: boolean; ok?: boolean; credits?: number }> => {
     return fetchJson('/credits/create-order', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...authHeaders() },
@@ -471,7 +471,7 @@ export const api = {
     });
   },
 
-  verifyCreditPayment: async (data: { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string; plan: string }): Promise<{ ok: boolean; credits?: number; unlimitedPlan?: { active: boolean; expiresAt: string } }> => {
+  verifyCreditPayment: async (data: { cashfree_order_id: string; cashfree_payment_session_id: string; plan: string }): Promise<{ ok: boolean; credits?: number; unlimitedPlan?: { active: boolean; expiresAt: string } }> => {
     return fetchJson('/credits/verify-payment', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...authHeaders() },

@@ -37,7 +37,7 @@ function validateEnv() {
     const requiredKeys = [
         'JWT_SECRET', 'DATABASE_URL', 'R2_ACCOUNT_ID', 'R2_ACCESS_KEY_ID',
         'R2_SECRET_ACCESS_KEY', 'R2_BUCKET_NAME', 'R2_PUBLIC_URL', 
-        'RAZORPAY_KEY_ID', 'RAZORPAY_KEY_SECRET'
+        'CASHFREE_APP_ID', 'CASHFREE_SECRET_KEY'
     ];
     const missing = requiredKeys.filter(key => !process.env[key]);
     if (missing.length > 0) {
@@ -76,15 +76,15 @@ async function startServer() {
             directives: {
                 defaultSrc: ["'self'"],
                 scriptSrc:  ["'self'", "'unsafe-inline'", "'unsafe-eval'",
-                             "https://checkout.razorpay.com", "https://cdn.razorpay.com",
+                             "https://sdk.cashfree.com",
                              "https://cdnjs.cloudflare.com", "https://cdn.tailwindcss.com", "https://unpkg.com"],
                 styleSrc:   ["'self'", "'unsafe-inline'",
                              "https://fonts.googleapis.com", "https://cdn.tailwindcss.com"],
                 fontSrc:    ["'self'", "https://fonts.gstatic.com", "data:"],
                 imgSrc:     ["'self'", "data:", "https:", "blob:"],
                 mediaSrc:   ["'self'", "https:", "blob:"],
-                connectSrc: ["'self'", "https://api.razorpay.com", "https://lumberjack.razorpay.com", "https://*.r2.cloudflarestorage.com", "https://*.r2.dev", "https://*.daily.co", "wss://*.daily.co", "https://*.sentry.io"],
-                frameSrc:   ["'self'", "https://api.razorpay.com"],
+                connectSrc: ["'self'", "https://api.cashfree.com", "https://sandbox.cashfree.com", "https://*.r2.cloudflarestorage.com", "https://*.r2.dev", "https://*.daily.co", "wss://*.daily.co", "https://*.sentry.io"],
+                frameSrc:   ["'self'", "https://sandbox.cashfree.com", "https://payments.cashfree.com"],
                 workerSrc:  ["'self'", "blob:"],
                 // NOTE: upgradeInsecureRequests is intentionally omitted — server runs plain HTTP
             },

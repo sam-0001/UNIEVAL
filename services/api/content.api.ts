@@ -88,12 +88,12 @@ export const noteApi = {
     },
 
     createOrder: (noteId: string) =>
-        fetchJson<{ orderId?: string; amount?: number; currency?: string; keyId?: string; devMode?: boolean; user?: import('../../types').User }>(`/notes/${noteId}/create-order`, {
+        fetchJson<{ orderId?: string; amount?: number; currency?: string; appId?: string; devMode?: boolean; user?: import('../../types').User }>(`/notes/${noteId}/create-order`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', ...authHeaders() },
         }),
 
-    verifyPurchase: (noteId: string, data: { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string }) =>
+    verifyPurchase: (noteId: string, data: { cashfree_order_id: string; cashfree_payment_session_id: string;  }) =>
         fetchJson<{ success: boolean; user: import('../../types').User }>(`/notes/${noteId}/verify-purchase`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', ...authHeaders() },

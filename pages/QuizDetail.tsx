@@ -14,7 +14,7 @@ const PLANS = [
 ] as const;
 type PlanId = typeof PLANS[number]['id'];
 
-declare const Razorpay: any;
+declare const Cashfree: any;
 
 // ─── Shared Buy Credits Modal ─────────────────────────────────────────────────
 export const BuyCreditsModal: React.FC<{
@@ -42,43 +42,30 @@ export const BuyCreditsModal: React.FC<{
         return;
       }
       const plan = PLANS.find(p => p.id === selected)!;
-      const rzp = new Razorpay({
-        key: orderData.keyId,
-        amount: orderData.amount,
-        currency: orderData.currency || 'INR',
-        name: 'UNIEVAL',
-        description: `${plan.label} — Quiz Credits`,
-        image: `${window.location.origin}/img/logo.jpeg`,
-        order_id: orderData.orderId,
-        prefill: { name: userName || '', email: userEmail || '' },
-        theme: { color: '#4f46e5' },
-        handler: async (response: { razorpay_payment_id: string; razorpay_order_id: string; razorpay_signature: string }) => {
-          try {
-            await api.verifyCreditPayment({
-              razorpay_order_id: response.razorpay_order_id,
-              razorpay_payment_id: response.razorpay_payment_id,
-              razorpay_signature: response.razorpay_signature,
+      const cashfree = Cashfree({ mode: "sandbox" });
+      cashfree.checkout({
+        paymentSessionId: orderData.paymentSessionId,
+        redirectTarget: "_modal"
+      }).then((result: any) => {
+        if(result.error) {
+           setMsg(result.error.message || 'Payment failed');
+           setMsgType('error');
+        } else {
+           api.verifyCreditPayment({
+              cashfree_order_id: orderData.orderId,
+              cashfree_payment_session_id: orderData.paymentSessionId,
               plan: selected,
-            });
-            await refresh();
-            setMsg('✅ Payment successful! Credits added.');
-            setMsgType('success');
-            setTimeout(() => { onSuccess?.(); onClose(); }, 1400);
-          } catch {
-            setMsg('⚠️ Payment received but verification failed. Contact support.');
-            setMsgType('error');
-          }
-          setBuying(false);
-        },
-        modal: {
-          ondismiss: () => {
-            setMsg('Payment cancelled.');
-            setMsgType('error');
-            setBuying(false);
-          }
+           }).then(() => {
+              refresh();
+              setMsg('✅ Payment successful! Credits added.');
+              setMsgType('success');
+              setTimeout(() => { onSuccess?.(); onClose(); }, 1400);
+           }).catch(() => {
+              setMsg('⚠️ Payment received but verification failed. Contact support.');
+              setMsgType('error');
+           });
         }
       });
-      rzp.open();
     } catch (err: any) {
       setMsg(err.message || 'Failed to initiate payment. Try again.');
       setMsgType('error');
@@ -144,7 +131,7 @@ export const BuyCreditsModal: React.FC<{
               : <>Pay Rs.{PLANS.find(p => p.id === selected)?.price} &amp; Get Credits</>
             }
           </button>
-          <p className="text-center text-xs text-gray-400 mt-1">Secured via Razorpay · Credits never expire</p>
+          <p className="text-center text-xs text-gray-400 mt-1">Secured via Cashfree · Credits never expire</p>
         </div>
       </div>
     </div>

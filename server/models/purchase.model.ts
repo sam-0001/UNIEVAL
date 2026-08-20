@@ -9,8 +9,8 @@ const purchaseSchema = new mongoose.Schema({
   amountPaid:        { type: Number, required: true },
   couponId:          { type: String, default: null, index: true },
   discountAmount:    { type: Number, default: 0 },
-  razorpayOrderId:   { type: String, default: null },
-  razorpayPaymentId: { type: String, default: null },
+  cashfreeOrderId:   { type: String, default: null },
+  cashfreePaymentId: { type: String, default: null },
 }, { timestamps: true });
 
 purchaseSchema.index({ teacherId: 1, createdAt: -1 });

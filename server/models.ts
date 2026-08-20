@@ -293,8 +293,8 @@ const purchaseSchema = new mongoose.Schema({
   teacherId:         { type: String, required: true, index: true },
   productType:       { type: String, enum: ['note', 'course', 'quiz', 'viva', 'free'], required: true },
   amountPaid:        { type: Number, required: true },
-  razorpayOrderId:   { type: String, default: null },
-  razorpayPaymentId: { type: String, default: null },
+  cashfreeOrderId:   { type: String, default: null },
+  cashfreePaymentId: { type: String, default: null },
 }, { timestamps: true });
  
 purchaseSchema.index({ teacherId: 1, createdAt: -1 });

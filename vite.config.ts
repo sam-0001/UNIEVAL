@@ -20,7 +20,7 @@ export default defineConfig(({ mode }) => {
       // GEMINI_API_KEY is server-only — remove from define block.
       // Only expose public frontend keys prefixed with VITE_
       define: {
-        'import.meta.env.VITE_RAZORPAY_KEY_ID': JSON.stringify(env.VITE_RAZORPAY_KEY_ID),
+        'import.meta.env.VITE_CASHFREE_APP_ID': JSON.stringify(env.VITE_CASHFREE_APP_ID),
         'import.meta.env.VITE_SUPER_ADMIN_EMAIL': JSON.stringify(env.VITE_SUPER_ADMIN_EMAIL),
         'import.meta.env.VITE_WHATSAPP_GROUP_LINK': JSON.stringify(env.VITE_WHATSAPP_GROUP_LINK),
       },
