@@ -8,7 +8,7 @@ import logger from '../logger.js';
 const GROQ_API_URL   = 'https://api.groq.com/openai/v1/chat/completions';
 
 export class AIError extends Error {
-    constructor(message: string, public provider: 'groq' | 'gemini' | 'none') {
+    constructor(message: string, public provider: 'groq' | 'gemini' | 'openrouter' | 'none') {
         super(message);
         this.name = 'AIError';
     }
@@ -92,31 +92,92 @@ async function callGemini(prompt: string, apiKey: string, models = ['gemini-2.5-
     throw new AIError(`All Gemini models failed. Last error: ${lastError}`, 'gemini');
 }
 
-/** Tries Groq first. Falls back to Gemini. Throws if both fail. */
-export async function callAI(prompt: string): Promise<{ text: string; provider: 'groq' | 'gemini' }> {
+async function callOpenRouter(prompt: string, apiKey: string): Promise<string> {
+    // OpenRouter has completely free, non-geoblocked routing for these models
+    const models = ['google/gemini-2.0-flash-lite-preview-02-05:free', 'meta-llama/llama-3.1-8b-instruct:free', 'qwen/qwen-2.5-72b-instruct:free', 'mistralai/mistral-7b-instruct:free'];
+    let lastError = 'Unknown error';
+    for (const model of models) {
+        try {
+            const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+                method: 'POST',
+                headers: { 
+                    'Content-Type': 'application/json', 
+                    'Authorization': `Bearer ${apiKey}`,
+                    'HTTP-Referer': 'https://unieval.in',
+                    'X-Title': 'UniEval'
+                },
+                signal: AbortSignal.timeout(45000),
+                body: JSON.stringify({
+                    model: model,
+                    messages: [{ role: 'user', content: prompt }],
+                    temperature: 0.8, max_tokens: 2048,
+                }),
+            });
+
+            if (!res.ok) {
+                const body = await res.json().catch(() => ({})) as any;
+                if (res.status === 404) {
+                    lastError = `OpenRouter HTTP 404: model ${model} not found`;
+                    logger.warn(`[AI] OpenRouter model ${model} not found, trying next...`);
+                    continue;
+                }
+                throw new AIError(`OpenRouter HTTP ${res.status} (${model}): ${body?.error?.message || 'unknown error'}`, 'none');
+            }
+
+            const data = await res.json() as any;
+            const text = data.choices?.[0]?.message?.content?.trim() ?? '';
+            if (!text) throw new AIError('OpenRouter returned empty content', 'none');
+            return text;
+        } catch (e: any) {
+            lastError = e.message;
+            if (e.name === 'AbortError' || e.message.includes('timeout')) throw e;
+            if (models.indexOf(model) === models.length - 1) throw e;
+            logger.warn(`[AI] OpenRouter model ${model} failed (${e.message}), trying next...`);
+        }
+    }
+    throw new AIError(`All OpenRouter free models failed. Last error: ${lastError}`, 'none');
+}
+
+/** Tries Groq first. Falls back to Gemini, then OpenRouter. Throws if all fail. */
+export async function callAI(prompt: string): Promise<{ text: string; provider: 'groq' | 'gemini' | 'openrouter' }> {
     const groqKey   = process.env.GROQ_API_KEY;
     const geminiKey = process.env.GEMINI_API_KEY;
-    let groqError = '';
+    const openRouterKey = process.env.OPENROUTER_API_KEY;
+    
+    let errors: string[] = [];
 
     if (groqKey) {
         try {
             return { text: await callGroq(prompt, groqKey), provider: 'groq' };
         } catch (err: any) {
-            groqError = err.message;
-            logger.warn(`[AI] Groq failed (${err.message}) — falling back to Gemini`);
+            errors.push(`Groq: ${err.message}`);
+            logger.warn(`[AI] Groq failed (${err.message}) — falling back...`);
         }
     } else {
-        groqError = 'GROQ_API_KEY not set';
-        logger.warn('[AI] GROQ_API_KEY not set — trying Gemini directly');
+        errors.push('Groq: GROQ_API_KEY not set');
     }
 
     if (geminiKey) {
         try {
             return { text: await callGemini(prompt, geminiKey), provider: 'gemini' };
         } catch (err: any) {
-            throw new AIError(`Both providers failed. Groq: ${groqError}. Gemini: ${err.message}`, 'none');
+            errors.push(`Gemini: ${err.message}`);
+            logger.warn(`[AI] Gemini failed (${err.message}) — falling back...`);
         }
+    } else {
+        errors.push('Gemini: GEMINI_API_KEY not set');
+    }
+    
+    if (openRouterKey) {
+        try {
+            return { text: await callOpenRouter(prompt, openRouterKey), provider: 'openrouter' };
+        } catch (err: any) {
+            errors.push(`OpenRouter: ${err.message}`);
+            logger.warn(`[AI] OpenRouter failed (${err.message})`);
+        }
+    } else {
+        errors.push('OpenRouter: OPENROUTER_API_KEY not set');
     }
 
-    throw new AIError(`No AI provider available. Groq: ${groqError}. Gemini: GEMINI_API_KEY not set`, 'none');
+    throw new AIError(`All AI providers failed. Details: ${errors.join(' | ')}`, 'none');
 }
