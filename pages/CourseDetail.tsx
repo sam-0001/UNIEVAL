@@ -71,7 +71,7 @@ const CourseDetail: React.FC = () => {
   }, [user?.id]);
 
   const isPurchased = user?.purchasedCourseIds.includes(course?.id || '') || false;
-  const hasAccess = !!user && (isPurchased || (course?.price === 0));
+  const hasAccess = !!user && isPurchased;
   const displayPrice = appliedCoupon ? appliedCoupon.discountedPrice : (course?.price || 0);
 
   const handleApplyCoupon = async () => {
@@ -113,7 +113,7 @@ const CourseDetail: React.FC = () => {
     if (!course) return;
 
     const userIsPurchased = currentUser?.purchasedCourseIds.includes(course.id) || false;
-    const userHasAccess = !!currentUser && (userIsPurchased || (course.price === 0));
+    const userHasAccess = !!currentUser && userIsPurchased;
     if (userHasAccess) return;
 
     if (!currentUser) {

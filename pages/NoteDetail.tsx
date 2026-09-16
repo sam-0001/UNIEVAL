@@ -90,7 +90,7 @@ const NoteDetail: React.FC = () => {
     if (!user || !note || !note.collegeConfig) return false;
     return user.email.endsWith(note.collegeConfig.emailDomain.trim());
   }, [user, note]);
-  const hasAccess = !!user && (isPurchased || isCollegeFree || (note?.price === 0));
+  const hasAccess = !!user && isPurchased;
   const displayPrice = appliedCoupon ? appliedCoupon.discountedPrice : (note?.price || 0);
 
   const handleApplyCoupon = async () => {
@@ -132,14 +132,14 @@ const NoteDetail: React.FC = () => {
     setPaymentError('');
     const userIsPurchased = currentUser?.purchasedNoteIds.includes(note.id) || false;
     const userIsCollegeFree = !!currentUser && !!note.collegeConfig && currentUser.email.endsWith(note.collegeConfig.emailDomain.trim());
-    const userHasAccess = !!currentUser && (userIsPurchased || userIsCollegeFree || (note.price === 0));
+    const userHasAccess = !!currentUser && userIsPurchased;
     if (userHasAccess) return;
     if (!currentUser) {
       setOnLoginSuccess(() => (loggedInUser: User) => { handlePayment(loggedInUser); });
       setShowLoginModal(true);
       return;
     }
-    if (note.price === 0) {
+    if (note.price === 0 || userIsCollegeFree) {
       setPaymentLoading(true);
       try {
         const updatedUser = await api.purchaseNote(currentUser.id, note.id);

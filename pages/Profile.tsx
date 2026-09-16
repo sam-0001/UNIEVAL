@@ -22,12 +22,8 @@ const Profile: React.FC = () => {
       const fetchPurchases = async () => {
         try {
           const [allCourses, allNotes, scheduleRes] = await Promise.all([api.getCourses(), api.getNotes(), api.getMyLiveClassSchedule().catch(() => ({ liveClasses: [] }))]);
-          setCourses(allCourses.filter(c => user.purchasedNoteIds.includes(c.id) || c.price === 0));
-          setNotes(allNotes.filter(n =>
-            user.purchasedNoteIds.includes(n.id) ||
-            n.price === 0 ||
-            (n.collegeConfig && user.email.endsWith(n.collegeConfig.emailDomain.trim()))
-          ));
+          setCourses(allCourses.filter(c => user.purchasedCourseIds?.includes(c.id)));
+          setNotes(allNotes.filter(n => user.purchasedNoteIds?.includes(n.id)));
           setLiveClasses(scheduleRes.liveClasses || []);
         } catch (error) {
           console.error('Failed to fetch purchases', error);
