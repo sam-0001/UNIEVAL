@@ -15,7 +15,8 @@ export class AIError extends Error {
     }
 }
 
-async function callGroq(prompt: string, apiKey: string, models = ['llama3-8b-8192', 'mixtral-8x7b-32768', 'llama3-70b-8192', 'gemma2-9b-it']): Promise<string> {
+async function callGroq(prompt: string, apiKey: string, models = ['llama-3.1-8b-instant', 'llama-3.3-70b-versatile', 'llama3-8b-8192', 'mixtral-8x7b-32768', 'llama3-70b-8192', 'gemma2-9b-it']): Promise<string> {
+    let lastError = 'Unknown error';
     for (const model of models) {
         try {
             const res = await fetch(GROQ_API_URL, {
@@ -32,10 +33,11 @@ async function callGroq(prompt: string, apiKey: string, models = ['llama3-8b-819
             if (!res.ok) {
                 const body = await res.json().catch(() => ({})) as any;
                 if (res.status === 404) {
+                    lastError = `Groq HTTP 404: model ${model} not found`;
                     logger.warn(`[AI] Groq model ${model} not found, trying next...`);
                     continue; // Try next model
                 }
-                throw new AIError(`Groq HTTP ${res.status}: ${body?.error?.message || 'unknown error'}`, 'groq');
+                throw new AIError(`Groq HTTP ${res.status} (${model}): ${body?.error?.message || 'unknown error'}`, 'groq');
             }
 
             const data = await res.json() as any;
@@ -43,12 +45,13 @@ async function callGroq(prompt: string, apiKey: string, models = ['llama3-8b-819
             if (!text) throw new AIError('Groq returned empty content', 'groq');
             return text;
         } catch (e: any) {
+            lastError = e.message;
             if (e.name === 'AbortError' || e.message.includes('timeout')) throw e; // Don't retry on timeout
             if (models.indexOf(model) === models.length - 1) throw e; // Rethrow if last model
             logger.warn(`[AI] Groq model ${model} failed (${e.message}), trying next...`);
         }
     }
-    throw new AIError('All Groq models failed', 'groq');
+    throw new AIError(`All Groq models failed. Last error: ${lastError}`, 'groq');
 }
 
 async function callGemini(prompt: string, apiKey: string): Promise<string> {
@@ -77,14 +80,17 @@ async function callGemini(prompt: string, apiKey: string): Promise<string> {
 export async function callAI(prompt: string): Promise<{ text: string; provider: 'groq' | 'gemini' }> {
     const groqKey   = process.env.GROQ_API_KEY;
     const geminiKey = process.env.GEMINI_API_KEY;
+    let groqError = '';
 
     if (groqKey) {
         try {
             return { text: await callGroq(prompt, groqKey), provider: 'groq' };
         } catch (err: any) {
+            groqError = err.message;
             logger.warn(`[AI] Groq failed (${err.message}) — falling back to Gemini`);
         }
     } else {
+        groqError = 'GROQ_API_KEY not set';
         logger.warn('[AI] GROQ_API_KEY not set — trying Gemini directly');
     }
 
@@ -92,9 +98,9 @@ export async function callAI(prompt: string): Promise<{ text: string; provider: 
         try {
             return { text: await callGemini(prompt, geminiKey), provider: 'gemini' };
         } catch (err: any) {
-            throw new AIError(`Both AI providers failed. Gemini error: ${err.message}`, 'none');
+            throw new AIError(`Both providers failed. Groq: ${groqError}. Gemini: ${err.message}`, 'none');
         }
     }
 
-    throw new AIError('No AI provider available. Set GROQ_API_KEY and/or GEMINI_API_KEY in .env', 'none');
+    throw new AIError(`No AI provider available. Groq: ${groqError}. Gemini: GEMINI_API_KEY not set`, 'none');
 }

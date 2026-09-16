@@ -176,7 +176,7 @@ Respond ONLY with a valid JSON array. No markdown, no backticks, no explanation 
     } catch (err: any) {
       logger.error('[GenerateQuiz] All AI providers failed:', err.message);
       await refundOneCredit(userId, creditMethod);
-      res.status(502).json({ error: 'AI service unavailable. Your credit has been refunded. Please try again.' });
+      res.status(502).json({ error: `AI Error: ${err.message}. Your credit was refunded.` });
       return;
     }
 
