@@ -21,7 +21,7 @@ async function callGroq(prompt: string, apiKey: string): Promise<string> {
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
         signal: AbortSignal.timeout(45000),
         body: JSON.stringify({
-            model: 'llama-3.3-70b-versatile',
+            model: 'llama-3.1-8b-instant',
             messages: [{ role: 'user', content: prompt }],
             temperature: 0.8, max_tokens: 2048,
         }),
