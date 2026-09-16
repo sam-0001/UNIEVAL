@@ -94,7 +94,7 @@ async function callGemini(prompt: string, apiKey: string, models = ['gemini-2.5-
 
 async function callOpenRouter(prompt: string, apiKey: string): Promise<string> {
     // OpenRouter has completely free, non-geoblocked routing for these models
-    const models = ['google/gemini-2.0-flash-lite-preview-02-05:free', 'meta-llama/llama-3.1-8b-instruct:free', 'qwen/qwen-2.5-72b-instruct:free', 'mistralai/mistral-7b-instruct:free'];
+    const models = ['openrouter/free', 'google/gemma-4-31b-it:free', 'nvidia/nemotron-3-super-120b-a12b:free'];
     let lastError = 'Unknown error';
     for (const model of models) {
         try {
