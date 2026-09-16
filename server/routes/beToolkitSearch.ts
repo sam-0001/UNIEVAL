@@ -153,19 +153,22 @@ Respond ONLY with a valid JSON array (no markdown, no explanation):
 // Generates an AI summary for a PDF. No credits deducted — free value-add.
 
 router.post('/be-toolkit/summarise-pdf', requireAuth, async (req, res) => {
-  const { url, title } = req.body as { url?: string; title?: string };
+  const { url, title, abstract } = req.body as { url?: string; title?: string; abstract?: string };
 
-  if (!url || typeof url !== 'string' || !url.startsWith('http')) {
-    res.status(400).json({ error: 'A valid PDF URL is required.' });
+  if (!abstract) {
+    res.status(400).json({ error: 'Abstract or summary text is required to generate a summary.' });
     return;
   }
 
   const prompt = `You are an academic assistant helping engineering students understand research papers and case studies.
 
 Title: "${title || 'Untitled'}"
-PDF URL: ${url}
+Abstract/Summary text to summarize: 
+"""
+${abstract}
+"""
 
-Write a clear, concise summary (150–250 words) of this document for a BE (Bachelor of Engineering) student. Cover:
+Write a clear, concise summary (150–250 words) of this document for a BE (Bachelor of Engineering) student based ONLY on the provided abstract text. Cover:
 1. What the paper/study is about
 2. The main problem it addresses
 3. Key findings or contributions

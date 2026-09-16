@@ -35,16 +35,42 @@ const UNLIMITED_PREVIEW_LIMIT = 5;
 
 // ─── PDF Viewer Modal ─────────────────────────────────────────────────────────
 
-interface PdfViewerProps { url: string; title: string; onClose: () => void; }
+interface PdfViewerProps { url: string; title: string; abstract?: string; onClose: () => void; }
 
-const PdfViewer: React.FC<PdfViewerProps> = ({ url, title, onClose }) => {
+const PdfViewer: React.FC<PdfViewerProps> = ({ url, title, abstract, onClose }) => {
   const [summary,        setSummary]        = useState<string | null>(null);
   const [summaryLoading, setSummaryLoading] = useState(false);
   const [summaryError,   setSummaryError]   = useState('');
   const [downloading,    setDownloading]    = useState(false);
+  const [pdfBlobUrl, setPdfBlobUrl] = useState<string | null>(null);
+  const [blobLoading, setBlobLoading] = useState(true);
 
-  // Use native browser PDF viewer
-  const viewerUrl = url;
+  const [viewerUrl, setViewerUrl] = useState<string>(url);
+
+  useEffect(() => {
+    let active = true;
+    setBlobLoading(true);
+    fetch(url)
+      .then(res => res.blob())
+      .then(blob => {
+        if (!active) return;
+        const objUrl = URL.createObjectURL(blob);
+        setPdfBlobUrl(objUrl);
+        setViewerUrl(objUrl);
+        setBlobLoading(false);
+      })
+      .catch(() => {
+        if (active) {
+          // Fallback to direct URL if fetch fails (e.g., CORS)
+          setViewerUrl(url);
+          setBlobLoading(false);
+        }
+      });
+    return () => {
+      active = false;
+      if (pdfBlobUrl) URL.revokeObjectURL(pdfBlobUrl);
+    };
+  }, [url]);
 
   const handleGenerateSummary = async () => {
     setSummaryLoading(true);
@@ -58,7 +84,7 @@ const PdfViewer: React.FC<PdfViewerProps> = ({ url, title, onClose }) => {
           'Content-Type': 'application/json',
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
-        body: JSON.stringify({ url, title }),
+        body: JSON.stringify({ url, title, abstract }),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: 'Failed to generate summary' }));
@@ -109,11 +135,25 @@ const PdfViewer: React.FC<PdfViewerProps> = ({ url, title, onClose }) => {
 
         {/* Inline PDF Frame */}
         <div className="relative bg-gray-100 shrink-0" style={{ height: '380px' }}>
-          <iframe
-            src={viewerUrl}
-            className="w-full h-full border-0"
-            title={title}
-          />
+          {blobLoading ? (
+            <div className="flex flex-col items-center justify-center w-full h-full text-gray-400">
+              <svg className="animate-spin h-8 w-8 mb-3" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+              </svg>
+              <span className="text-sm">Loading PDF...</span>
+            </div>
+          ) : viewerUrl ? (
+            <iframe
+              src={viewerUrl}
+              className="w-full h-full border-0"
+              title={title}
+            />
+          ) : (
+            <div className="flex flex-col items-center justify-center w-full h-full text-red-400">
+              <span className="text-sm">Failed to load PDF</span>
+            </div>
+          )}
           <div className="absolute bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-white/70 to-transparent pointer-events-none flex items-end justify-center pb-1">
             <span className="text-xs text-gray-400 italic">First page preview</span>
           </div>
@@ -198,7 +238,7 @@ const UpsellBanner: React.FC = () => (
 
 // ─── Static Toolkit Card ──────────────────────────────────────────────────────
 
-const ToolkitCard: React.FC<{ item: BEToolkitItem; onViewPdf: (url: string, title: string) => void }> = ({ item, onViewPdf }) => {
+const ToolkitCard: React.FC<{ item: BEToolkitItem; onViewPdf: (url: string, title: string, abstract: string) => void }> = ({ item, onViewPdf }) => {
   const diff  = DIFFICULTY_CONFIG[item.difficulty];
   const isPdf = item.link.toLowerCase().endsWith('.pdf');
 
@@ -228,7 +268,7 @@ const ToolkitCard: React.FC<{ item: BEToolkitItem; onViewPdf: (url: string, titl
         <span className="text-xs text-gray-400 truncate max-w-[140px]">{item.source}</span>
         {isPdf ? (
           <button
-            onClick={() => onViewPdf(item.link, item.title)}
+            onClick={() => onViewPdf(item.link, item.title, item.summary)}
             className="shrink-0 text-xs font-bold bg-brand-cobalt text-white px-3 py-1.5 rounded-lg hover:bg-brand-indigo transition-colors"
           >
             View PDF →
@@ -253,7 +293,7 @@ const ToolkitCard: React.FC<{ item: BEToolkitItem; onViewPdf: (url: string, titl
 const SearchResultCard: React.FC<{
   result: SearchResult;
   index: number;
-  onViewPdf: (url: string, title: string) => void;
+  onViewPdf: (url: string, title: string, abstract: string) => void;
 }> = ({ result, index, onViewPdf }) => {
   const diff        = DIFFICULTY_CONFIG[result.difficulty] ?? DIFFICULTY_CONFIG['Intermediate'];
   const sourceLabel = SOURCE_LABELS[result.source] ?? result.source;
@@ -288,7 +328,7 @@ const SearchResultCard: React.FC<{
       <div className="flex items-center gap-2 mt-auto pt-2 border-t border-gray-100">
         {isPdf && !isGitHub ? (
           <button
-            onClick={() => onViewPdf(pdfUrl, result.title)}
+            onClick={() => onViewPdf(pdfUrl, result.title, result.summary)}
             className="flex-1 text-center text-xs font-bold bg-brand-cobalt text-white px-3 py-1.5 rounded-lg hover:bg-brand-indigo transition-colors"
           >
             📄 View PDF
@@ -472,7 +512,7 @@ const BEToolkit: React.FC = () => {
   const [searchResults, setSearchResults] = useState<SearchResult[] | null>(null);
   const [creditsInfo,   setCreditsInfo]   = useState<{ used: number; remaining: number } | null>(null);
   const [activeTab,     setActiveTab]     = useState<'library' | 'search'>('search');
-  const [pdfViewer,     setPdfViewer]     = useState<{ url: string; title: string } | null>(null);
+  const [pdfViewer,     setPdfViewer]     = useState<{ url: string; title: string, abstract?: string } | null>(null);
 
   useEffect(() => {
     getBEToolkitItems()
@@ -527,6 +567,7 @@ const BEToolkit: React.FC = () => {
         <PdfViewer
           url={pdfViewer.url}
           title={pdfViewer.title}
+          abstract={pdfViewer.abstract}
           onClose={() => setPdfViewer(null)}
         />
       )}
@@ -610,7 +651,7 @@ const BEToolkit: React.FC = () => {
                     key={i}
                     result={result}
                     index={i}
-                    onViewPdf={(url, title) => setPdfViewer({ url, title })}
+                    onViewPdf={(url, title, abstract) => setPdfViewer({ url, title, abstract })}
                   />
                 ))}
                 {showUpsell && <UpsellBanner />}
@@ -660,7 +701,7 @@ const BEToolkit: React.FC = () => {
                           <ToolkitCard
                             key={item.id}
                             item={item}
-                            onViewPdf={(url, title) => setPdfViewer({ url, title })}
+                            onViewPdf={(url, title, abstract) => setPdfViewer({ url, title, abstract })}
                           />
                         ))}
                       </div>
