@@ -43,8 +43,8 @@ const PdfViewer: React.FC<PdfViewerProps> = ({ url, title, onClose }) => {
   const [summaryError,   setSummaryError]   = useState('');
   const [downloading,    setDownloading]    = useState(false);
 
-  // Google Docs Viewer — embeds PDF inline, first page visible, no redirect
-  const viewerUrl = `https://docs.google.com/gview?url=${encodeURIComponent(url)}&embedded=true`;
+  // Use native browser PDF viewer
+  const viewerUrl = url;
 
   const handleGenerateSummary = async () => {
     setSummaryLoading(true);
