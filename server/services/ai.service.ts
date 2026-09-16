@@ -15,27 +15,40 @@ export class AIError extends Error {
     }
 }
 
-async function callGroq(prompt: string, apiKey: string): Promise<string> {
-    const res = await fetch(GROQ_API_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
-        signal: AbortSignal.timeout(45000),
-        body: JSON.stringify({
-            model: 'llama-3.1-8b-instant',
-            messages: [{ role: 'user', content: prompt }],
-            temperature: 0.8, max_tokens: 2048,
-        }),
-    });
+async function callGroq(prompt: string, apiKey: string, models = ['llama3-8b-8192', 'mixtral-8x7b-32768', 'llama3-70b-8192', 'gemma2-9b-it']): Promise<string> {
+    for (const model of models) {
+        try {
+            const res = await fetch(GROQ_API_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+                signal: AbortSignal.timeout(45000),
+                body: JSON.stringify({
+                    model: model,
+                    messages: [{ role: 'user', content: prompt }],
+                    temperature: 0.8, max_tokens: 2048,
+                }),
+            });
 
-    if (!res.ok) {
-        const body = await res.json().catch(() => ({})) as any;
-        throw new AIError(`Groq HTTP ${res.status}: ${body?.error?.message || 'unknown error'}`, 'groq');
+            if (!res.ok) {
+                const body = await res.json().catch(() => ({})) as any;
+                if (res.status === 404) {
+                    logger.warn(`[AI] Groq model ${model} not found, trying next...`);
+                    continue; // Try next model
+                }
+                throw new AIError(`Groq HTTP ${res.status}: ${body?.error?.message || 'unknown error'}`, 'groq');
+            }
+
+            const data = await res.json() as any;
+            const text = data.choices?.[0]?.message?.content?.trim() ?? '';
+            if (!text) throw new AIError('Groq returned empty content', 'groq');
+            return text;
+        } catch (e: any) {
+            if (e.name === 'AbortError' || e.message.includes('timeout')) throw e; // Don't retry on timeout
+            if (models.indexOf(model) === models.length - 1) throw e; // Rethrow if last model
+            logger.warn(`[AI] Groq model ${model} failed (${e.message}), trying next...`);
+        }
     }
-
-    const data = await res.json() as any;
-    const text = data.choices?.[0]?.message?.content?.trim() ?? '';
-    if (!text) throw new AIError('Groq returned empty content', 'groq');
-    return text;
+    throw new AIError('All Groq models failed', 'groq');
 }
 
 async function callGemini(prompt: string, apiKey: string): Promise<string> {
