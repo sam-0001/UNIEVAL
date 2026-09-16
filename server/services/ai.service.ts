@@ -32,9 +32,9 @@ async function callGroq(prompt: string, apiKey: string, models = ['llama-3.1-8b-
 
             if (!res.ok) {
                 const body = await res.json().catch(() => ({})) as any;
-                if (res.status === 404) {
-                    lastError = `Groq HTTP 404: model ${model} not found`;
-                    logger.warn(`[AI] Groq model ${model} not found, trying next...`);
+                if (res.status === 404 || (res.status === 400 && body?.error?.message?.toLowerCase().includes('decommissioned'))) {
+                    lastError = `Groq HTTP ${res.status}: model ${model} not found/decommissioned`;
+                    logger.warn(`[AI] Groq model ${model} not found/decommissioned, trying next...`);
                     continue; // Try next model
                 }
                 throw new AIError(`Groq HTTP ${res.status} (${model}): ${body?.error?.message || 'unknown error'}`, 'groq');
