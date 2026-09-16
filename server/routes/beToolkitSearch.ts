@@ -111,7 +111,13 @@ Respond ONLY with a valid JSON array (no markdown, no explanation):
   try {
     const { text } = await callAI(prompt);
     // Strip possible markdown fences
-    const clean = text.replace(/```json|```/g, '').trim();
+    let clean = text.trim();
+    const arrayMatch = clean.match(/\[[\s\S]*\]/);
+    if (arrayMatch) {
+      clean = arrayMatch[0];
+    } else {
+      clean = clean.replace(/```json|```/g, '').trim();
+    }
     const parsed = JSON.parse(clean);
     if (!Array.isArray(parsed)) throw new Error('AI did not return an array');
     results = parsed.slice(0, 8).map((r: any) => ({
