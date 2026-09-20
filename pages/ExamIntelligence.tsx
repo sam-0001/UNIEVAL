@@ -121,7 +121,9 @@ const EvalyScorecard: React.FC<{
   unitTitle: string;
   userName?: string;
   onTryAnother: () => void;
-}> = ({ questions, selected, score, subject, unitTitle, userName, onTryAnother }) => {
+  attempts?: number;
+  cumulativeScore?: number;
+}> = ({ questions, selected, score, subject, unitTitle, userName, onTryAnother, attempts = 1, cumulativeScore = score }) => {
   const [analysis, setAnalysis] = useState<EvalyAnalysis | null>(null);
   const [analyzing, setAnalyzing] = useState(true);
   const [scoreAnimated, setScoreAnimated] = useState(false);
@@ -253,6 +255,17 @@ const EvalyScorecard: React.FC<{
         </div>
       </div>
 
+      {attempts >= 2 && cumulativeScore >= 7 && (
+        <div className="mb-4 bg-green-50 border-l-4 border-green-500 p-4 rounded-r-xl shadow-sm">
+          <div className="flex items-center gap-3">
+            <span className="text-2xl">🏆</span>
+            <div>
+              <h3 className="text-green-800 font-bold text-lg">You're good to go to the next level!</h3>
+              <p className="text-green-600 text-sm font-medium">You scored {cumulativeScore} points across {attempts} attempts. Great job!</p>
+            </div>
+          </div>
+        </div>
+      )}
       {/* Score header */}
       <div className={`bg-gradient-to-br ${grade.bg} rounded-2xl p-4 sm:p-5 border border-white/80`}>
         <div className="flex items-center gap-4 sm:gap-5">
@@ -457,7 +470,9 @@ const QuizModal: React.FC<{ subject: string; semester: string; unit: ExamUnit; b
   const [selected, setSelected]     = useState<Record<number, string>>({});
   const [loading, setLoading]       = useState(false);
   const [error, setError]           = useState('');
-  const [showBuy, setShowBuy]       = useState(false);
+const [showBuy, setShowBuy]       = useState(false);
+  const [cumulativeScore, setCumulativeScore] = useState(0);
+  const [attempts, setAttempts] = useState(0);
 
   useEffect(() => { refreshCredits(); }, []);
 
@@ -482,8 +497,20 @@ const QuizModal: React.FC<{ subject: string; semester: string; unit: ExamUnit; b
     } finally { setLoading(false); }
   };
 
-  const handleTryAnother = () => { setScreen('select'); setQuestions([]); setSelected({}); setError(''); };
+const handleTryAnother = () => {
+    setScreen('select');
+    setQuestions([]);
+    setSelected({});
+    setError('');
+  };
+
   const score = questions.filter((q, i) => selected[i] === q.correct).length;
+
+  const handleSubmit = () => {
+    setCumulativeScore(prev => prev + score);
+    setAttempts(prev => prev + 1);
+    setScreen('result');
+  };
 
   return (
     <>
@@ -598,7 +625,7 @@ const QuizModal: React.FC<{ subject: string; semester: string; unit: ExamUnit; b
 
                 <div className="flex gap-3 flex-col sm:flex-row">
                   <button
-                    onClick={() => setScreen('result')}
+                    onClick={handleSubmit}
                     disabled={Object.keys(selected).length === 0}
                     className="flex-1 flex items-center justify-center gap-2 px-5 py-3 bg-indigo-600 text-white text-sm font-bold rounded-xl hover:bg-indigo-700 disabled:opacity-50 transition-colors shadow-lg shadow-indigo-100 active:scale-[0.98]">
                     <span className="text-base">🤖</span>
@@ -621,6 +648,8 @@ const QuizModal: React.FC<{ subject: string; semester: string; unit: ExamUnit; b
                 subject={subject}
                 unitTitle={unit.title}
                 onTryAnother={handleTryAnother}
+                attempts={attempts}
+                cumulativeScore={cumulativeScore}
               />
             )}
           </div>

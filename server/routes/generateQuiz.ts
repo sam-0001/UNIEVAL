@@ -122,18 +122,23 @@ async function handleGenerateQuiz(req: any, res: any) {
     }
 
     // ── Step 3: Return cached quiz if pool is full (credit stays consumed) ──
-    if (diffPool.quizzes.length >= MAX_POOL) {
-      const pick = diffPool.quizzes[Math.floor(Math.random() * diffPool.quizzes.length)];
-      res.json({ questions: pick.questions, cached: true, poolSize: diffPool.quizzes.length });
+    const allExistingQs = diffPool.quizzes.flatMap((q: any) => q.questions);
+    if (allExistingQs.length >= 10) {
+      // Artificial delay to make it feel personalized and "generated"
+      await new Promise(r => setTimeout(r, 2500));
+      const shuffled = allExistingQs.sort(() => 0.5 - Math.random()).slice(0, 5);
+      res.json({ questions: shuffled, cached: true, poolSize: allExistingQs.length });
       return;
     }
 
     // ── Step 4: Fetch exam data from DB ────────────────────────────────────
     const doc = await ExamIntelligence.findOne({ subject, semester }).lean() as any;
     if (!doc) {
-      if (diffPool.quizzes.length > 0) {
-        const pick = diffPool.quizzes[Math.floor(Math.random() * diffPool.quizzes.length)];
-        res.json({ questions: pick.questions, cached: true, poolSize: diffPool.quizzes.length });
+      const allExistingQs = diffPool.quizzes.flatMap((q: any) => q.questions);
+      if (allExistingQs.length > 0) {
+        await new Promise(r => setTimeout(r, 2500));
+        const shuffled = allExistingQs.sort(() => 0.5 - Math.random()).slice(0, 5);
+        res.json({ questions: shuffled, cached: true, poolSize: allExistingQs.length });
         return;
       }
       await refundOneCredit(userId, creditMethod);
@@ -171,7 +176,7 @@ Difficulty: ${diffNum}/5 (${diffLabel})
 Topics and PYQs:
 ${topicsSummary}
 ${avoidHint}
-Generate exactly 5 MCQs. Each question MUST test a DIFFERENT concept.
+Generate exactly 10 MCQs. Each question MUST test a DIFFERENT concept.
 Rules:
 - 4 options per question labeled "A. ...", "B. ...", "C. ...", "D. ..."
 - "correct" must be the full option string e.g. "A. Newton's first law"
@@ -190,14 +195,20 @@ Respond ONLY with a valid JSON array. No markdown, no backticks, no explanation 
           // Re-fetch pool to check if it was filled by a concurrent request while we waited in queue
           const freshPool = await QuizPool.findById(pool._id).lean() as any;
           const freshDiffPool = freshPool?.difficulties?.find((d: any) => d.level === diffNum);
-          if (freshDiffPool && freshDiffPool.quizzes.length >= MAX_POOL) {
-              return { cached: true, questions: freshDiffPool.quizzes[Math.floor(Math.random() * freshDiffPool.quizzes.length)].questions, poolSize: freshDiffPool.quizzes.length, text: '', provider: '' };
+          if (freshDiffPool) {
+              const allQs = freshDiffPool.quizzes.flatMap((q: any) => q.questions);
+              if (allQs.length >= 10) {
+                  // Shuffle and pick 5
+                  const shuffled = allQs.sort(() => 0.5 - Math.random()).slice(0, 5);
+                  return { cached: true, questions: shuffled, poolSize: allQs.length, text: '', provider: '' };
+              }
           }
           const res = await callAI(prompt);
           return { cached: false, ...res };
       });
       
       if (aiResult.cached) {
+          await new Promise(r => setTimeout(r, 2500));
           res.json({ questions: aiResult.questions, cached: true, poolSize: aiResult.poolSize });
           return;
       }
@@ -262,12 +273,14 @@ Respond ONLY with a valid JSON array. No markdown, no backticks, no explanation 
 
     // ── Step 9: Deduplicate and save ───────────────────────────────────────
     const deduped = validQuestions.filter(q => !isTooSimilar(q.question, existingQuestions));
-    const finalQuestions = deduped.length >= 3 ? deduped : validQuestions;
+    const savedQuestions = deduped.length >= 5 ? deduped : validQuestions;
 
-    diffPool.quizzes.push({ id: randomUUID(), questions: finalQuestions, createdAt: new Date() });
+    diffPool.quizzes.push({ id: randomUUID(), questions: savedQuestions, createdAt: new Date() });
     await pool.save();
 
-    res.json({ questions: finalQuestions, cached: false, poolSize: diffPool.quizzes.length });
+    // Return only 5 questions to the user
+    const returnQs = savedQuestions.sort(() => 0.5 - Math.random()).slice(0, 5);
+    res.json({ questions: returnQs, cached: false, poolSize: savedQuestions.length });
 
   } catch (err) {
     logger.error('[GenerateQuiz] Unexpected error:', err);
