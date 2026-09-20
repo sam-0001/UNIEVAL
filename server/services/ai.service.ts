@@ -14,7 +14,7 @@ export class AIError extends Error {
     }
 }
 
-async function callGroq(prompt: string, apiKey: string, models = ['llama-3.1-8b-instant', 'llama-3.3-70b-versatile', 'llama3-8b-8192', 'mixtral-8x7b-32768', 'llama3-70b-8192', 'gemma2-9b-it']): Promise<string> {
+async function callGroq(prompt: string, apiKey: string, models = ['openai/gpt-oss-120b', 'qwen/qwen3.8-27b']): Promise<string> {
     let lastError = 'Unknown error';
     for (const model of models) {
         try {
@@ -53,7 +53,7 @@ async function callGroq(prompt: string, apiKey: string, models = ['llama-3.1-8b-
     throw new AIError(`All Groq models failed. Last error: ${lastError}`, 'groq');
 }
 
-async function callGemini(prompt: string, apiKey: string, models = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-flash-latest', 'gemini-1.5-pro']): Promise<string> {
+async function callGemini(prompt: string, apiKey: string, models = ['gemini-3.6-flash', 'gemini-3.7-flash', 'gemini-3.5-flash', 'gemini-3.8-flash']): Promise<string> {
     let lastError = 'Unknown error';
     for (const model of models) {
         try {
