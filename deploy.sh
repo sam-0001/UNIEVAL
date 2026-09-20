@@ -15,7 +15,7 @@ echo ""
 
 # ── 1. Pull latest code from GitHub ──────────────────────────
 echo "📦 Pulling latest code from GitHub..."
-git pull origin main
+git pull origin master
 echo "✅ Code updated"
 echo ""
 
