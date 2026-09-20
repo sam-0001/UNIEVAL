@@ -49,11 +49,6 @@ export async function superAdminLogin(req: express.Request, res: express.Respons
         }
 
         await OTP.deleteOne({ _id: record._id });
-            res.status(400).json({ error: 'OTP has expired' });
-            return;
-        }
-
-        await OTP.deleteOne({ _id: record._id });
 
         let user = await User.findOne({ email: email.toLowerCase().trim() });
         if (!user) {
