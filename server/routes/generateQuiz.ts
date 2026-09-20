@@ -2,7 +2,7 @@ import express from 'express';
 import { randomUUID } from 'crypto';
 import { ExamIntelligence, QuizPool, User } from '../models/index.js';
 import { requireAuth } from '../middleware/auth.js';
-import { callAI, AIError } from '../services/ai.service.js';
+import { callAI, AIError, globalAIQueue } from '../services/ai.service.js';
 import { aiRateLimit } from '../middleware/userRateLimit.js';
 import logger from '../logger.js';
 
@@ -65,7 +65,23 @@ async function refundOneCredit(userId: string, method: string): Promise<void> {
 }
 
 // ─── POST /api/generate-quiz ──────────────────────────────────────────────────
+const activeGenerations = new Set<string>();
+
 router.post('/generate-quiz', requireAuth, aiRateLimit, async (req, res) => {
+  const userId = (req as any).currentUser?.id as string;
+  if (activeGenerations.has(userId)) {
+      res.status(429).json({ error: 'You already have a quiz generation in progress. Please wait.' });
+      return;
+  }
+  activeGenerations.add(userId);
+  try {
+      await handleGenerateQuiz(req, res);
+  } finally {
+      activeGenerations.delete(userId);
+  }
+});
+
+async function handleGenerateQuiz(req: any, res: any) {
   const { subject, semester, unit, difficulty, branch, year } = req.body;
   const userId = (req as any).currentUser?.id as string;
 
@@ -170,7 +186,22 @@ Respond ONLY with a valid JSON array. No markdown, no backticks, no explanation 
     // ── Step 6: Call AI (Groq first, Gemini fallback) ─────────────────────
     let rawText: string;
     try {
-      const aiResult = await callAI(prompt);
+      const aiResult = await globalAIQueue.enqueue(async () => {
+          // Re-fetch pool to check if it was filled by a concurrent request while we waited in queue
+          const freshPool = await QuizPool.findById(pool._id).lean() as any;
+          const freshDiffPool = freshPool?.difficulties?.find((d: any) => d.level === diffNum);
+          if (freshDiffPool && freshDiffPool.quizzes.length >= MAX_POOL) {
+              return { cached: true, questions: freshDiffPool.quizzes[Math.floor(Math.random() * freshDiffPool.quizzes.length)].questions, poolSize: freshDiffPool.quizzes.length, text: '', provider: '' };
+          }
+          const res = await callAI(prompt);
+          return { cached: false, ...res };
+      });
+      
+      if (aiResult.cached) {
+          res.json({ questions: aiResult.questions, cached: true, poolSize: aiResult.poolSize });
+          return;
+      }
+      
       rawText = aiResult.text;
       logger.info(`[GenerateQuiz] Used provider: ${aiResult.provider}`);
     } catch (err: any) {
@@ -244,6 +275,6 @@ Respond ONLY with a valid JSON array. No markdown, no backticks, no explanation 
     await refundOneCredit(userId, creditMethod);
     res.status(500).json({ error: 'Quiz generation failed. Your credit has been refunded. Please try again.' });
   }
-});
+}
 
 export default router;

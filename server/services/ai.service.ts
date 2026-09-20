@@ -181,3 +181,27 @@ export async function callAI(prompt: string): Promise<{ text: string; provider: 
 
     throw new AIError(`All AI providers failed. Details: ${errors.join(' | ')}`, 'none');
 }
+
+
+class AIQueue {
+    private concurrency = 20;
+    private running = 0;
+    private queue: Array<() => void> = [];
+
+    async enqueue<T>(task: () => Promise<T>): Promise<T> {
+        if (this.running >= this.concurrency) {
+            await new Promise<void>(resolve => this.queue.push(resolve));
+        }
+        this.running++;
+        try {
+            return await task();
+        } finally {
+            this.running--;
+            if (this.queue.length > 0) {
+                const next = this.queue.shift();
+                if (next) next();
+            }
+        }
+    }
+}
+export const globalAIQueue = new AIQueue();
