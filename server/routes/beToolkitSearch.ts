@@ -11,6 +11,7 @@
 
 import express from 'express';
 import { requireAuth } from '../middleware/auth.js';
+import { aiRateLimit } from '../middleware/userRateLimit.js';
 import { User } from '../models/index.js';
 import { callAI } from '../services/ai.service.js';
 import { fetchResources, RawResource } from '../services/beToolkitSearch.js';
@@ -25,7 +26,7 @@ const CREDITS_COST = 2;
 
 // ─── POST /api/be-toolkit/search ─────────────────────────────────────────────
 
-router.post('/be-toolkit/search', requireAuth, async (req, res) => {
+router.post('/be-toolkit/search', requireAuth, aiRateLimit, async (req, res) => {
   const { topic, category } = req.body as { topic?: string; category?: string; userId?: string };
   const currentUser = (req as any).currentUser;
 
@@ -158,7 +159,7 @@ Respond ONLY with a valid JSON array (no markdown, no explanation):
 // ─── POST /api/be-toolkit/summarise-pdf ──────────────────────────────────────
 // Generates an AI summary for a PDF. No credits deducted — free value-add.
 
-router.post('/be-toolkit/summarise-pdf', requireAuth, async (req, res) => {
+router.post('/be-toolkit/summarise-pdf', requireAuth, aiRateLimit, async (req, res) => {
   const { url, title, abstract } = req.body as { url?: string; title?: string; abstract?: string };
 
   if (!abstract) {

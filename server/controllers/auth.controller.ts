@@ -167,6 +167,16 @@ export async function register(req: express.Request, res: express.Response): Pro
             res.status(400).json({ error: 'PHONE_EXISTS' }); return;
         }
 
+        const otpRecord = await OTP.findOne({ 
+            email: email.toLowerCase().trim(), 
+            phoneNumber: normalizedPhone, 
+            verified: true 
+        });
+        if (!otpRecord) {
+            res.status(403).json({ error: 'Email and mobile number must be verified via OTP before registration.' }); 
+            return;
+        }
+
         const hashedPassword = await bcrypt.hash(password, 12);
         const newUser = await User.create({
             id: generateId(), name, email: email.toLowerCase().trim(),
@@ -175,6 +185,8 @@ export async function register(req: express.Request, res: express.Response): Pro
             purchasedNoteIds: [], purchasedCourseIds: [],
             phoneNumber: normalizedPhone
         });
+
+        await OTP.deleteOne({ _id: otpRecord._id });
 
         const sessionToken = randomUUID();
         await User.updateOne({ id: newUser.id }, { sessionToken });
@@ -333,6 +345,7 @@ export async function resetPasswordByPhone(req: express.Request, res: express.Re
 
     try {
         user.password = await bcrypt.hash(newPassword, 12);
+        user.sessionToken = randomUUID();
         await user.save();
         res.json({ success: true, message: 'Password reset successfully' });
     } catch (err) {
@@ -369,6 +382,7 @@ export async function resetPassword(req: express.Request, res: express.Response)
         const user = await findUserByEmail(email);
         if (user) {
             user.password = await bcrypt.hash(newPassword, 12);
+            user.sessionToken = randomUUID();
             await user.save();
         }
         res.json({ success: true, message: 'Password reset successfully' });
@@ -409,7 +423,7 @@ export async function verifyPhoneOtp(req: express.Request, res: express.Response
         res.status(400).json({ error: `Invalid OTP. ${5 - phoneAttempts} attempt(s) remaining.` }); return;
     }
 
-    // Both email and phone are now verified — delete the whole record
-    await OTP.deleteOne({ _id: record._id });
+    // Both email and phone are now verified — mark the record as verified instead of deleting it
+    await OTP.findOneAndUpdate({ _id: record._id }, { verified: true, otp: '', phoneOtp: '' });
     res.json({ success: true });
 }

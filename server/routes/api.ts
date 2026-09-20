@@ -80,6 +80,10 @@ router.post(  '/courses/:id/verify-payment',  requireAuth, UserCtrl.verifyCourse
 // ─── Quizzes ──────────────────────────────────────────────────────────────────
 router.get(   '/quizzes',      ContentCtrl.getQuizzes);
 router.get(   '/quizzes/:id',  ContentCtrl.getQuizById);
+router.post('/quizzes/:id/start', requireAuth, ContentCtrl.startQuiz);
+router.post('/quizzes/:id/evaluate', requireAuth, ContentCtrl.evaluateQuiz);
+router.post('/viva/:id/evaluate-question', requireAuth, ContentCtrl.evaluateVivaQuestion);
+
 router.post(  '/quizzes',      requireRole(UserRole.TEACHER, UserRole.ADMIN, UserRole.SUPER_ADMIN), ContentCtrl.createQuiz);
 router.put(   '/quizzes/:id',  requireRole(UserRole.TEACHER, UserRole.ADMIN, UserRole.SUPER_ADMIN), ContentCtrl.updateQuiz);
 router.delete('/quizzes/:id',  requireRole(UserRole.TEACHER, UserRole.ADMIN, UserRole.SUPER_ADMIN), ContentCtrl.deleteQuiz);

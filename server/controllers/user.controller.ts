@@ -172,7 +172,7 @@ async function createCashfreeOrder(amount: number, receipt: string, notes: Recor
     return order;
 }
 
-async function verifyCashfreePayment(orderId: string, appId: string, secretKey: string): Promise<boolean> {
+async function verifyCashfreePayment(orderId: string, appId: string, secretKey: string): Promise<any> {
     const url = process.env.NODE_ENV === 'production' ? 'https://api.cashfree.com/pg/orders' : 'https://sandbox.cashfree.com/pg/orders';
     const res = await fetch(`${url}/${orderId}`, {
         headers: {
@@ -182,7 +182,47 @@ async function verifyCashfreePayment(orderId: string, appId: string, secretKey: 
         }
     });
     const data = await res.json();
-    return data.order_status === 'PAID';
+    return data;
+}
+
+async function refundCashfreePayment(orderId: string, amount: number, appId: string, secretKey: string): Promise<any> {
+    const url = process.env.NODE_ENV === 'production' ? 'https://api.cashfree.com/pg/orders' : 'https://sandbox.cashfree.com/pg/orders';
+    const res = await fetch(`${url}/${orderId}/refunds`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'x-client-id': appId,
+            'x-client-secret': secretKey,
+            'x-api-version': '2023-08-01'
+        },
+        body: JSON.stringify({
+            refund_amount: amount,
+            refund_id: `rfnd_${orderId.slice(0, 20)}_${Date.now()}`,
+            refund_note: "Automated refund due to system error"
+        })
+    });
+    return res.json();
+}
+
+async function attemptSafeRefund(orderId: string, amount: number, userId: string, productId: string, appId: string, secretKey: string) {
+    try {
+        // Attempt to claim the orderId in the database first. 
+        // If this succeeds, the webhook will fail with E11000 and can never grant access, so it's safe to refund.
+        // If this fails (E11000 or network error), we abort the refund to prevent the "free access + refund" exploit.
+        await Purchase.create({
+            id: randomUUID(),
+            userId,
+            productId,
+            teacherId: 'system',
+            productType: 'refunded',
+            amountPaid: 0,
+            cashfreeOrderId: orderId
+        });
+        await refundCashfreePayment(orderId, amount, appId, secretKey);
+        logger.info(`[Refund] Successfully locked and refunded order ${orderId}`);
+    } catch (err: any) {
+        logger.warn(`[Refund] Aborted refund for order ${orderId} — lock failed (likely webhook succeeded or DB down): ${err.message}`);
+    }
 }
 
 async function resolveNoteCoupon(noteId: string, couponId?: string): Promise<{
@@ -279,8 +319,9 @@ export async function verifyNotePurchase(req: express.Request, res: express.Resp
     if (!appId || !secretKey) { res.status(500).json({ error: 'Payment not configured' }); return; }
 
     try {
-        const isValid = await verifyCashfreePayment(cashfree_order_id, appId!, secretKey!);
-        if (!isValid) { res.status(400).json({ error: 'Invalid payment signature — possible fraud attempt' }); return; }
+        const orderData = await verifyCashfreePayment(cashfree_order_id, appId!, secretKey!);
+        if (orderData.order_status !== 'PAID') { res.status(400).json({ error: 'Order not paid' }); return; }
+        if (orderData.order_tags?.noteId !== noteId || orderData.order_tags?.userId !== userId) { res.status(400).json({ error: 'Invalid payment signature — possible fraud attempt' }); return; }
 
         const session = await mongoose.startSession();
         session.startTransaction();
@@ -309,7 +350,13 @@ export async function verifyNotePurchase(req: express.Request, res: express.Resp
             }
             await session.commitTransaction();
             res.json({ success: true, user: sanitizeUser(user) });
-        } catch (e) { await session.abortTransaction(); throw e; }
+        } catch (e: any) { 
+            await session.abortTransaction(); 
+            if (e.code !== 11000) {
+                await attemptSafeRefund(cashfree_order_id, orderData.order_amount, userId, noteId, appId!, secretKey!);
+            }
+            throw e; 
+        }
         finally { session.endSession(); }
     } catch (err) {
         logger.error('[Notes] verifyNotePurchase:', err);
@@ -449,8 +496,9 @@ export async function verifyCoursePayment(req: express.Request, res: express.Res
     if (!appId || !secretKey) { res.status(500).json({ error: 'Payment not configured' }); return; }
 
     try {
-        const isValid = await verifyCashfreePayment(cashfree_order_id, appId!, secretKey!);
-        if (!isValid) { res.status(400).json({ error: 'Invalid payment signature — possible fraud attempt' }); return; }
+        const orderData = await verifyCashfreePayment(cashfree_order_id, appId!, secretKey!);
+        if (orderData.order_status !== 'PAID') { res.status(400).json({ error: 'Order not paid' }); return; }
+        if (orderData.order_tags?.courseId !== courseId || orderData.order_tags?.userId !== userId) { res.status(400).json({ error: 'Invalid payment signature — possible fraud attempt' }); return; }
 
         const session = await mongoose.startSession();
         session.startTransaction();
@@ -479,7 +527,13 @@ export async function verifyCoursePayment(req: express.Request, res: express.Res
             }
             await session.commitTransaction();
             res.json({ success: true, user: sanitizeUser(user) });
-        } catch (e) { await session.abortTransaction(); throw e; }
+        } catch (e: any) { 
+            await session.abortTransaction(); 
+            if (e.code !== 11000) {
+                await attemptSafeRefund(cashfree_order_id, orderData.order_amount, userId, courseId, appId!, secretKey!);
+            }
+            throw e; 
+        }
         finally { session.endSession(); }
     } catch (err) {
         logger.error('[Courses] verifyCoursePayment:', err);
@@ -619,7 +673,13 @@ export async function createCreditOrder(req: express.Request, res: express.Respo
             { plan, userId },
             appId!, secretKey!
         );
-        res.json({ orderId: order.id, amount: order.amount, currency: order.currency, keyId });
+        res.json({ 
+            orderId: order.order_id, 
+            paymentSessionId: order.payment_session_id, 
+            amount: order.order_amount, 
+            currency: order.order_currency, 
+            appId: appId! 
+        });
     } catch (err) {
         logger.error('[Credits] createCreditOrder:', err);
         res.status(500).json({ error: 'An internal error occurred' });
@@ -628,26 +688,72 @@ export async function createCreditOrder(req: express.Request, res: express.Respo
 
 export async function verifyCreditPayment(req: express.Request, res: express.Response): Promise<void> {
     try {
-    const cashfree_order_id = req.body.cashfree_order_id as string;
-    const cashfree_payment_session_id = req.body.cashfree_payment_session_id as string;
-    const plan = req.body.plan as string;
+        const cashfree_order_id = req.body.cashfree_order_id as string;
+        const cashfree_payment_session_id = req.body.cashfree_payment_session_id as string;
+        const plan = req.body.plan as string;
         const { appId, secretKey } = getCashfreeKeys();
         if (!appId || !secretKey) { res.status(500).json({ error: 'Payment not configured' }); return; }
 
-        const isValid = await verifyCashfreePayment(cashfree_order_id, appId!, secretKey!);
-        if (!isValid) { res.status(400).json({ error: 'Invalid payment signature' }); return; }
-
+        const orderData = await verifyCashfreePayment(cashfree_order_id, appId!, secretKey!);
+        if (orderData.order_status !== 'PAID') { res.status(400).json({ error: 'Order not paid' }); return; }
         const userId = (req as any).currentUser.id;
+        if (orderData.order_tags?.plan !== plan || orderData.order_tags?.userId !== userId) { res.status(400).json({ error: 'Invalid payment signature' }); return; }
         const selected = CREDIT_PLANS[plan];
         if (!selected) { res.status(400).json({ error: 'Invalid plan' }); return; }
 
-        if (selected.unlimited) {
-            const expiresAt = new Date(Date.now() + selected.hours! * 3600000);
-            await User.updateOne({ id: userId }, { 'unlimitedPlan.active': true, 'unlimitedPlan.expiresAt': expiresAt });
-            res.json({ ok: true, unlimitedPlan: { active: true, expiresAt } });
-        } else {
-            const user = await User.findOneAndUpdate({ id: userId }, { $inc: { credits: selected.credits! } }, { new: true });
-            res.json({ ok: true, credits: user?.credits ?? 0 });
+        const session = await mongoose.startSession();
+        session.startTransaction();
+        try {
+            const existingPurchase = await Purchase.findOne({ cashfreeOrderId: cashfree_order_id }).session(session);
+            if (existingPurchase) {
+                // Already verified (e.g. via webhook)
+                await session.abortTransaction();
+                const user = await User.findOne({ id: userId });
+                if (selected.unlimited) {
+                    res.json({ ok: true, unlimitedPlan: user?.unlimitedPlan });
+                } else {
+                    res.json({ ok: true, credits: user?.credits ?? 0 });
+                }
+                return;
+            }
+
+            let updatedCredits = 0;
+            let updatedUnlimitedPlan = null;
+            if (selected.unlimited) {
+                const expiresAt = new Date(Date.now() + selected.hours! * 3600000);
+                await User.updateOne({ id: userId }, { 'unlimitedPlan.active': true, 'unlimitedPlan.expiresAt': expiresAt }, { session });
+                updatedUnlimitedPlan = { active: true, expiresAt };
+            } else {
+                const user = await User.findOneAndUpdate({ id: userId }, { $inc: { credits: selected.credits! } }, { new: true, session });
+                updatedCredits = user?.credits ?? 0;
+            }
+
+            await Purchase.create([{
+                id: randomUUID(),
+                userId,
+                productId: `plan_${plan}`,
+                teacherId: 'unieval',
+                productType: 'credits',
+                amountPaid: selected.price / 100, // Or fetch the actual amount from Cashfree if you prefer
+                cashfreeOrderId: cashfree_order_id,
+                cashfreePaymentId: cashfree_payment_session_id,
+            }], { session });
+
+            await session.commitTransaction();
+            
+            if (selected.unlimited) {
+                res.json({ ok: true, unlimitedPlan: updatedUnlimitedPlan });
+            } else {
+                res.json({ ok: true, credits: updatedCredits });
+            }
+        } catch (e: any) {
+            await session.abortTransaction();
+            if (e.code !== 11000) {
+                await attemptSafeRefund(cashfree_order_id, orderData.order_amount, userId, `plan_${plan}`, appId!, secretKey!);
+            }
+            throw e;
+        } finally {
+            session.endSession();
         }
     } catch (err) {
         logger.error('[Credits] verifyCreditPayment:', err);

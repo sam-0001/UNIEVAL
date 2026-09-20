@@ -57,6 +57,14 @@ async function runDailyReset(): Promise<void> {
         let expiredCoursesCount = 0;
 
         for (const p of expiredPurchases) {
+            // BUGFIX: Prevent revoking if the user re-purchased the item recently
+            const newerPurchase = await Purchase.findOne({
+                userId: p.userId,
+                productId: p.productId,
+                createdAt: { $gte: sixMonthsAgo }
+            }).lean();
+            if (newerPurchase) continue;
+
             if (p.productType === 'course') {
                 const res = await User.updateOne({ id: p.userId }, { $pull: { purchasedCourseIds: p.productId } });
                 if (res.modifiedCount > 0) expiredCoursesCount++;

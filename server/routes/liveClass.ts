@@ -10,7 +10,8 @@ import {
   getTeacherLiveClassSchedule
 } from '../controllers/liveClassController.js';
 import { requireAuth } from '../middleware/auth.js';
-import { requireAdmin } from '../middleware/admin.js'; // Assuming teacher needs admin privileges or similar, adjust if needed
+import { requireRole } from '../middleware/auth.js';
+import { UserRole } from '../../types.js'; // Assuming teacher needs admin privileges or similar, adjust if needed
 import { dailyWebhook, getPendingRecordings, finalizeRecording } from '../controllers/liveClassController.js';
 
 const router = express.Router();
@@ -19,8 +20,8 @@ const router = express.Router();
 router.post('/webhook', dailyWebhook);
 
 // Admin Routes for Recording Archival
-router.get('/pending-recordings', requireAuth, getPendingRecordings);
-router.post('/finalize-recording', requireAuth, finalizeRecording);
+router.get('/pending-recordings', requireRole(UserRole.SUPER_ADMIN), getPendingRecordings);
+router.post('/finalize-recording', requireRole(UserRole.SUPER_ADMIN), finalizeRecording);
 
 // Teacher routes
 router.get('/teacher-schedule', requireAuth, getTeacherLiveClassSchedule);

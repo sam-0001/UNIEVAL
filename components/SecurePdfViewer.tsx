@@ -59,7 +59,11 @@ const SecurePdfViewer: React.FC<Props> = ({ url, filename, watermarkText }) => {
     setNumPages(0);
     setCurrentPage(1);
     try {
-      const resp = await fetch(url);
+      const token = (() => { try { return localStorage.getItem('token') || ''; } catch { return ''; } })();
+      const pureUrl = url.split('?t=')[0];
+      const resp = await fetch(pureUrl, {
+        headers: { 'Authorization': 'Bearer ' + token }
+      });
       if (!resp.ok) throw new Error(`Failed to load PDF (${resp.status})`);
       const buffer = await resp.arrayBuffer();
       const doc = await pdfjsLib.getDocument({ data: buffer }).promise;

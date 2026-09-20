@@ -7,8 +7,10 @@ import fs from 'fs';
 import crypto, { randomUUID } from 'crypto';
 import { S3Client, PutObjectCommand, DeleteObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
-import { Course, VideoKey, FileKey } from '../models/index.js'; 
-import { requireAuth } from '../middleware/auth.js';
+import { Course, VideoKey, FileKey, User } from '../models/index.js'; 
+import { requireAuth, requireRole } from '../middleware/auth.js';
+import { UserRole } from '../../types.js';
+import jwt from 'jsonwebtoken';
 import { uploadRateLimit, presignedUrlLimit } from '../middleware/userRateLimit.js';
 import logger from '../logger.js';
 import { enqueueVideoJob, isQueueAvailable } from '../services/queue.service.js';
@@ -50,6 +52,59 @@ router.get('/video/playlist/:videoId/:file', async (req: Request, res: Response,
     try {
         const { videoId, file } = req.params;
         const videoKeyDoc = await VideoKey.findOne({ videoId });
+
+        // --- CUSTOM AUTH FOR VIDEO KEY ---
+        // Safari native HLS doesn't send Bearer headers, so we accept a query param or cookie.
+        let token = req.query.t as string;
+        if (req.headers.authorization && req.headers.authorization.startsWith('Bearer ')) {
+            token = req.headers.authorization.slice(7);
+        } else if (req.headers.cookie) {
+            const match = req.headers.cookie.match(/(?:^|; )jwt_token=([^;]*)/);
+            if (match) token = match[1];
+        }
+
+        if (!token) {
+            res.status(401).send('Authentication required');
+            return;
+        }
+
+        let decoded: any;
+        try {
+            decoded = jwt.verify(token, process.env.JWT_SECRET!);
+        } catch (e) {
+            res.status(401).send('Invalid token');
+            return;
+        }
+
+        
+        
+        const user = await User.findOne({ id: decoded.userId }).lean();
+        if (!user) {
+            res.status(401).send('Invalid session');
+            return;
+        }
+
+        let hasAccess = false;
+        if (user.role === 'ADMIN' || user.role === 'SUPER_ADMIN' || user.role === 'TEACHER') {
+            hasAccess = true;
+        } else {
+            const course = await Course.findOne({ 'modules.videos.videoId': videoId }).lean();
+            if (course) {
+                const isPurchased = Array.isArray(user.purchasedCourseIds) && user.purchasedCourseIds.includes(course.id);
+                const isCollegeFree = course.collegeConfig?.emailDomain && user.email?.endsWith(course.collegeConfig.emailDomain.trim());
+                const isFreeCourse = !course.price || course.price === 0;
+                if (isPurchased || isCollegeFree || isFreeCourse) {
+                    hasAccess = true;
+                }
+            }
+        }
+
+        if (!hasAccess) {
+            res.status(403).send('Purchase required to access this video');
+            return;
+        }
+        // --- END CUSTOM AUTH ---
+
         
         // If it's ready and has an R2 url, redirect to R2!
         if (videoKeyDoc && videoKeyDoc.status === 'ready' && videoKeyDoc.videoUrl && videoKeyDoc.videoUrl.includes('r2.dev')) {
@@ -236,7 +291,7 @@ router.get('/video/key/:videoId', async (req: Request, res: Response): Promise<v
 });
 
 // ✅ CHANGED: uploadRateLimit → presignedUrlLimit (cheap URL signing, not heavy processing)
-router.post('/upload/r2-presigned-url', requireAuth, presignedUrlLimit, async (req: Request, res: Response): Promise<void> => {
+router.post('/upload/r2-presigned-url', requireRole(UserRole.TEACHER, UserRole.ADMIN, UserRole.SUPER_ADMIN), presignedUrlLimit, async (req: Request, res: Response): Promise<void> => {
   const { fileName, fileType, fileSize, isVideo = true } = req.body;
   const validation = validateFileUpload(fileName, fileType, fileSize, isVideo);
   if (!validation.valid) { res.status(400).json({ error: validation.error }); return; }
@@ -298,7 +353,7 @@ async function encryptAndStoreFile(
     return fileId;
 }
 
-router.post('/upload/file', requireAuth, uploadRateLimit, noteFileUpload.single('file'), async (req: Request, res: Response): Promise<void> => {
+router.post('/upload/file', requireRole(UserRole.TEACHER, UserRole.ADMIN, UserRole.SUPER_ADMIN), uploadRateLimit, noteFileUpload.single('file'), async (req: Request, res: Response): Promise<void> => {
     const file = (req as any).file as Express.Multer.File | undefined;
     if (!file) { res.status(400).json({ error: 'No file provided' }); return; }
 
@@ -338,7 +393,7 @@ const bundleUpload = multer({
     },
 });
 
-router.post('/upload/html-bundle', requireAuth, uploadRateLimit, bundleUpload.single('file'), async (req: Request, res: Response): Promise<void> => {
+router.post('/upload/html-bundle', requireRole(UserRole.TEACHER, UserRole.ADMIN, UserRole.SUPER_ADMIN), uploadRateLimit, bundleUpload.single('file'), async (req: Request, res: Response): Promise<void> => {
     const file = (req as any).file as Express.Multer.File | undefined;
     if (!file) { res.status(400).json({ error: 'No file provided' }); return; }
 
@@ -453,7 +508,7 @@ export async function readAndDecryptBundleAsset(bundleId: string, relativePath: 
 
 
 // uploadRateLimit stays here — this triggers heavy FFmpeg processing
-router.post('/process-video', requireAuth, uploadRateLimit, async (req: Request, res: Response): Promise<void> => {
+router.post('/process-video', requireRole(UserRole.TEACHER, UserRole.ADMIN, UserRole.SUPER_ADMIN), uploadRateLimit, async (req: Request, res: Response): Promise<void> => {
     const { videoUrl, videoKey } = req.body as ProcessVideoRequest;
     if (!videoUrl) { res.status(400).json({ error: 'Missing videoUrl' }); return; }
 

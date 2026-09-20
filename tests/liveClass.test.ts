@@ -9,7 +9,7 @@ import { LiveClass, Course } from '../server/models.js';
 // Mock auth middleware to set a dummy user
 vi.mock('../server/middleware/auth.js', () => ({
   requireAuth: (req: any, res: any, next: any) => {
-    req.user = { id: 'teacher1', name: 'Test Teacher', role: 'STUDENT' };
+    req.currentUser = { id: 'teacher1', name: 'Test Teacher', role: 'STUDENT' };
     next();
   }
 }));

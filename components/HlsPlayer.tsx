@@ -83,6 +83,13 @@ export const HlsPlayer: React.FC<HlsPlayerProps> = ({ src, poster, autoPlay = fa
     const onVolume  = () => { setVolume(video.volume); setIsMuted(video.muted); };
     const onFSChange = () => setIsFullscreen(!!document.fullscreenElement);
 
+    // Set cookie for Safari Native HLS to authenticate the video key request
+    const token = localStorage.getItem('token');
+    if (token) {
+        document.cookie = `jwt_token=${token}; path=/; max-age=3600; SameSite=Lax`;
+    }
+
+
     video.addEventListener('seeking',        onSeeking);
     video.addEventListener('seeked',         onSeeked);
     video.addEventListener('waiting',        onWaiting);

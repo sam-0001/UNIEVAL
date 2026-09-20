@@ -192,6 +192,13 @@ const CustomVideoPlayer: React.FC<CustomVideoPlayerProps> = ({
         }
       });
     } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+
+    // Set cookie for Safari Native HLS to authenticate the video key request
+    const token = localStorage.getItem('token');
+    if (token) {
+        document.cookie = `jwt_token=${token}; path=/; max-age=3600; SameSite=Lax`;
+    }
+
       video.src = src;
     } else {
       video.src = src;

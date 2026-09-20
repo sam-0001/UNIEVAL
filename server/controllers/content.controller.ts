@@ -17,6 +17,23 @@ function extractR2Key(fileUrl?: string): string | null {
 
 export function generateId(): string { return randomUUID(); }
 
+function buildAuthQuery(req: express.Request, id: string) {
+    const user = (req as any).currentUser;
+    const query: any = { id };
+    if (user.role === 'TEACHER') {
+        query.teacherId = user.id;
+    }
+    return query;
+}
+
+function enforceTeacherId(req: express.Request, data: any) {
+    const user = (req as any).currentUser;
+    if (user.role === 'TEACHER') {
+        data.teacherId = user.id;
+    }
+}
+
+
 function parsePagination(query: any) {
     const page = Math.max(1, parseInt(query.page as string) || 1);
     const limit = Math.min(100, parseInt(query.limit as string) || 20);
@@ -88,6 +105,7 @@ export async function getCourseById(req: express.Request, res: express.Response)
 
 export async function createCourse(req: express.Request, res: express.Response): Promise<void> {
     const courseData = req.body;
+    enforceTeacherId(req, courseData);
     if (!courseData.title || !courseData.subjectId || !courseData.teacherId) { res.status(400).json({ error: 'Title, subjectId, and teacherId are required' }); return; }
     if (Array.isArray(courseData.modules)) courseData.modules = sanitizeModules(courseData.modules);
     try {
@@ -99,10 +117,11 @@ export async function createCourse(req: express.Request, res: express.Response):
 
 export async function updateCourse(req: express.Request, res: express.Response): Promise<void> {
     const id = req.params.id as string;
+    const query = buildAuthQuery(req, id);
     const updates = req.body;
     if (Array.isArray(updates.modules)) updates.modules = sanitizeModules(updates.modules);
     try {
-        const course = await Course.findOneAndUpdate({ id }, { $set: updates }, { new: true, runValidators: false });
+        const course = await Course.findOneAndUpdate(query, { $set: updates }, { new: true, runValidators: false });
         if (!course) { res.status(404).json({ error: 'Course not found' }); return; }
         await Promise.all([cache.invalidate('courses:*'), cache.invalidate(`course:${id}`)]);
         res.json(course);
@@ -111,8 +130,9 @@ export async function updateCourse(req: express.Request, res: express.Response):
 
 export async function deleteCourse(req: express.Request, res: express.Response): Promise<void> {
     const id = req.params.id as string;
+    const query = buildAuthQuery(req, id);
     try {
-        const course = await Course.findOneAndDelete({ id }) as any;
+        const course = await Course.findOneAndDelete(query) as any;
         if (!course) { res.status(404).json({ error: 'Course not found' }); return; }
 
         // Extract and delete files from R2
@@ -178,6 +198,7 @@ export async function getNoteById(req: express.Request, res: express.Response): 
 
 export async function createNote(req: express.Request, res: express.Response): Promise<void> {
     const noteData = req.body;
+    enforceTeacherId(req, noteData);
     if (!noteData.title || !noteData.subjectId || !noteData.teacherId) { res.status(400).json({ error: 'Title, subjectId, and teacherId are required' }); return; }
     try {
         const note = await Note.create({ ...noteData, id: generateId(), uploadedAt: new Date().toISOString(), sections: safeSections(noteData.sections) });
@@ -188,10 +209,11 @@ export async function createNote(req: express.Request, res: express.Response): P
 
 export async function updateNote(req: express.Request, res: express.Response): Promise<void> {
     const id = req.params.id as string;
+    const query = buildAuthQuery(req, id);
     const updates = req.body;
     if (Array.isArray(updates.sections)) updates.sections = safeSections(updates.sections);
     try {
-        const note = await Note.findOneAndUpdate({ id }, { $set: updates }, { new: true, runValidators: false });
+        const note = await Note.findOneAndUpdate(query, { $set: updates }, { new: true, runValidators: false });
         if (!note) { res.status(404).json({ error: 'Note not found' }); return; }
         await Promise.all([cache.invalidate('notes:*'), cache.invalidate(`note:${id}`)]);
         res.json(note);
@@ -200,8 +222,9 @@ export async function updateNote(req: express.Request, res: express.Response): P
 
 export async function deleteNote(req: express.Request, res: express.Response): Promise<void> {
     const id = req.params.id as string;
+    const query = buildAuthQuery(req, id);
     try {
-        const note = await Note.findOneAndDelete({ id }) as any;
+        const note = await Note.findOneAndDelete(query) as any;
         if (!note) { res.status(404).json({ error: 'Note not found' }); return; }
         
         // Extract and delete files from R2
@@ -256,24 +279,41 @@ export async function getQuizById(req: express.Request, res: express.Response): 
     try {
         const quiz = await cache.getOrSet(`quiz:${id}`, () => Quiz.findOne({ id }).lean(), 300);
         if (!quiz) { res.status(404).json({ error: 'Quiz not found' }); return; }
-        res.json(quiz);
+        
+        let responseQuiz = { ...quiz };
+        if (req.currentUser && req.currentUser.role === 'STUDENT') {
+            // Give them the question count, but clear the questions array
+            const qCount = responseQuiz.questions ? responseQuiz.questions.length : 0;
+            responseQuiz.questions = Array.from({ length: qCount }).map((_, i) => ({ id: i.toString(), text: 'Hidden until started', options: [], correctAnswer: '' })) as any;
+        }
+        res.json(responseQuiz);
+
     } catch (err) { logger.error('[Quizzes] getQuizById:', err); res.status(500).json({ error: 'An internal error occurred' }); }
 }
 
 export async function createQuiz(req: express.Request, res: express.Response): Promise<void> {
     const quizData = req.body;
+    enforceTeacherId(req, quizData);
     if (!quizData.title || !quizData.subjectId) { res.status(400).json({ error: 'Title and subjectId are required' }); return; }
     try {
         const quiz = await Quiz.create({ ...quizData, id: generateId() });
         await cache.invalidate('quizzes:*');
-        res.json(quiz);
+        let responseQuiz = { ...quiz };
+        const user = (req as any).currentUser;
+        if (!user || user.role === 'STUDENT') {
+            const qCount = responseQuiz.questions ? responseQuiz.questions.length : 0;
+            // Provide dummy questions so frontend length logic doesn't crash before rewrite is complete
+            responseQuiz.questions = Array.from({ length: qCount }).map((_, i) => ({ id: i.toString(), text: 'Hidden until started', options: [], correctAnswer: '' })) as any;
+        }
+        res.json(responseQuiz);
     } catch (err) { logger.error('[Quizzes] createQuiz:', err); res.status(500).json({ error: 'An internal error occurred' }); }
 }
 
 export async function updateQuiz(req: express.Request, res: express.Response): Promise<void> {
     const id = req.params.id as string;
+    const query = buildAuthQuery(req, id);
     try {
-        const quiz = await Quiz.findOneAndUpdate({ id }, req.body, { new: true });
+        const quiz = await Quiz.findOneAndUpdate(query, req.body, { new: true });
         if (!quiz) { res.status(404).json({ error: 'Quiz not found' }); return; }
         await Promise.all([cache.invalidate('quizzes:*'), cache.invalidate(`quiz:${id}`)]);
         res.json(quiz);
@@ -282,8 +322,9 @@ export async function updateQuiz(req: express.Request, res: express.Response): P
 
 export async function deleteQuiz(req: express.Request, res: express.Response): Promise<void> {
     const id = req.params.id as string;
+    const query = buildAuthQuery(req, id);
     try {
-        const quiz = await Quiz.findOneAndDelete({ id });
+        const quiz = await Quiz.findOneAndDelete(query);
         if (!quiz) { res.status(404).json({ error: 'Quiz not found' }); return; }
         await Promise.all([cache.invalidate('quizzes:*'), cache.invalidate(`quiz:${id}`)]);
         res.json({ success: true });
@@ -316,12 +357,23 @@ export async function getVivaById(req: express.Request, res: express.Response): 
     try {
         const viva = await cache.getOrSet(`viva:${id}`, () => Viva.findOne({ id }).lean(), 300);
         if (!viva) { res.status(404).json({ error: 'Viva not found' }); return; }
-        res.json(viva);
+        let responseViva = { ...viva };
+        const user = (req as any).currentUser;
+        if (!user || user.role === 'STUDENT') {
+            if (responseViva.questions) {
+                responseViva.questions = responseViva.questions.map((q: any) => ({
+                    ...q,
+                    correctAnswer: 'Hidden'
+                })) as any;
+            }
+        }
+        res.json(responseViva);
     } catch (err) { logger.error('[Vivas] getVivaById:', err); res.status(500).json({ error: 'An internal error occurred' }); }
 }
 
 export async function createViva(req: express.Request, res: express.Response): Promise<void> {
     const vivaData = req.body;
+    enforceTeacherId(req, vivaData);
     if (!vivaData.title || !vivaData.subjectId) { res.status(400).json({ error: 'Title and subjectId are required' }); return; }
     try {
         const viva = await Viva.create({ ...vivaData, id: generateId() });
@@ -332,8 +384,9 @@ export async function createViva(req: express.Request, res: express.Response): P
 
 export async function updateViva(req: express.Request, res: express.Response): Promise<void> {
     const id = req.params.id as string;
+    const query = buildAuthQuery(req, id);
     try {
-        const viva = await Viva.findOneAndUpdate({ id }, req.body, { new: true });
+        const viva = await Viva.findOneAndUpdate(query, req.body, { new: true });
         if (!viva) { res.status(404).json({ error: 'Viva not found' }); return; }
         await Promise.all([cache.invalidate('vivas:*'), cache.invalidate(`viva:${id}`)]);
         res.json(viva);
@@ -342,10 +395,102 @@ export async function updateViva(req: express.Request, res: express.Response): P
 
 export async function deleteViva(req: express.Request, res: express.Response): Promise<void> {
     const id = req.params.id as string;
+    const query = buildAuthQuery(req, id);
     try {
-        const viva = await Viva.findOneAndDelete({ id });
+        const viva = await Viva.findOneAndDelete(query);
         if (!viva) { res.status(404).json({ error: 'Viva not found' }); return; }
         await Promise.all([cache.invalidate('vivas:*'), cache.invalidate(`viva:${id}`)]);
         res.json({ success: true });
     } catch (err) { logger.error('[Vivas] deleteViva:', err); res.status(500).json({ error: 'An internal error occurred' }); }
+}
+
+
+export async function startQuiz(req: express.Request, res: express.Response): Promise<void> {
+    const id = req.params.id as string;
+    try {
+        const quiz = await Quiz.findOne({ id }).lean();
+        if (!quiz) { res.status(404).json({ error: 'Quiz not found' }); return; }
+        
+        let responseQuiz = { ...quiz };
+        const user = (req as any).currentUser;
+        if (!user || user.role === 'STUDENT') {
+            if (responseQuiz.questions) {
+                responseQuiz.questions = responseQuiz.questions.map((q: any) => ({
+                    ...q,
+                    correctAnswer: 'Hidden'
+                })) as any;
+            }
+        }
+        res.json(responseQuiz);
+    } catch (err) { logger.error('[Quizzes] startQuiz:', err); res.status(500).json({ error: 'An internal error occurred' }); }
+}
+
+export async function evaluateQuiz(req: express.Request, res: express.Response): Promise<void> {
+    const id = req.params.id as string;
+    const { answers } = req.body;
+    try {
+        const quiz = await Quiz.findOne({ id }).lean();
+        if (!quiz) { res.status(404).json({ error: 'Quiz not found' }); return; }
+        
+        let score = 0;
+        const results: Record<string, { correct: boolean; correctAnswer: string }> = {};
+        
+        if (quiz.questions) {
+            quiz.questions.forEach((q: any) => {
+                const isCorrect = answers[q.id] === q.correctAnswer;
+                if (isCorrect) score++;
+                results[q.id] = { correct: isCorrect, correctAnswer: q.correctAnswer };
+            });
+        }
+        
+        res.json({ score, results });
+    } catch (err) { logger.error('[Quizzes] evaluateQuiz:', err); res.status(500).json({ error: 'An internal error occurred' }); }
+}
+
+// Ensure fetch is available for AI
+export async function evaluateVivaQuestion(req: express.Request, res: express.Response): Promise<void> {
+    const id = req.params.id as string;
+    const { questionId, userAnswer } = req.body;
+    
+    try {
+        const viva = await Viva.findOne({ id }).lean();
+        if (!viva) { res.status(404).json({ error: 'Viva not found' }); return; }
+        
+        const question = viva.questions?.find((q: any) => q.id === questionId);
+        if (!question) { res.status(404).json({ error: 'Question not found' }); return; }
+        
+        const prompt = `
+            You are an expert engineering examiner conducting a Viva Voce.
+            
+            Question: "${question.text}"
+            Expected Concept/Key Points: "${question.correctAnswer}"
+            Student Answer: "${userAnswer}"
+            
+            Evaluation Guidelines:
+            1. Conceptual Match: If the student's answer conveys the correct meaning, treat it as CORRECT even if wording differs.
+            2. Voice Input: Ignore minor grammatical errors or phonetic misinterpretations.
+            3. Scoring: 8-10 correct, 5-7 partial, 0-4 wrong/irrelevant.
+            
+            Output Format: JSON only.
+            {"score": number (0-10), "feedback": "string (under 30 words)"}
+        `;
+        
+        // Use the existing local callAI utility if available, or just fallback to fetch
+        // Since we are in the backend, we can import callAI from services/ai.service.ts
+        const aiService = await import('../services/ai.service.js').catch(() => null);
+        if (aiService && aiService.callAI) {
+            const aiResult = await aiService.callAI(prompt);
+            let jsonText = aiResult.text.trim();
+            const arrayMatch = jsonText.match(/\{[\s\S]*\}/);
+            if (arrayMatch) {
+                jsonText = arrayMatch[0];
+            } else {
+                jsonText = jsonText.replace(/^\x60\x60\x60json\s*/i, '').replace(/^\x60\x60\x60\s*/i, '').replace(/\s*\x60\x60\x60$/i, '').trim();
+            }
+            res.json(JSON.parse(jsonText));
+            return;
+        }
+        
+        res.status(500).json({ error: 'AI Service unavailable' });
+    } catch (err) { logger.error('[Vivas] evaluateVivaQuestion:', err); res.status(500).json({ error: 'An internal error occurred' }); }
 }

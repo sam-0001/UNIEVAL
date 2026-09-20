@@ -11,6 +11,7 @@ const otpSchema = new mongoose.Schema({
   phoneAttempts: { type: Number, default: 0 },
   locked:      { type: Boolean, default: false },
   phoneLocked: { type: Boolean, default: false },
+  verified:    { type: Boolean, default: false },
   createdAt:   { type: Date, default: Date.now, expires: OTP_EXPIRY_SECONDS }
 });
 

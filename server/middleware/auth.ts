@@ -31,7 +31,7 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
     try {
         const decoded = jwt.verify(token, JWT_SECRET!) as JwtPayload;
         const user = await User.findOne({ id: decoded.userId });
-        if (!user) {
+        if (!user || (user.sessionToken && user.sessionToken !== decoded.sessionToken)) {
             res.status(401).json({ error: 'Invalid session' });
             return;
         }

@@ -238,7 +238,7 @@ const Profile: React.FC = () => {
                     ? <img 
                         src={course.thumbnailUrl} 
                         alt={course.title} 
-                        className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-500" 
+                        className="w-full h-full object-contain transform group-hover:scale-105 transition-transform duration-500" 
                         onError={(e) => { e.currentTarget.src = 'https://picsum.photos/800/600?random=' + course.id; }}
                       />
                     : <div className="w-full h-full flex items-center justify-center bg-indigo-50 text-indigo-300">

@@ -19,8 +19,12 @@ export async function superAdminLogin(req: express.Request, res: express.Respons
 
     try {
         const record = await OTP.findOne({ email: email.toLowerCase().trim() });
-        if (!record || record.otp !== otp) {
+        if (!record) {
             res.status(400).json({ error: 'Invalid or expired OTP' });
+            return;
+        }
+        if (record.locked) {
+            res.status(429).json({ error: 'Too many failed attempts. Please request a new OTP.' });
             return;
         }
 
@@ -28,6 +32,23 @@ export async function superAdminLogin(req: express.Request, res: express.Respons
         const age = Date.now() - new Date(record.createdAt).getTime();
         if (age > 10 * 60 * 1000) {
             await OTP.deleteOne({ _id: record._id });
+            res.status(400).json({ error: 'OTP has expired' });
+            return;
+        }
+
+        if (record.otp !== otp) {
+            const attempts = (record.attempts || 0) + 1;
+            if (attempts >= 5) {
+                await OTP.findOneAndUpdate({ _id: record._id }, { attempts, locked: true });
+                res.status(429).json({ error: 'Too many failed attempts. Please request a new OTP.' });
+            } else {
+                await OTP.findOneAndUpdate({ _id: record._id }, { attempts });
+                res.status(400).json({ error: `Invalid OTP. ${5 - attempts} attempt(s) remaining.` });
+            }
+            return;
+        }
+
+        await OTP.deleteOne({ _id: record._id });
             res.status(400).json({ error: 'OTP has expired' });
             return;
         }

@@ -213,7 +213,7 @@ const EvalyScorecardModal: React.FC<{
 
   const total = quiz.questions?.length ?? 0;
   const pct = total > 0 ? Math.round((score / total) * 100) : 0;
-  const incorrect = quiz.questions?.filter(q => answers[q.id] && answers[q.id] !== q.correctAnswer).length ?? 0;
+  const incorrect = quiz.questions?.filter(q => answers[q.id] && evalResults[q.id] && !evalResults[q.id].correct).length ?? 0;
   const skipped = quiz.questions?.filter(q => !answers[q.id]).length ?? 0;
 
   useEffect(() => {
@@ -226,8 +226,8 @@ const EvalyScorecardModal: React.FC<{
     const fetchAnalysis = async () => {
       setAnalyzing(true);
       try {
-        const wrongQuestions = quiz.questions!.filter(q => answers[q.id] !== q.correctAnswer);
-        const correctQuestions = quiz.questions!.filter(q => answers[q.id] === q.correctAnswer);
+        const wrongQuestions = quiz.questions!.filter(q => evalResults[q.id] && !evalResults[q.id].correct);
+        const correctQuestions = quiz.questions!.filter(q => evalResults[q.id] && evalResults[q.id].correct);
         const prompt = `You are Evaly, a warm and encouraging AI tutor for engineering students on UNIEVAL.
 
 Quiz: "${quiz.title}"
@@ -266,8 +266,8 @@ Rules:
       } catch {
         setAnalysis({
           summary: pct >= 80 ? `Outstanding! You scored ${pct}% — your preparation really shows!` : pct >= 50 ? `Good effort! You scored ${pct}%. You're on the right track.` : `You scored ${pct}%. Don't worry — every attempt teaches you something new!`,
-          weakTopics: quiz.questions!.filter(q => answers[q.id] !== q.correctAnswer).slice(0,3).map(q => ({ topic: q.text.length > 50 ? q.text.slice(0,50)+'...' : q.text, reason: 'Review this concept and the correct answer carefully', emoji: '📖' })),
-          strongTopics: quiz.questions!.filter(q => answers[q.id] === q.correctAnswer).slice(0,2).map(q => ({ topic: q.text.length > 40 ? q.text.slice(0,40)+'...' : q.text })),
+          weakTopics: quiz.questions!.filter(q => evalResults[q.id] && !evalResults[q.id].correct).slice(0,3).map(q => ({ topic: q.text.length > 50 ? q.text.slice(0,50)+'...' : q.text, reason: 'Review this concept and the correct answer carefully', emoji: '📖' })),
+          strongTopics: quiz.questions!.filter(q => evalResults[q.id] && evalResults[q.id].correct).slice(0,2).map(q => ({ topic: q.text.length > 40 ? q.text.slice(0,40)+'...' : q.text })),
           studyPlan: [{ action: 'Review your incorrect answers and look up the correct concepts', priority: 'high' }, { action: 'Re-attempt this quiz after studying weak areas', priority: 'medium' }],
           motivationalNote: 'Every question you get wrong is a lesson learned. Keep going! 💪',
         });
@@ -441,7 +441,7 @@ Rules:
           <div className="divide-y divide-slate-50">
             {quiz.questions?.map((q, idx) => {
               const ua = answers[q.id];
-              const ok = ua === q.correctAnswer;
+              const ok = evalResults[q.id]?.correct;
               const explanation = analysis?.explanations?.[q.id];
               return (
                 <div key={q.id} className="p-5">
@@ -509,6 +509,7 @@ const QuizDetail: React.FC = () => {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [score, setScore] = useState(0);
+  const [evalResults, setEvalResults] = useState<Record<string, { correct: boolean; correctAnswer: string }>>({});
   const [showEvaly, setShowEvaly] = useState(false);
 
   useEffect(() => {
@@ -518,7 +519,9 @@ const QuizDetail: React.FC = () => {
   const doStart = async () => {
     try {
       await api.consumeCredit();
+      const fullQuiz = await api.startQuiz(id!);
       await refreshCredits();
+      setQuiz(fullQuiz);
     } catch (err: any) {
       if (err.message?.includes('No credits') || err.message?.includes('402')) {
         setShowBuyModal(true);
@@ -568,13 +571,17 @@ const QuizDetail: React.FC = () => {
 
   const handlePrev = () => { if (currentQuestionIndex > 0) setCurrentQuestionIndex(p => p - 1); };
 
-  const handleSubmit = () => {
+  const [evaluating, setEvaluating] = useState(false);
+  const handleSubmit = async () => {
     if (!quiz?.questions) return;
-    let s = 0;
-    quiz.questions.forEach(q => { if (answers[q.id] === q.correctAnswer) s++; });
-    setScore(s);
-    setStatus('result');
-    setShowEvaly(true);
+    setEvaluating(true);
+    try {
+        const res = await api.evaluateQuiz(id!, answers);
+        setScore(res.score);
+        setEvalResults(res.results);
+        setStatus('result');
+    } catch (e) { console.error(e); }
+    setEvaluating(false);
   };
 
   if (loading) return <div className="p-12 text-center text-slate-500">Loading quiz...</div>;
@@ -660,7 +667,7 @@ const QuizDetail: React.FC = () => {
           <div className="grid grid-cols-3 divide-x divide-slate-100 border-b border-slate-100">
             {[
               { label: 'Correct', val: score, color: 'text-emerald-600' },
-              { label: 'Incorrect', val: quiz.questions.filter(q => answers[q.id] && answers[q.id] !== q.correctAnswer).length, color: 'text-rose-500' },
+              { label: 'Incorrect', val: incorrect, color: 'text-rose-500' },
               { label: 'Skipped', val: quiz.questions.filter(q => !answers[q.id]).length, color: 'text-slate-400' },
             ].map(s => (
               <div key={s.label} className="py-4 text-center">
@@ -747,7 +754,7 @@ const QuizDetail: React.FC = () => {
             <div className="mt-auto flex justify-between pt-8 border-t border-gray-100">
               <button onClick={handlePrev} disabled={currentQuestionIndex === 0} className="px-6 py-2.5 text-slate-600 font-bold hover:bg-slate-100 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition">Previous</button>
               {currentQuestionIndex === quiz.questions.length - 1
-                ? <button onClick={handleSubmit} className="px-8 py-2.5 bg-green-600 text-white font-bold rounded-lg hover:bg-green-700 shadow-md transition">Submit Quiz</button>
+                ? <button onClick={handleSubmit} disabled={evaluating} className="px-8 py-2.5 bg-green-600 text-white font-bold rounded-lg hover:bg-green-700 shadow-md transition disabled:opacity-50">{evaluating ? "Evaluating..." : "Submit Quiz"}</button>
                 : <button onClick={handleNext} className="px-8 py-2.5 bg-indigo-600 text-white font-bold rounded-lg hover:bg-indigo-700 shadow-md transition">Next Question</button>
               }
             </div>

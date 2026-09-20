@@ -130,39 +130,8 @@ const VivaDetail: React.FC = () => {
     setLoadingEval(prev => ({ ...prev, [questionId]: true }));
 
     try {
-        const prompt = `
-            You are an expert engineering examiner conducting a Viva Voce.
-            
-            Question: "${question.text}"
-            Expected Concept/Key Points: "${question.correctAnswer}"
-            Student Answer: "${userAnswer}"
-            
-            Evaluation Guidelines:
-            1. Conceptual Match: If the student's answer conveys the correct meaning, treat it as CORRECT even if wording differs.
-            2. Voice Input: Ignore minor grammatical errors or phonetic misinterpretations.
-            3. Scoring: 8-10 correct, 5-7 partial, 0-4 wrong/irrelevant.
-            
-            Output Format: JSON only.
-            {"score": number (0-10), "feedback": "string (under 30 words)"}
-        `;
-        const token = localStorage.getItem('token');
-        const aiRes = await fetch('/api/ai/generate', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-          body: JSON.stringify({ prompt }),
-        });
-        if (!aiRes.ok) throw new Error('AI request failed');
-        const aiData = await aiRes.json();
-        const rawText = (aiData.text || '{}').replace(/```json|```/g, '').trim();
-        const result = JSON.parse(rawText);
-        
-        setEvaluations(prev => ({
-            ...prev,
-            [questionId]: {
-                score: result.score || 0,
-                feedback: result.feedback || "Could not generate feedback."
-            }
-        }));
+        const res = await api.evaluateVivaQuestion(id!, questionId, userAnswer);
+        setEvaluations(prev => ({ ...prev, [questionId]: res }));
 
     } catch (error) {
         console.error("Evaluation failed", error);
