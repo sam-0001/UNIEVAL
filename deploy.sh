@@ -21,7 +21,9 @@ echo ""
 
 # ── 2. Install any new dependencies ──────────────────────────
 echo "📚 Installing dependencies..."
-npm install --frozen-lockfile
+# Using 'npm ci' instead of 'npm install' ensures a clean, predictable build from the lockfile
+# --no-audit prevents the Arborist edgesOut crash during vitest peer dependency resolution
+npm ci --no-audit --no-fund
 echo "✅ Dependencies installed"
 echo ""
 
