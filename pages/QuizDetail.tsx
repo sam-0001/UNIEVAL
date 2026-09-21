@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import ReactMarkdown from 'react-markdown';
-import remarkMath from 'remark-math';
-import rehypeKatex from 'rehype-katex';
+
+import { QuestionRenderer, OptionRenderer } from '../components/QuizRenderer';
 
 import { useParams, Link } from 'react-router-dom';
 import { api } from '../services/api';
@@ -452,13 +451,15 @@ Rules:
                   <div className="flex items-start justify-between gap-3 mb-3">
                     <div className="flex items-start gap-2.5 flex-1 min-w-0">
                       <span className={`flex-shrink-0 w-6 h-6 rounded-full text-[11px] font-black flex items-center justify-center mt-0.5 ${ok ? 'bg-emerald-100 text-emerald-700' : !ua ? 'bg-slate-100 text-slate-500' : 'bg-rose-100 text-rose-700'}`}>{idx+1}</span>
-                      <p className="text-sm text-slate-800 font-medium leading-relaxed">{q.text}</p>
+                      <div className="text-sm text-slate-800 font-medium leading-relaxed flex-1">
+                        <QuestionRenderer content={q.text} />
+                      </div>
                     </div>
                     <span className={`flex-shrink-0 text-[10px] font-bold uppercase px-2 py-1 rounded-full ${ok ? 'bg-emerald-100 text-emerald-700' : !ua ? 'bg-slate-100 text-slate-500' : 'bg-rose-100 text-rose-700'}`}>{ok ? 'Correct' : !ua ? 'Skipped' : 'Wrong'}</span>
                   </div>
                   <div className="ml-9 grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
-                    {ua && !ok && <div className="bg-rose-50 border border-rose-100 rounded-lg px-3 py-2"><p className="text-[10px] font-bold text-rose-400 uppercase mb-0.5">Your Answer</p><p className="text-sm font-semibold text-rose-700">{ua}</p></div>}
-                    <div className="bg-emerald-50 border border-emerald-100 rounded-lg px-3 py-2"><p className="text-[10px] font-bold text-emerald-400 uppercase mb-0.5">Correct Answer</p><p className="text-sm font-semibold text-emerald-700">{q.correctAnswer}</p></div>
+                    {ua && !ok && <div className="bg-rose-50 border border-rose-100 rounded-lg px-3 py-2"><p className="text-[10px] font-bold text-rose-400 uppercase mb-0.5">Your Answer</p><div className="text-sm font-semibold text-rose-700"><OptionRenderer content={ua} /></div></div>}
+                    <div className="bg-emerald-50 border border-emerald-100 rounded-lg px-3 py-2"><p className="text-[10px] font-bold text-emerald-500 uppercase mb-0.5">Correct Answer</p><div className="text-sm font-semibold text-emerald-700"><OptionRenderer content={q.correctAnswer || ''} /></div></div>
                   </div>
                   {explanation && (
                     <div className="ml-9 mt-3 p-3 bg-indigo-50 border border-indigo-100 rounded-xl">
@@ -466,7 +467,9 @@ Rules:
                         <span className="text-xs">💡</span>
                         <p className="text-[10px] font-black text-indigo-500 uppercase tracking-wider">Evaly's Explanation</p>
                       </div>
-                      <p className="text-xs text-indigo-800 leading-relaxed">{explanation}</p>
+                      <div className="text-xs text-indigo-800 leading-relaxed">
+                        <QuestionRenderer content={explanation} />
+                      </div>
                     </div>
                   )}
                 </div>
@@ -740,17 +743,28 @@ const QuizDetail: React.FC = () => {
       <div className="max-w-5xl mx-auto px-4 py-8 flex flex-col md:flex-row gap-8">
         <div className="flex-grow">
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 min-h-[400px] flex flex-col">
-            <h3 className="text-xl font-medium text-slate-900 leading-relaxed mb-8">{currentQuestion.text}</h3>
+            <div className="mb-8">
+              <QuestionRenderer content={currentQuestion.text} />
+            </div>
             <div className="space-y-3 mb-8">
               {currentQuestion.options?.map((opt, idx) => {
                 const sel = answers[currentQuestion.id] === opt;
+                // Add A/B/C/D label if not present in the content
+                const label = String.fromCharCode(65 + idx);
+                const hasLabel = /^[A-D][.)]\s/.test(opt);
+                
                 return (
                   <button key={idx} onClick={() => handleSelectAnswer(opt)}
-                    className={`w-full text-left p-4 rounded-xl border-2 transition-all flex items-center gap-3 group ${sel ? 'border-indigo-600 bg-indigo-50' : 'border-gray-200 hover:border-indigo-300 hover:bg-gray-50'}`}>
-                    <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${sel ? 'border-indigo-600' : 'border-gray-300 group-hover:border-indigo-400'}`}>
+                    className={`w-full text-left p-4 rounded-xl border-2 transition-all flex items-start gap-4 group ${sel ? 'border-indigo-600 bg-indigo-50' : 'border-gray-200 hover:border-indigo-300 hover:bg-gray-50'}`}>
+                    <div className={`w-6 h-6 mt-1 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${sel ? 'border-indigo-600' : 'border-gray-300 group-hover:border-indigo-400'}`}>
                       {sel && <div className="w-3 h-3 rounded-full bg-indigo-600" />}
                     </div>
-                    <span className={`text-base ${sel ? 'text-indigo-900 font-medium' : 'text-gray-700'}`}>{opt}</span>
+                    <div className="flex-1 min-w-0 flex items-start gap-2">
+                      {!hasLabel && <span className="font-bold text-slate-500">{label}.</span>}
+                      <div className={`flex-1 ${sel ? 'text-indigo-900 font-medium' : 'text-gray-700'}`}>
+                        <OptionRenderer content={hasLabel ? opt.replace(/^[A-D][.)]\s*/, '') : opt} />
+                      </div>
+                    </div>
                   </button>
                 );
               })}

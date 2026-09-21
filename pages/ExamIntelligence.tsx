@@ -1,8 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Loader2, Trash2, ChevronLeft, Menu, X } from 'lucide-react';
-import ReactMarkdown from 'react-markdown';
-import remarkMath from 'remark-math';
-import rehypeKatex from 'rehype-katex';
+import { QuestionRenderer, OptionRenderer } from '../components/QuizRenderer';
 import { ExamIntelligenceDoc, ExamTopic, ExamUnit } from '../types';
 import { listExamIntelligence, getExamIntelligence, deleteExamIntelligence, uploadExamIntelligence, ListItem } from '../services/examIntelligenceApi';
 import { useAuth } from '../context/AuthContext';
@@ -422,7 +420,9 @@ const EvalyScorecard: React.FC<{
                 <div className="flex items-start gap-2 mb-2">
                   <span className={`flex-shrink-0 w-5 h-5 rounded-full text-[10px] font-black flex items-center justify-center mt-0.5
                     ${ok ? 'bg-emerald-100 text-emerald-700' : !ua ? 'bg-slate-100 text-slate-500' : 'bg-rose-100 text-rose-700'}`}>{idx+1}</span>
-                  <div className="text-xs text-slate-800 font-medium leading-relaxed flex-1 prose-sm max-w-none"><ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeKatex]}>{q.question}</ReactMarkdown></div>
+                  <div className="text-xs text-slate-800 font-medium leading-relaxed flex-1">
+                    <QuestionRenderer content={q.question} />
+                  </div>
                   <span className={`flex-shrink-0 text-[9px] font-bold uppercase px-2 py-0.5 rounded-full
                     ${ok ? 'bg-emerald-100 text-emerald-700' : !ua ? 'bg-slate-100 text-slate-500' : 'bg-rose-100 text-rose-700'}`}>
                     {ok ? 'Correct' : !ua ? 'Skipped' : 'Wrong'}
@@ -431,20 +431,26 @@ const EvalyScorecard: React.FC<{
                 <div className="ml-7 grid grid-cols-1 sm:grid-cols-2 gap-1.5">
                   {ua && !ok && <div className="bg-rose-50 border border-rose-100 rounded-lg px-2.5 py-1.5">
                     <p className="text-[9px] font-bold text-rose-400 uppercase mb-0.5">Your Answer</p>
-                    <p className="text-xs font-semibold text-rose-700">{ua}</p>
+                    <div className="text-xs font-semibold text-rose-700">
+                      <OptionRenderer content={ua} />
+                    </div>
                   </div>}
                   <div className="bg-emerald-50 border border-emerald-100 rounded-lg px-2.5 py-1.5">
-                    <p className="text-[9px] font-bold text-emerald-400 uppercase mb-0.5">Correct Answer</p>
-                    <p className="text-xs font-semibold text-emerald-700">{q.correct}</p>
+                    <p className="text-[9px] font-bold text-emerald-500 uppercase mb-0.5">Correct Answer</p>
+                    <div className="text-xs font-semibold text-emerald-700">
+                      <OptionRenderer content={q.correct} />
+                    </div>
                   </div>
                 </div>
                 {explanation && (
-                  <div className="ml-7 mt-2.5 p-2.5 bg-indigo-50 border border-indigo-100 rounded-xl">
+                  <div className="ml-7 mt-2 p-2.5 bg-indigo-50 border border-indigo-100 rounded-lg">
                     <div className="flex items-center gap-1 mb-1">
-                      <span className="text-xs">💡</span>
+                      <span className="text-[10px]">💡</span>
                       <p className="text-[9px] font-black text-indigo-500 uppercase tracking-wider">Evaly's Explanation</p>
                     </div>
-                    <p className="text-xs text-indigo-800 leading-relaxed">{explanation}</p>
+                    <div className="text-xs text-indigo-800 leading-relaxed">
+                      <QuestionRenderer content={explanation} />
+                    </div>
                   </div>
                 )}
               </div>
@@ -608,17 +614,27 @@ const handleTryAnother = () => {
               <div className="space-y-4 sm:space-y-5">
                 {questions.map((q, qi) => (
                   <div key={qi} className="bg-gray-50 border border-gray-200 rounded-xl p-3 sm:p-4">
-                    <p className="text-sm font-semibold text-gray-800 mb-3">
-                      <span className="text-indigo-600 mr-1 inline-block">Q{qi+1}.</span><div className="inline-block prose-sm max-w-none"><ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeKatex]}>{q.question}</ReactMarkdown></div>
-                    </p>
+                    <div className="flex items-start gap-2 mb-3">
+                      <span className="text-sm font-semibold text-indigo-600 mt-1">Q{qi+1}.</span>
+                      <div className="flex-1 min-w-0">
+                        <QuestionRenderer content={q.question} />
+                      </div>
+                    </div>
                     <div className="space-y-2">
                       {q.options.map((opt, oi) => {
                         const isSel = selected[qi] === opt;
+                        // Add A/B/C/D label if not present in the content
+                        const label = String.fromCharCode(65 + oi);
+                        const hasLabel = /^[A-D][.)]\s/.test(opt);
+                        
                         return (
                           <button key={oi} onClick={() => setSelected(p => ({...p, [qi]: opt}))}
-                            className={`w-full text-left text-sm px-3 py-2.5 sm:py-2 rounded-lg transition-colors border active:scale-[0.98]
+                            className={`w-full text-left text-sm px-3 py-2.5 sm:py-2 rounded-lg transition-colors border active:scale-[0.98] flex items-start gap-3
                               ${isSel ? 'border-indigo-400 bg-indigo-50 text-indigo-800' : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-100'}`}>
-                            {opt}
+                            {!hasLabel && <span className="font-bold text-slate-500">{label}.</span>}
+                            <div className="flex-1 min-w-0">
+                              <OptionRenderer content={hasLabel ? opt.replace(/^[A-D][.)]\s*/, '') : opt} />
+                            </div>
                           </button>
                         );
                       })}

@@ -179,6 +179,10 @@ ${avoidHint}
 Generate exactly 10 MCQs. Each question MUST test a DIFFERENT concept.
 Rules:
 - 4 options per question labeled "A. ...", "B. ...", "C. ...", "D. ..."
+- Keep the question body separate from the four answer options. Never concatenate A, B, C and D into the question text.
+- Mathematical expressions must remain valid mathematical markup (e.g. use $...$ or $$...$$).
+- Programming code must remain valid code blocks (e.g. \`\`\`python ... \`\`\`).
+- Preserve tables, lists, images and other structured content using standard Markdown.
 - "correct" must be the full option string e.g. "A. Newton's first law"
 - "explanation" must be a concise (1-2 sentences) explanation of why that option is correct.
 - NO repeated or rephrased questions
