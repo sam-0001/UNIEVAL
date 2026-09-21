@@ -184,6 +184,7 @@ Rules:
 - NO repeated or rephrased questions
 - Mix: definition, application, numerical, conceptual
 - Match difficulty ${diffNum}/5
+- IMPORTANT: If you use LaTeX or math formulas, YOU MUST ESCAPE ALL BACKSLASHES for valid JSON (e.g. use \\\\int instead of \\int, \\\\frac instead of \\frac).
 
 Respond ONLY with a valid JSON array. No markdown, no backticks, no explanation outside the JSON.
 [{"question":"...","options":["A. ...","B. ...","C. ...","D. ..."],"correct":"A. ...","explanation":"..."},...]`;

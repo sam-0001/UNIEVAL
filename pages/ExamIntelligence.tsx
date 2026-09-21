@@ -1,5 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Loader2, Trash2, ChevronLeft, Menu, X } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
+import remarkMath from 'remark-math';
+import rehypeKatex from 'rehype-katex';
 import { ExamIntelligenceDoc, ExamTopic, ExamUnit } from '../types';
 import { listExamIntelligence, getExamIntelligence, deleteExamIntelligence, uploadExamIntelligence, ListItem } from '../services/examIntelligenceApi';
 import { useAuth } from '../context/AuthContext';
