@@ -270,25 +270,7 @@ async function updateCourseVideoStatus(videoId: string, status: string, finalUrl
 
 // --- ROUTES ---
 
-router.get('/video/key/:videoId', async (req: Request, res: Response): Promise<void> => {
-    try {
-        const videoId = req.params.videoId as string;
-        const videoKeyDoc = await VideoKey.findOne({ videoId });
-        
-        if (!videoKeyDoc || !videoKeyDoc.keyHex) {
-            res.status(404).send('Key not found');
-            return;
-        }
 
-        const keyBuffer = Buffer.from(videoKeyDoc.keyHex, 'hex');
-        res.setHeader('Content-Type', 'application/octet-stream');
-        res.setHeader('Access-Control-Allow-Origin', '*'); 
-        res.send(keyBuffer);
-    } catch (error) {
-        logger.error('Error fetching AES key:', error);
-        res.status(500).send('Error fetching key');
-    }
-});
 
 // ✅ CHANGED: uploadRateLimit → presignedUrlLimit (cheap URL signing, not heavy processing)
 router.post('/upload/r2-presigned-url', requireRole(UserRole.TEACHER, UserRole.ADMIN, UserRole.SUPER_ADMIN), presignedUrlLimit, async (req: Request, res: Response): Promise<void> => {

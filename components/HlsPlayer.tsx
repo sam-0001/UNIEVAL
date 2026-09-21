@@ -107,15 +107,18 @@ export const HlsPlayer: React.FC<HlsPlayerProps> = ({ src, poster, autoPlay = fa
       const hls = new Hls({
         debug: false,
         enableWorker: true,
-        // Instant-start tuning: buffer only 8s before allowing play,
-        // but let the back-buffer grow to fill memory for smooth seeking.
-        maxBufferLength: 8,           // start playing after 8s buffered
-        maxMaxBufferLength: 120,      // grow up to 120s once playing
-        maxBufferSize: 60 * 1000 * 1000, // 60 MB cap
-        startLevel: 0,                // always start at lowest quality → plays immediately
+        maxBufferLength: 8,
+        maxMaxBufferLength: 120,
+        maxBufferSize: 60 * 1000 * 1000,
+        startLevel: 0,
         abrEwmaDefaultEstimate: 1000000,
-        // Pull the first segment ASAP after manifest is parsed
         startFragPrefetch: true,
+        xhrSetup: function (xhr, url) {
+            const t = localStorage.getItem('token');
+            if (t && url.includes('/api/video/key/')) {
+                xhr.setRequestHeader('Authorization', 'Bearer ' + t);
+            }
+        }
       });
 
       hlsRef.current = hls;

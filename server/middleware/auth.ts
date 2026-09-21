@@ -21,13 +21,20 @@ export function signToken(payload: JwtPayload): string {
 }
 
 export async function requireAuth(req: Request, res: Response, next: NextFunction): Promise<void> {
+    let token = '';
     const authHeader = req.headers['authorization'];
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+        token = authHeader.slice(7);
+    } else if (req.headers.cookie) {
+        const match = req.headers.cookie.match(/(?:^|;\s*)jwt_token=([^;]*)/);
+        if (match) token = match[1];
+    }
+
+    if (!token) {
         res.status(401).json({ error: 'Authentication required' });
         return;
     }
-
-    const token = authHeader.slice(7);
     try {
         const decoded = jwt.verify(token, JWT_SECRET!) as JwtPayload;
         const user = await User.findOne({ id: decoded.userId });
