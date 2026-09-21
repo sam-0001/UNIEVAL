@@ -419,7 +419,7 @@ const EvalyScorecard: React.FC<{
                 <div className="flex items-start gap-2 mb-2">
                   <span className={`flex-shrink-0 w-5 h-5 rounded-full text-[10px] font-black flex items-center justify-center mt-0.5
                     ${ok ? 'bg-emerald-100 text-emerald-700' : !ua ? 'bg-slate-100 text-slate-500' : 'bg-rose-100 text-rose-700'}`}>{idx+1}</span>
-                  <p className="text-xs text-slate-800 font-medium leading-relaxed flex-1">{q.question}</p>
+                  <div className="text-xs text-slate-800 font-medium leading-relaxed flex-1 prose-sm max-w-none"><ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeKatex]}>{q.question}</ReactMarkdown></div>
                   <span className={`flex-shrink-0 text-[9px] font-bold uppercase px-2 py-0.5 rounded-full
                     ${ok ? 'bg-emerald-100 text-emerald-700' : !ua ? 'bg-slate-100 text-slate-500' : 'bg-rose-100 text-rose-700'}`}>
                     {ok ? 'Correct' : !ua ? 'Skipped' : 'Wrong'}
@@ -606,7 +606,7 @@ const handleTryAnother = () => {
                 {questions.map((q, qi) => (
                   <div key={qi} className="bg-gray-50 border border-gray-200 rounded-xl p-3 sm:p-4">
                     <p className="text-sm font-semibold text-gray-800 mb-3">
-                      <span className="text-indigo-600 mr-1">Q{qi+1}.</span>{q.question}
+                      <span className="text-indigo-600 mr-1 inline-block">Q{qi+1}.</span><div className="inline-block prose-sm max-w-none"><ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeKatex]}>{q.question}</ReactMarkdown></div>
                     </p>
                     <div className="space-y-2">
                       {q.options.map((opt, oi) => {

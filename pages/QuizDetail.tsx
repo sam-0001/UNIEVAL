@@ -1,4 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkMath from 'remark-math';
+import rehypeKatex from 'rehype-katex';
+
 import { useParams, Link } from 'react-router-dom';
 import { api } from '../services/api';
 import { Quiz } from '../types';
