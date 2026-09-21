@@ -66,7 +66,7 @@ async function callGemini(prompt: string, apiKey: string, models = ['gemini-3.6-
                 signal: AbortSignal.timeout(45000),
                 body: JSON.stringify({
                     contents: [{ parts: [{ text: prompt }] }],
-                    generationConfig: { temperature: 0.8, maxOutputTokens: 2048 }
+                    generationConfig: { temperature: 0.8, maxOutputTokens: 2048, responseMimeType: "application/json" }
                 })
             });
 
