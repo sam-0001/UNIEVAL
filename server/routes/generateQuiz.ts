@@ -243,7 +243,7 @@ Respond ONLY with a valid JSON array. No markdown, no backticks, no explanation 
     try {
       parsed = JSON.parse(jsonText);
     } catch {
-      logger.error('[GenerateQuiz] Non-JSON from AI:', rawText.slice(0, 300));
+      logger.error('[GenerateQuiz] Non-JSON from AI: \n' + rawText.substring(0, 500));
       await refundOneCredit(userId, creditMethod);
       res.status(502).json({ error: 'AI returned an invalid response. Your credit has been refunded. Please try again.' });
       return;

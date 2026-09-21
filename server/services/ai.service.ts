@@ -14,7 +14,7 @@ export class AIError extends Error {
     }
 }
 
-async function callGroq(prompt: string, apiKey: string, models = ['openai/gpt-oss-120b', 'qwen/qwen3.8-27b']): Promise<string> {
+async function callGroq(prompt: string, apiKey: string, models = ['llama3-70b-8192', 'llama-3.1-70b-versatile', 'mixtral-8x7b-32768']): Promise<string> {
     let lastError = 'Unknown error';
     for (const model of models) {
         try {
@@ -41,6 +41,8 @@ async function callGroq(prompt: string, apiKey: string, models = ['openai/gpt-os
 
             const data = await res.json() as any;
             const text = data.choices?.[0]?.message?.content?.trim() ?? '';
+            logger.info('[AI] Groq returned text length: ' + text.length + ' chars');
+            if(text.length > 0 && text.length < 100) logger.info('[AI] Groq short response: ' + text);
             if (!text) throw new AIError('Groq returned empty content', 'groq');
             return text;
         } catch (e: any) {
