@@ -14,14 +14,14 @@ export class AIError extends Error {
     }
 }
 
-async function callGroq(prompt: string, apiKey: string, models = ['llama-3.1-70b-versatile', 'llama-3.1-8b-instant', 'llama3-8b-8192']): Promise<string> {
+async function callGroq(prompt: string, apiKey: string, models = ['qwen/qwen3.8-27b', 'openai/gpt-oss-20b']): Promise<string> {
     let lastError = 'Unknown error';
     for (const model of models) {
         try {
             const res = await fetch(GROQ_API_URL, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
-                signal: AbortSignal.timeout(45000),
+                signal: AbortSignal.timeout(25000),
                 body: JSON.stringify({
                     model: model,
                     messages: [{ role: 'user', content: prompt }],
@@ -55,7 +55,7 @@ async function callGroq(prompt: string, apiKey: string, models = ['llama-3.1-70b
     throw new AIError(`All Groq models failed. Last error: ${lastError}`, 'groq');
 }
 
-async function callGemini(prompt: string, apiKey: string, models = ['gemini-3.6-flash', 'gemini-3.7-flash', 'gemini-3.5-flash', 'gemini-3.8-flash']): Promise<string> {
+async function callGemini(prompt: string, apiKey: string, models = ['gemini-3.5-flash', 'gemini-3.6-flash']): Promise<string> {
     let lastError = 'Unknown error';
     for (const model of models) {
         try {
@@ -63,7 +63,7 @@ async function callGemini(prompt: string, apiKey: string, models = ['gemini-3.6-
             const res = await fetch(url, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                signal: AbortSignal.timeout(45000),
+                signal: AbortSignal.timeout(25000),
                 body: JSON.stringify({
                     contents: [{ parts: [{ text: prompt }] }],
                     generationConfig: { temperature: 0.8, maxOutputTokens: 2048, responseMimeType: "application/json" }
@@ -96,7 +96,7 @@ async function callGemini(prompt: string, apiKey: string, models = ['gemini-3.6-
 
 async function callOpenRouter(prompt: string, apiKey: string): Promise<string> {
     // OpenRouter has completely free, non-geoblocked routing for these models
-    const models = ['openrouter/free', 'google/gemma-4-31b-it:free', 'nvidia/nemotron-3-super-120b-a12b:free'];
+    const models = ['openrouter/free', 'google/gemma-4-31b-it:free'];
     let lastError = 'Unknown error';
     for (const model of models) {
         try {
@@ -108,7 +108,7 @@ async function callOpenRouter(prompt: string, apiKey: string): Promise<string> {
                     'HTTP-Referer': 'https://unieval.in',
                     'X-Title': 'UniEval'
                 },
-                signal: AbortSignal.timeout(45000),
+                signal: AbortSignal.timeout(25000),
                 body: JSON.stringify({
                     model: model,
                     messages: [{ role: 'user', content: prompt }],
