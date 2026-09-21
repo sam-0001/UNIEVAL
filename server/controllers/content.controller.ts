@@ -3,7 +3,7 @@ import { randomUUID } from 'crypto';
 import { Course, Note, Quiz, Viva } from '../models/index.js';
 import { cache } from '../services/cache.service.js';
 import logger from '../logger.js';
-import { deleteFileFromR2 } from '../routes/upload.js';
+import { deleteFileFromR2, deleteDirectoryFromR2 } from '../routes/upload.js';
 
 function extractR2Key(fileUrl?: string): string | null {
     if (!fileUrl) return null;
@@ -137,6 +137,7 @@ export async function deleteCourse(req: express.Request, res: express.Response):
 
         // Extract and delete files from R2
         const keysToDelete: string[] = [];
+        const dirsToDelete: string[] = [];
         const thumbKey = extractR2Key(course.thumbnailUrl);
         if (thumbKey) keysToDelete.push(thumbKey);
 
@@ -144,8 +145,14 @@ export async function deleteCourse(req: express.Request, res: express.Response):
             course.modules.forEach((mod: any) => {
                 if (Array.isArray(mod.videos)) {
                     mod.videos.forEach((vid: any) => {
-                        const vKey = extractR2Key(vid.videoUrl) || vid.videoKey;
-                        if (vKey) keysToDelete.push(vKey);
+                        const vKey = extractR2Key(vid.videoUrl);
+                        if (vKey) {
+                            if (vKey.endsWith('/playlist.m3u8')) {
+                                dirsToDelete.push(vKey.replace('/playlist.m3u8', ''));
+                            } else {
+                                keysToDelete.push(vKey);
+                            }
+                        }
                         if (Array.isArray(vid.resources)) {
                             vid.resources.forEach((resItem: any) => {
                                 const rKey = extractR2Key(resItem.url);
@@ -157,7 +164,10 @@ export async function deleteCourse(req: express.Request, res: express.Response):
             });
         }
         
-        Promise.all(keysToDelete.map(k => deleteFileFromR2(k))).catch(e => {
+        Promise.all([
+            ...keysToDelete.map(k => deleteFileFromR2(k)),
+            ...dirsToDelete.map(d => deleteDirectoryFromR2(d))
+        ]).catch(e => {
             logger.error('[Courses] Failed to delete some R2 files during course deletion:', e);
         });
 

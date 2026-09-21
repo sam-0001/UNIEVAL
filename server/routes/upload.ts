@@ -5,7 +5,7 @@ import ffmpegInstaller from '@ffmpeg-installer/ffmpeg';
 import path from 'path';
 import fs from 'fs';
 import crypto, { randomUUID } from 'crypto';
-import { S3Client, PutObjectCommand, DeleteObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
+import { S3Client, PutObjectCommand, DeleteObjectCommand, GetObjectCommand, ListObjectsV2Command } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { Course, VideoKey, FileKey, User } from '../models/index.js'; 
 import { requireAuth, requireRole } from '../middleware/auth.js';
@@ -172,6 +172,30 @@ const s3Client = new S3Client({
   requestChecksumCalculation: "WHEN_REQUIRED",
   responseChecksumValidation: "WHEN_REQUIRED",
 });
+
+export async function deleteDirectoryFromR2(prefix: string): Promise<void> {
+  if (!R2_BUCKET_NAME) return;
+  try {
+    let continuationToken: string | undefined = undefined;
+    do {
+      const listRes = (await s3Client.send(new ListObjectsV2Command({
+        Bucket: R2_BUCKET_NAME,
+        Prefix: prefix,
+        ContinuationToken: continuationToken
+      }))) as any;
+      if (listRes.Contents && listRes.Contents.length > 0) {
+        for (const item of listRes.Contents) {
+          if (item.Key) {
+            await s3Client.send(new DeleteObjectCommand({ Bucket: R2_BUCKET_NAME, Key: item.Key }));
+          }
+        }
+      }
+      continuationToken = listRes.NextContinuationToken;
+    } while (continuationToken);
+  } catch (err) {
+    console.error(`[R2] Failed to delete directory ${prefix}:`, err);
+  }
+}
 
 export async function deleteFileFromR2(key: string): Promise<void> {
   if (!R2_BUCKET_NAME) return;
