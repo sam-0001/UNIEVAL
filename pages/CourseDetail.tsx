@@ -71,7 +71,11 @@ const CourseDetail: React.FC = () => {
   }, [user?.id]);
 
   const isPurchased = user?.purchasedCourseIds.includes(course?.id || '') || false;
-  const hasAccess = !!user && (isPurchased || (course?.price === 0));
+  const isCollegeFree = React.useMemo(() => {
+    if (!user || !course || !course.collegeConfig) return false;
+    return user.email.endsWith(course.collegeConfig.emailDomain.trim());
+  }, [user, course]);
+  const hasAccess = !!user && (isPurchased || isCollegeFree || (course?.price === 0));
   const displayPrice = appliedCoupon ? appliedCoupon.discountedPrice : (course?.price || 0);
 
   const handleApplyCoupon = async () => {
@@ -113,7 +117,8 @@ const CourseDetail: React.FC = () => {
     if (!course) return;
 
     const userIsPurchased = currentUser?.purchasedCourseIds.includes(course.id) || false;
-    const userHasAccess = !!currentUser && (userIsPurchased || (course.price === 0));
+    const userIsCollegeFree = !!currentUser && !!course.collegeConfig && currentUser.email.endsWith(course.collegeConfig.emailDomain.trim());
+    const userHasAccess = !!currentUser && (userIsPurchased || userIsCollegeFree || (course.price === 0));
     if (userHasAccess) return;
 
     if (!currentUser) {
@@ -154,7 +159,7 @@ const CourseDetail: React.FC = () => {
                 cashfree_payment_session_id: orderData.paymentSessionId,
                 couponId: appliedCoupon?.couponId,
              }).then((res: any) => {
-                if (res.success) updateUser(res.user);
+                if (res.success) { updateUser(res.user); navigate('/dashboard'); }
              }).catch((e: any) => {
                 setPaymentError(e.message || 'Payment verification failed. Please contact support.');
              });
@@ -253,28 +258,51 @@ const CourseDetail: React.FC = () => {
             )}
           </div>
 
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex justify-between items-start">
-              <div>
-                <h1 className="text-2xl font-bold text-brand-navy mb-2">{course.title}</h1>
-                <p className="text-gray-600 whitespace-pre-line">{course.description}</p>
+          <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-6 mb-8">
+            <div className="flex flex-col md:flex-row justify-between items-start gap-6">
+              <div className="flex-1">
+                <div className="flex items-center gap-3 mb-3">
+                  <h1 className="text-3xl font-bold text-brand-navy">{course.title}</h1>
+                </div>
+                
+                {course.collegeConfig && !hasAccess && (
+                  <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-green-50 text-green-700 text-xs font-bold rounded-full mb-4 border border-green-200">
+                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" /></svg>
+                    Free for {course.collegeConfig.name} students
+                  </div>
+                )}
+
+                <div className="prose prose-slate prose-sm max-w-none">
+                  <p className="text-slate-600 whitespace-pre-line leading-relaxed">{course.description}</p>
+                </div>
               </div>
-              <div className="hidden md:block text-right min-w-[200px]">
+
+              <div className="w-full md:w-auto min-w-[280px]">
                 {hasAccess ? (
-                  <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">Enrolled</span>
+                  <div className="bg-green-100 text-green-700 px-6 py-3 rounded-xl text-center font-bold flex items-center justify-center gap-2 shadow-sm">
+                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                    </svg>
+                    Enrolled
+                  </div>
                 ) : (
-                  <div className="flex flex-col items-end gap-3">
+                  <div className="bg-slate-50 rounded-xl p-5 border border-slate-100">
                     {/* Price */}
-                    <div className="flex items-baseline gap-2">
-                      {appliedCoupon && (
-                        <span className="text-sm text-gray-400 line-through">₹{course.price}</span>
+                    <div className="flex items-baseline justify-end gap-2 mb-4">
+                      {course.originalPrice && course.originalPrice > (course.price || 0) && !appliedCoupon && (
+                        <span className="text-lg text-slate-400 line-through">₹{course.originalPrice}</span>
                       )}
-                      <span className="text-2xl font-bold text-gray-900">₹{displayPrice}</span>
+                      {appliedCoupon && (
+                        <span className="text-lg text-slate-400 line-through">₹{course.price}</span>
+                      )}
+                      <span className="text-3xl font-bold text-slate-900">
+                        {displayPrice === 0 ? 'Free' : `₹${displayPrice}`}
+                      </span>
                     </div>
 
                     {/* Coupon row */}
                     {appliedCoupon ? (
-                      <div className="flex items-center gap-2 bg-green-50 border border-green-200 rounded-lg px-3 py-2 w-full">
+                      <div className="flex items-center gap-2 bg-green-50 border border-green-200 rounded-lg px-3 py-2 w-full mb-4">
                         <svg className="w-4 h-4 text-green-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
                         <div className="flex-1 text-left">
                           <p className="text-xs font-bold text-green-700">{appliedCoupon.code} applied</p>
@@ -283,32 +311,32 @@ const CourseDetail: React.FC = () => {
                         <button onClick={clearCoupon} className="text-xs font-semibold text-slate-500 hover:text-red-600">Remove</button>
                       </div>
                     ) : (
-                      <div className="flex gap-2 w-full">
+                      <div className="flex gap-2 w-full mb-3">
                         <input
                           type="text"
                           value={couponCode}
                           onChange={e => setCouponCode(e.target.value.toUpperCase())}
                           onKeyDown={e => { if (e.key === 'Enter') handleApplyCoupon(); }}
                           placeholder="Coupon code"
-                          className="flex-1 min-w-0 border border-slate-300 rounded-lg px-2 py-1.5 text-xs font-mono uppercase focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                          className="flex-1 min-w-0 border border-slate-300 rounded-lg px-3 py-2 text-sm font-mono uppercase focus:outline-none focus:ring-2 focus:ring-brand-cobalt bg-white"
                         />
                         <button
                           onClick={handleApplyCoupon}
                           disabled={couponLoading || !couponCode.trim()}
-                          className="text-xs font-semibold px-3 py-1.5 bg-slate-100 hover:bg-slate-200 disabled:opacity-50 rounded-lg border border-slate-300 transition-colors shrink-0"
+                          className="text-sm font-bold px-4 py-2 bg-slate-900 text-white hover:bg-slate-800 disabled:opacity-50 rounded-lg transition-colors shrink-0 shadow-sm"
                         >
                           {couponLoading ? '...' : 'Apply'}
                         </button>
                       </div>
                     )}
-                    {couponError && <p className="text-xs text-red-600 text-left w-full">{couponError}</p>}
-                    {paymentError && <p className="text-xs text-red-600 text-left w-full">{paymentError}</p>}
+                    {couponError && <p className="text-xs text-red-600 text-left w-full mb-2">{couponError}</p>}
+                    {paymentError && <p className="text-xs text-red-600 text-left w-full mb-2">{paymentError}</p>}
 
                     <button
                       onClick={() => handlePayment()}
-                      className="w-full mt-1 bg-gradient-main hover:opacity-90 text-white px-6 py-2 rounded-lg font-bold shadow-md transition-all"
+                      className="w-full bg-gradient-main hover:opacity-90 text-white px-6 py-3 rounded-xl font-bold text-lg shadow-md transition-transform hover:scale-[1.02] active:scale-[0.98]"
                     >
-                      {!user ? 'Login' : (course.price === 0 ? 'Enroll' : 'Buy Now')}
+                      {!user ? 'Login to Enroll' : (course.price === 0 ? 'Enroll for Free' : 'Enroll Now')}
                     </button>
                   </div>
                 )}
@@ -483,7 +511,9 @@ const CourseDetail: React.FC = () => {
           )}
           {hasAccess && (
             <div className="text-center">
-              <span className="text-sm font-bold text-green-600">✓ Enrolled</span>
+              <span className="text-sm font-bold text-green-600">
+                {isCollegeFree ? `✓ Free for ${course.collegeConfig?.name}` : '✓ Enrolled'}
+              </span>
             </div>
           )}
         </div>
