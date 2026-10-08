@@ -16,7 +16,14 @@ const StudentDashboard: React.FC = () => {
   const navigate = useNavigate();
   const { credits, freeLeft, freeQuizLimit, freeQuizUsed, isUnlimited, unlimitedPlan, refresh: refreshCredits } = useCredits();
 
-  const [activeTab, setActiveTab] = useState<Tab>('overview');
+  const [activeTab, setActiveTab] = useState<Tab>(() => {
+    return (localStorage.getItem('studentDashboardTab') as Tab) || 'overview';
+  });
+
+  useEffect(() => {
+    localStorage.setItem('studentDashboardTab', activeTab);
+  }, [activeTab]);
+
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const [allCoursesState, setAllCoursesState] = useState<Course[]>([]);
@@ -196,7 +203,7 @@ const StudentDashboard: React.FC = () => {
                     <p className="text-slate-500 font-medium">Loading your dashboard...</p>
                 </div>
             ) : (
-                <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-20">
+                <div key={activeTab} className="space-y-8 animate-in fade-in duration-300 pb-20">
                     {/* Header */}
                     {activeTab === 'overview' ? (
                         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 relative z-20">
@@ -310,6 +317,64 @@ const StudentDashboard: React.FC = () => {
                                         </div>
                                     ) : (
                                         <p className="text-slate-500 text-sm">No matching notes found.</p>
+                                    )}
+                                </div>
+
+                                {/* Live Classes Results */}
+                                <div>
+                                    <h3 className="text-lg font-bold text-slate-700 mb-4 flex items-center gap-2 mt-8"><Video className="w-5 h-5 text-red-500" /> Live Classes</h3>
+                                    {liveClasses.filter(lc => lc.title.toLowerCase().includes(searchQuery.toLowerCase()) || (lc.subject || '').toLowerCase().includes(searchQuery.toLowerCase()) || (lc.course || '').toLowerCase().includes(searchQuery.toLowerCase())).length > 0 ? (
+                                        <div className="space-y-4">
+                                            {liveClasses.filter(lc => lc.title.toLowerCase().includes(searchQuery.toLowerCase()) || (lc.subject || '').toLowerCase().includes(searchQuery.toLowerCase()) || (lc.course || '').toLowerCase().includes(searchQuery.toLowerCase())).map((lc: any) => {
+                                                const dateObj = new Date(lc.scheduledStartTime);
+                                                const isToday = new Date().toDateString() === dateObj.toDateString();
+                                                const dateStr = dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                                                const dayStr = isToday ? 'Today' : dateObj.toLocaleDateString('en-US', { weekday: 'short' });
+                                                const timeStr = dateObj.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+                                                
+                                                return (
+                                                    <div key={lc.id} className="bg-white rounded-xl border border-slate-100 shadow-sm p-4 flex flex-col md:flex-row items-start md:items-center gap-6 hover:shadow-md transition-shadow">
+                                                        <div className="flex items-center gap-4 w-full md:w-48 shrink-0">
+                                                            <div className={`px-4 py-2 rounded-lg text-center border ${isToday ? 'bg-blue-50 text-blue-600 border-blue-100' : 'bg-slate-50 text-slate-600 border-slate-200'}`}>
+                                                                <div className="text-sm font-bold">{dateStr}</div>
+                                                                <div className="text-xs font-medium">{dayStr}</div>
+                                                            </div>
+                                                            <div>
+                                                                <div className="text-sm font-bold text-slate-900">{timeStr}</div>
+                                                                <div className="text-xs text-slate-500 flex items-center gap-1 mt-0.5"><Clock className="w-3 h-3" /> 1h 0m</div>
+                                                            </div>
+                                                        </div>
+                                                        
+                                                        <div className="flex-1 flex items-start gap-4">
+                                                            <div className="w-20 h-14 bg-[#131A3F] rounded-lg shrink-0 flex items-center justify-center relative overflow-hidden">
+                                                                <div className="text-white font-extrabold text-sm z-10 px-1 text-center truncate w-full">{lc.subject || 'LIVE'}</div>
+                                                                <div className="absolute right-0 opacity-20"><Database className="w-12 h-12" /></div>
+                                                            </div>
+                                                            <div>
+                                                                <h4 className="font-bold text-slate-900 text-base mb-1">{lc.title}</h4>
+                                                                <div className="flex items-center gap-2 text-xs text-slate-500 mb-2">
+                                                                    <span className="flex items-center gap-1.5 font-medium"><div className="w-4 h-4 rounded-full bg-slate-200 flex items-center justify-center text-[8px] text-slate-700">T</div> Teacher</span>
+                                                                    {lc.course && <span className="text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded font-bold">{lc.course}</span>}
+                                                                    {lc.subject && <span className="text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded font-bold">{lc.subject}</span>}
+                                                                </div>
+                                                                <p className="text-xs text-slate-500">Live Interactive Session</p>
+                                                            </div>
+                                                        </div>
+
+                                                        <div className="flex items-center gap-3 w-full md:w-auto mt-4 md:mt-0">
+                                                            <button onClick={() => alert('Feature coming soon!')} className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-blue-50 text-blue-600 px-4 py-2 rounded-lg text-sm font-semibold hover:bg-blue-100 transition-colors">
+                                                                <Calendar className="w-4 h-4" /> Add to Calendar
+                                                            </button>
+                                                            <button onClick={() => navigate(`/live-class/lobby/${lc.id}`)} className="flex-1 md:flex-none bg-blue-600 text-white px-5 py-2 rounded-lg text-sm font-bold hover:bg-blue-700 transition-colors shadow-sm flex items-center justify-center gap-2">
+                                                                Join Class <ArrowRight className="w-4 h-4" />
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    ) : (
+                                        <p className="text-slate-500 text-sm">No matching live classes found.</p>
                                     )}
                                 </div>
                             </div>
@@ -966,7 +1031,7 @@ const StudentDashboard: React.FC = () => {
                                          <Calendar className="w-4 h-4" /> Upcoming
                                      </button>
                                      <button onClick={() => alert('Feature coming soon!')} className="flex items-center gap-2 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 px-5 py-2.5 rounded-lg text-sm font-semibold whitespace-nowrap transition-colors">
-                                         <Radio className="w-4 h-4 text-red-500" /> Live Now <span className="bg-red-100 text-red-600 px-2 py-0.5 rounded-full text-[10px]">2</span>
+                                         <Radio className="w-4 h-4 text-red-500" /> Live Now <span className="bg-red-100 text-red-600 px-2 py-0.5 rounded-full text-[10px]">{liveClasses.filter((lc: any) => lc.status === 'live' || lc.status === 'in-progress').length}</span>
                                      </button>
                                      <button onClick={() => alert('Feature coming soon!')} className="flex items-center gap-2 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 px-5 py-2.5 rounded-lg text-sm font-semibold whitespace-nowrap transition-colors">
                                          <BookOpen className="w-4 h-4" /> My Classes
@@ -976,62 +1041,7 @@ const StudentDashboard: React.FC = () => {
                                      </button>
                                  </div>
 
-                                 {/* Featured Live Classes Grid */}
-                                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                                     {/* Dark Feature Card */}
-                                     <div className="lg:col-span-2 bg-[#131A3F] rounded-2xl p-6 md:p-8 flex flex-col md:flex-row items-center justify-between gap-6 border border-slate-800 shadow-md relative overflow-hidden group">
-                                         <div className="relative z-10 flex-1">
-                                             <div className="flex items-center gap-3 mb-4">
-                                                 <span className="flex items-center gap-1.5 bg-red-500 text-white px-3 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider shadow-sm"><Radio className="w-3 h-3" /> Live Now</span>
-                                                 <span className="flex items-center gap-1.5 bg-white/10 text-white/80 px-3 py-1 rounded-md text-[10px] font-semibold backdrop-blur-sm"><Eye className="w-3 h-3" /> 1.2K watching</span>
-                                             </div>
-                                             <h2 className="text-3xl font-extrabold text-white mb-2 leading-tight">Database Management System</h2>
-                                             <div className="flex items-center gap-4 text-sm text-slate-300 font-medium mb-6">
-                                                 <span className="flex items-center gap-2"><div className="w-6 h-6 rounded-full bg-slate-700 flex items-center justify-center text-[10px] text-white">PK</div> Prof. Kulkarni</span>
-                                                 <span className="w-1 h-1 bg-slate-500 rounded-full"></span>
-                                                 <span className="flex items-center gap-1.5"><FileText className="w-4 h-4" /> SE</span>
-                                                 <span className="w-1 h-1 bg-slate-500 rounded-full"></span>
-                                                 <span className="flex items-center gap-1.5"><FileText className="w-4 h-4" /> DBMS</span>
-                                             </div>
-                                             <button onClick={() => alert('Feature coming soon!')} className="bg-white text-[#131A3F] px-6 py-3 rounded-lg font-bold hover:bg-slate-100 transition-colors flex items-center gap-2 shadow-sm text-sm">
-                                                 Join Live Class <ArrowRight className="w-4 h-4" />
-                                             </button>
-                                         </div>
-                                         <div className="w-full md:w-64 aspect-video md:aspect-square bg-slate-800 rounded-xl overflow-hidden shrink-0 relative z-10 border border-slate-700 shadow-inner">
-                                             <img src="https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=500&q=80" alt="Prof" className="w-full h-full object-cover opacity-80 mix-blend-luminosity group-hover:mix-blend-normal transition-all duration-500" />
-                                             <div className="absolute inset-0 bg-gradient-to-t from-[#131A3F] via-transparent to-transparent"></div>
-                                         </div>
-                                         {/* Background graphics */}
-                                         <div className="absolute top-0 right-0 w-full h-full opacity-10 pointer-events-none">
-                                            <svg className="absolute right-10 top-10 w-64 h-64 text-white" viewBox="0 0 100 100" fill="none" stroke="currentColor" strokeWidth="2"><path d="M10 50 Q 50 10 90 50 T 90 90" /></svg>
-                                         </div>
-                                     </div>
-
-                                     {/* Pink Feature Card */}
-                                     <div className="bg-red-50 rounded-2xl p-6 md:p-8 flex flex-col border border-red-100 shadow-sm relative overflow-hidden">
-                                         <div className="flex items-center gap-2 text-red-600 font-bold text-sm mb-4">
-                                             <Radio className="w-4 h-4 animate-pulse" /> Live Class in Progress
-                                         </div>
-                                         <h3 className="text-xl font-bold text-slate-900 mb-3 leading-snug">Operating Systems - Process Scheduling</h3>
-                                         <div className="flex items-center gap-3 text-xs text-slate-600 font-medium mb-6">
-                                             <span className="flex items-center gap-1.5"><div className="w-5 h-5 rounded-full bg-red-200 flex items-center justify-center text-[8px] text-red-800">PS</div> Prof. Sharma</span>
-                                             <span className="w-1 h-1 bg-slate-300 rounded-full"></span>
-                                             <span>TE</span>
-                                             <span className="w-1 h-1 bg-slate-300 rounded-full"></span>
-                                             <span>OS</span>
-                                         </div>
-                                         <div className="mt-auto">
-                                             <button onClick={() => alert('Feature coming soon!')} className="bg-red-500 text-white px-6 py-2.5 rounded-lg font-bold hover:bg-red-600 transition-colors flex items-center gap-2 shadow-sm text-sm">
-                                                 Join Now <ArrowRight className="w-4 h-4" />
-                                             </button>
-                                         </div>
-                                         <div className="absolute right-0 bottom-0 opacity-10 pointer-events-none">
-                                            <Radio className="w-40 h-40 text-red-500 transform translate-x-10 translate-y-10" />
-                                         </div>
-                                     </div>
-                                 </div>
-
-                                 {/* Upcoming Live Classes List Section */}
+                                 {/* Dynamic Live Classes List Section */}
                                  <div>
                                      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
                                          <div className="flex items-center gap-3">
@@ -1043,188 +1053,69 @@ const StudentDashboard: React.FC = () => {
                                                  <p className="text-sm text-slate-500">Your scheduled live classes and upcoming sessions</p>
                                              </div>
                                          </div>
-                                         <div className="flex items-center gap-3 overflow-x-auto w-full md:w-auto">
-                                            <div className="bg-white border border-slate-200 rounded-lg px-3 py-1.5 flex flex-col shrink-0">
-                                                <span className="text-[10px] text-slate-400 font-medium leading-none mb-1">Branch</span>
-                                                <select className="bg-transparent text-xs font-semibold text-slate-700 focus:outline-none cursor-pointer">
-                                                    <option>All Branches</option>
-                                                </select>
-                                            </div>
-                                            <div className="bg-white border border-slate-200 rounded-lg px-3 py-1.5 flex flex-col shrink-0">
-                                                <span className="text-[10px] text-slate-400 font-medium leading-none mb-1">Year</span>
-                                                <select className="bg-transparent text-xs font-semibold text-slate-700 focus:outline-none cursor-pointer">
-                                                    <option>All Years</option>
-                                                </select>
-                                            </div>
-                                            <div className="bg-white border border-slate-200 rounded-lg px-3 py-1.5 flex flex-col shrink-0">
-                                                <span className="text-[10px] text-slate-400 font-medium leading-none mb-1">Subject</span>
-                                                <select className="bg-transparent text-xs font-semibold text-slate-700 focus:outline-none cursor-pointer">
-                                                    <option>All Subjects</option>
-                                                </select>
-                                            </div>
-                                            <button onClick={() => alert('Feature coming soon!')} className="flex items-center gap-2 bg-white border border-slate-200 text-slate-700 px-4 py-2.5 rounded-lg text-sm font-semibold hover:bg-slate-50 shadow-sm whitespace-nowrap">
-                                                <Calendar className="w-4 h-4" /> This Week
-                                            </button>
-                                         </div>
                                      </div>
                                      
-                                     <div className="space-y-4">
-                                         {/* Class Item 1 */}
-                                         <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-4 flex flex-col md:flex-row items-start md:items-center gap-6 hover:shadow-md transition-shadow">
-                                             <div className="flex items-center gap-4 w-full md:w-48 shrink-0">
-                                                <div className="bg-blue-50 text-blue-600 px-4 py-2 rounded-lg text-center border border-blue-100">
-                                                    <div className="text-sm font-bold">Oct 8</div>
-                                                    <div className="text-xs font-medium">Today</div>
-                                                </div>
-                                                <div>
-                                                    <div className="text-sm font-bold text-slate-900">7:00 PM</div>
-                                                    <div className="text-xs text-slate-500 flex items-center gap-1 mt-0.5"><Clock className="w-3 h-3" /> 1h 30m</div>
-                                                </div>
+                                     {liveClasses.length === 0 ? (
+                                         <div className="bg-slate-50 border border-slate-200 rounded-2xl p-12 flex flex-col items-center justify-center text-center">
+                                             <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mb-4">
+                                                 <Calendar className="w-8 h-8 text-blue-600" />
                                              </div>
-                                             
-                                             <div className="flex-1 flex items-start gap-4">
-                                                 <div className="w-20 h-14 bg-[#131A3F] rounded-lg shrink-0 flex items-center justify-center relative overflow-hidden">
-                                                     <div className="text-white font-extrabold text-lg z-10">DBMS</div>
-                                                     <div className="absolute right-0 opacity-20"><Database className="w-12 h-12" /></div>
-                                                 </div>
-                                                 <div>
-                                                     <h4 className="font-bold text-slate-900 text-base mb-1">Database Management System</h4>
-                                                     <div className="flex items-center gap-2 text-xs text-slate-500 mb-2">
-                                                         <span className="flex items-center gap-1.5 font-medium"><div className="w-4 h-4 rounded-full bg-slate-200 flex items-center justify-center text-[8px] text-slate-700">PK</div> Prof. Kulkarni</span>
-                                                         <span className="text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded font-bold">SE</span>
-                                                         <span className="text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded font-bold">DBMS</span>
-                                                     </div>
-                                                     <p className="text-xs text-slate-500">ER Diagrams, Normalization and Important Questions</p>
-                                                 </div>
-                                             </div>
-
-                                             <div className="flex items-center gap-3 w-full md:w-auto mt-4 md:mt-0">
-                                                 <button onClick={() => alert('Feature coming soon!')} className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-blue-50 text-blue-600 px-4 py-2 rounded-lg text-sm font-semibold hover:bg-blue-100 transition-colors">
-                                                     <Calendar className="w-4 h-4" /> Add to Calendar
-                                                 </button>
-                                                 <button onClick={() => alert('Feature coming soon!')} className="flex-1 md:flex-none bg-blue-600 text-white px-5 py-2 rounded-lg text-sm font-bold hover:bg-blue-700 transition-colors shadow-sm flex items-center justify-center gap-2">
-                                                     Join Class <ArrowRight className="w-4 h-4" />
-                                                 </button>
-                                             </div>
+                                             <h3 className="text-xl font-bold text-slate-800 mb-2">No upcoming live classes</h3>
+                                             <p className="text-slate-500 max-w-sm">
+                                                 Check back later for new schedules.
+                                             </p>
                                          </div>
+                                     ) : (
+                                         <div className="space-y-4">
+                                             {liveClasses.map((lc: any) => {
+                                                 const dateObj = new Date(lc.scheduledStartTime);
+                                                 const isToday = new Date().toDateString() === dateObj.toDateString();
+                                                 const dateStr = dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                                                 const dayStr = isToday ? 'Today' : dateObj.toLocaleDateString('en-US', { weekday: 'short' });
+                                                 const timeStr = dateObj.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+                                                 
+                                                 return (
+                                                     <div key={lc.id} className="bg-white rounded-xl border border-slate-100 shadow-sm p-4 flex flex-col md:flex-row items-start md:items-center gap-6 hover:shadow-md transition-shadow">
+                                                         <div className="flex items-center gap-4 w-full md:w-48 shrink-0">
+                                                             <div className={`px-4 py-2 rounded-lg text-center border ${isToday ? 'bg-blue-50 text-blue-600 border-blue-100' : 'bg-slate-50 text-slate-600 border-slate-200'}`}>
+                                                                 <div className="text-sm font-bold">{dateStr}</div>
+                                                                 <div className="text-xs font-medium">{dayStr}</div>
+                                                             </div>
+                                                             <div>
+                                                                 <div className="text-sm font-bold text-slate-900">{timeStr}</div>
+                                                                 <div className="text-xs text-slate-500 flex items-center gap-1 mt-0.5"><Clock className="w-3 h-3" /> 1h 0m</div>
+                                                             </div>
+                                                         </div>
+                                                         
+                                                         <div className="flex-1 flex items-start gap-4">
+                                                             <div className="w-20 h-14 bg-[#131A3F] rounded-lg shrink-0 flex items-center justify-center relative overflow-hidden">
+                                                                 <div className="text-white font-extrabold text-sm z-10 px-1 text-center truncate w-full">{lc.subject || 'LIVE'}</div>
+                                                                 <div className="absolute right-0 opacity-20"><Database className="w-12 h-12" /></div>
+                                                             </div>
+                                                             <div>
+                                                                 <h4 className="font-bold text-slate-900 text-base mb-1">{lc.title}</h4>
+                                                                 <div className="flex items-center gap-2 text-xs text-slate-500 mb-2">
+                                                                     <span className="flex items-center gap-1.5 font-medium"><div className="w-4 h-4 rounded-full bg-slate-200 flex items-center justify-center text-[8px] text-slate-700">T</div> Teacher</span>
+                                                                     {lc.course && <span className="text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded font-bold">{lc.course}</span>}
+                                                                     {lc.subject && <span className="text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded font-bold">{lc.subject}</span>}
+                                                                 </div>
+                                                                 <p className="text-xs text-slate-500">Live Interactive Session</p>
+                                                             </div>
+                                                         </div>
 
-                                         {/* Class Item 2 */}
-                                         <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-4 flex flex-col md:flex-row items-start md:items-center gap-6 hover:shadow-md transition-shadow">
-                                             <div className="flex items-center gap-4 w-full md:w-48 shrink-0">
-                                                <div className="bg-slate-50 text-slate-600 px-4 py-2 rounded-lg text-center border border-slate-200">
-                                                    <div className="text-sm font-bold text-slate-700">Oct 9</div>
-                                                    <div className="text-xs font-medium">Thu</div>
-                                                </div>
-                                                <div>
-                                                    <div className="text-sm font-bold text-slate-900">6:00 PM</div>
-                                                    <div className="text-xs text-slate-500 flex items-center gap-1 mt-0.5"><Clock className="w-3 h-3" /> 1h 0m</div>
-                                                </div>
-                                             </div>
-                                             
-                                             <div className="flex-1 flex items-start gap-4">
-                                                 <div className="w-20 h-14 bg-purple-900 rounded-lg shrink-0 flex items-center justify-center relative overflow-hidden">
-                                                     <div className="text-white font-extrabold text-lg z-10">OS</div>
-                                                     <div className="absolute right-0 opacity-20"><Settings className="w-12 h-12" /></div>
-                                                 </div>
-                                                 <div>
-                                                     <h4 className="font-bold text-slate-900 text-base mb-1">Operating Systems</h4>
-                                                     <div className="flex items-center gap-2 text-xs text-slate-500 mb-2">
-                                                         <span className="flex items-center gap-1.5 font-medium"><div className="w-4 h-4 rounded-full bg-slate-200 flex items-center justify-center text-[8px] text-slate-700">PS</div> Prof. Sharma</span>
-                                                         <span className="text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded font-bold">TE</span>
-                                                         <span className="text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded font-bold">OS</span>
+                                                         <div className="flex items-center gap-3 w-full md:w-auto mt-4 md:mt-0">
+                                                             <button onClick={() => alert('Feature coming soon!')} className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-blue-50 text-blue-600 px-4 py-2 rounded-lg text-sm font-semibold hover:bg-blue-100 transition-colors">
+                                                                 <Calendar className="w-4 h-4" /> Add to Calendar
+                                                             </button>
+                                                             <button onClick={() => navigate(`/live-class/lobby/${lc.id}`)} className="flex-1 md:flex-none bg-blue-600 text-white px-5 py-2 rounded-lg text-sm font-bold hover:bg-blue-700 transition-colors shadow-sm flex items-center justify-center gap-2">
+                                                                 Join Class <ArrowRight className="w-4 h-4" />
+                                                             </button>
+                                                         </div>
                                                      </div>
-                                                     <p className="text-xs text-slate-500">Process Scheduling, Deadlocks and Previous Year Questions</p>
-                                                 </div>
-                                             </div>
-
-                                             <div className="flex items-center gap-3 w-full md:w-auto mt-4 md:mt-0">
-                                                 <button onClick={() => alert('Feature coming soon!')} className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-blue-50 text-blue-600 px-4 py-2 rounded-lg text-sm font-semibold hover:bg-blue-100 transition-colors">
-                                                     <Calendar className="w-4 h-4" /> Add to Calendar
-                                                 </button>
-                                                 <button onClick={() => alert('Feature coming soon!')} className="flex-1 md:flex-none bg-white border border-slate-200 text-blue-600 px-5 py-2 rounded-lg text-sm font-semibold hover:bg-slate-50 transition-colors flex items-center justify-center gap-2">
-                                                     <Bell className="w-4 h-4" /> Remind Me
-                                                 </button>
-                                             </div>
+                                                 );
+                                             })}
                                          </div>
-
-                                         {/* Class Item 3 */}
-                                         <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-4 flex flex-col md:flex-row items-start md:items-center gap-6 hover:shadow-md transition-shadow">
-                                             <div className="flex items-center gap-4 w-full md:w-48 shrink-0">
-                                                <div className="bg-slate-50 text-slate-600 px-4 py-2 rounded-lg text-center border border-slate-200">
-                                                    <div className="text-sm font-bold text-slate-700">Oct 10</div>
-                                                    <div className="text-xs font-medium">Fri</div>
-                                                </div>
-                                                <div>
-                                                    <div className="text-sm font-bold text-slate-900">5:30 PM</div>
-                                                    <div className="text-xs text-slate-500 flex items-center gap-1 mt-0.5"><Clock className="w-3 h-3" /> 1h 30m</div>
-                                                </div>
-                                             </div>
-                                             
-                                             <div className="flex-1 flex items-start gap-4">
-                                                 <div className="w-20 h-14 bg-emerald-900 rounded-lg shrink-0 flex items-center justify-center relative overflow-hidden">
-                                                     <div className="text-white font-bold text-xs leading-tight z-10 px-2 text-center">Data<br/>Structures</div>
-                                                     <div className="absolute right-0 opacity-20"><Brain className="w-12 h-12" /></div>
-                                                 </div>
-                                                 <div>
-                                                     <h4 className="font-bold text-slate-900 text-base mb-1">Data Structures</h4>
-                                                     <div className="flex items-center gap-2 text-xs text-slate-500 mb-2">
-                                                         <span className="flex items-center gap-1.5 font-medium"><div className="w-4 h-4 rounded-full bg-slate-200 flex items-center justify-center text-[8px] text-slate-700">PP</div> Prof. Patil</span>
-                                                         <span className="text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded font-bold">SE</span>
-                                                         <span className="text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded font-bold">DS</span>
-                                                     </div>
-                                                     <p className="text-xs text-slate-500">Trees, Graphs and Important Problems</p>
-                                                 </div>
-                                             </div>
-
-                                             <div className="flex items-center gap-3 w-full md:w-auto mt-4 md:mt-0">
-                                                 <button onClick={() => alert('Feature coming soon!')} className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-blue-50 text-blue-600 px-4 py-2 rounded-lg text-sm font-semibold hover:bg-blue-100 transition-colors">
-                                                     <Calendar className="w-4 h-4" /> Add to Calendar
-                                                 </button>
-                                                 <button onClick={() => alert('Feature coming soon!')} className="flex-1 md:flex-none bg-white border border-slate-200 text-blue-600 px-5 py-2 rounded-lg text-sm font-semibold hover:bg-slate-50 transition-colors flex items-center justify-center gap-2">
-                                                     <Bell className="w-4 h-4" /> Remind Me
-                                                 </button>
-                                             </div>
-                                         </div>
-
-                                          {/* Class Item 4 */}
-                                          <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-4 flex flex-col md:flex-row items-start md:items-center gap-6 hover:shadow-md transition-shadow">
-                                             <div className="flex items-center gap-4 w-full md:w-48 shrink-0">
-                                                <div className="bg-slate-50 text-slate-600 px-4 py-2 rounded-lg text-center border border-slate-200">
-                                                    <div className="text-sm font-bold text-slate-700">Oct 11</div>
-                                                    <div className="text-xs font-medium">Sat</div>
-                                                </div>
-                                                <div>
-                                                    <div className="text-sm font-bold text-slate-900">7:00 PM</div>
-                                                    <div className="text-xs text-slate-500 flex items-center gap-1 mt-0.5"><Clock className="w-3 h-3" /> 1h 0m</div>
-                                                </div>
-                                             </div>
-                                             
-                                             <div className="flex-1 flex items-start gap-4">
-                                                 <div className="w-20 h-14 bg-[#131A3F] rounded-lg shrink-0 flex items-center justify-center relative overflow-hidden">
-                                                     <div className="text-white font-bold text-xs leading-tight z-10 px-2 text-center">Computer<br/>Networks</div>
-                                                     <div className="absolute right-0 opacity-20"><Globe className="w-12 h-12" /></div>
-                                                 </div>
-                                                 <div>
-                                                     <h4 className="font-bold text-slate-900 text-base mb-1">Computer Networks</h4>
-                                                     <div className="flex items-center gap-2 text-xs text-slate-500 mb-2">
-                                                         <span className="flex items-center gap-1.5 font-medium"><div className="w-4 h-4 rounded-full bg-slate-200 flex items-center justify-center text-[8px] text-slate-700">PD</div> Prof. Deshmukh</span>
-                                                         <span className="text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded font-bold">TE</span>
-                                                         <span className="text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded font-bold">CN</span>
-                                                     </div>
-                                                     <p className="text-xs text-slate-500">OSI Model, TCP/IP and PYQs Discussion</p>
-                                                 </div>
-                                             </div>
-
-                                             <div className="flex items-center gap-3 w-full md:w-auto mt-4 md:mt-0">
-                                                 <button onClick={() => alert('Feature coming soon!')} className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-blue-50 text-blue-600 px-4 py-2 rounded-lg text-sm font-semibold hover:bg-blue-100 transition-colors">
-                                                     <Calendar className="w-4 h-4" /> Add to Calendar
-                                                 </button>
-                                                 <button onClick={() => alert('Feature coming soon!')} className="flex-1 md:flex-none bg-white border border-slate-200 text-blue-600 px-5 py-2 rounded-lg text-sm font-semibold hover:bg-slate-50 transition-colors flex items-center justify-center gap-2">
-                                                     <Bell className="w-4 h-4" /> Remind Me
-                                                 </button>
-                                             </div>
-                                         </div>
-                                     </div>
+                                     )}
                                  </div>
                              </div>
                         )}
