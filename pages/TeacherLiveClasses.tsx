@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import Navbar from '../components/Navbar';
-import { Video, Calendar, Clock, Plus, MonitorPlay, Copy, Play, Trash2, ArrowLeft, Sun, Moon } from 'lucide-react';
+import { Video, Calendar, Clock, Plus, MonitorPlay, Copy, Play, Trash2, ArrowLeft, Sun, Moon, Loader2 } from 'lucide-react';
 
 const TeacherLiveClasses: React.FC = () => {
     const { courseId } = useParams<{ courseId: string }>();
@@ -16,6 +16,7 @@ const TeacherLiveClasses: React.FC = () => {
     const [liveClasses, setLiveClasses] = useState<any[]>([]);
     const [viewMode, setViewMode] = useState<'upcoming' | 'completed'>('upcoming');
     const [isDarkMode, setIsDarkMode] = useState(false);
+    const [isCreatingInstant, setIsCreatingInstant] = useState(false);
     const [isFetchingClasses, setIsFetchingClasses] = useState(true);
 
     const [isScheduling, setIsScheduling] = useState(false);
@@ -135,10 +136,12 @@ const TeacherLiveClasses: React.FC = () => {
     };
 
     const startInstantMeeting = async () => {
+        if (isCreatingInstant) return;
         if (!selectedCourse || selectedCourse === 'all') {
             alert('Please select a course first');
             return;
         }
+        setIsCreatingInstant(true);
         const instantTitle = `Instant Meeting - ${new Date().toLocaleTimeString()}`;
         try {
             const res = await fetch('/api/live-classes/schedule', {
@@ -157,9 +160,14 @@ const TeacherLiveClasses: React.FC = () => {
             if (res.ok) {
                 const data = await res.json();
                 navigate(`/live-class/${data.liveClass.id}`);
+            } else {
+                alert('Failed to start instant meeting.');
             }
         } catch (e) {
             console.error(e);
+            alert('An error occurred.');
+        } finally {
+            setIsCreatingInstant(false);
         }
     };
 
@@ -233,13 +241,19 @@ const TeacherLiveClasses: React.FC = () => {
 
                     {/* Action Cards */}
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-12">
-                        <div onClick={startInstantMeeting} className="bg-white dark:bg-[#1C1F2E] border border-slate-200 dark:border-[#2A2E3D] rounded-2xl p-6 min-h-[140px] flex flex-col justify-between cursor-pointer hover:border-orange-500 hover:shadow-md transition-all">
+                        <div onClick={startInstantMeeting} className={`bg-white dark:bg-[#1C1F2E] border border-slate-200 dark:border-[#2A2E3D] rounded-2xl p-6 min-h-[140px] flex flex-col justify-between ${isCreatingInstant ? 'opacity-70 cursor-not-allowed' : 'cursor-pointer hover:border-orange-500 hover:shadow-md'} transition-all`}>
                             <div className="w-10 h-10 rounded-[10px] bg-orange-100 dark:bg-orange-500/20 flex items-center justify-center">
-                                <Plus className="w-5 h-5 text-orange-600 dark:text-orange-400" />
+                                {isCreatingInstant ? (
+                                    <Loader2 className="w-5 h-5 text-orange-600 dark:text-orange-400 animate-spin" />
+                                ) : (
+                                    <Plus className="w-5 h-5 text-orange-600 dark:text-orange-400" />
+                                )}
                             </div>
                             <div className="mt-4">
                                 <h3 className="text-lg font-bold text-slate-900 dark:text-white">New Meeting</h3>
-                                <p className="text-slate-500 dark:text-gray-400 text-sm">Start an instant meeting</p>
+                                <p className="text-slate-500 dark:text-gray-400 text-sm">
+                                    {isCreatingInstant ? 'Starting...' : 'Start an instant meeting'}
+                                </p>
                             </div>
                         </div>
 
