@@ -5,7 +5,7 @@ import { Course, Note, UserRole } from '../types';
 import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { 
   LayoutDashboard, BookOpen, FileText, Video, 
-  Settings, CreditCard, Sparkles, GraduationCap, ChevronRight, CheckCircle, Clock, LogOut, Menu, X, Brain, Wrench, Search, Bell, ArrowRight, Play, Zap, Compass, Rocket, Calendar, Download, Bookmark, Star, Navigation
+  Settings, CreditCard, Sparkles, GraduationCap, ChevronRight, CheckCircle, Clock, LogOut, Menu, X, Brain, Wrench, Search, Bell, ArrowRight, Play, Zap, Compass, Rocket, Calendar, Download, Bookmark, Star, Navigation, Radio, Eye, Users, MonitorPlay, AlertCircle, Database, Globe
 } from 'lucide-react';
 import { BuyCreditsModal } from './QuizDetail';
 
@@ -235,11 +235,21 @@ const StudentDashboard: React.FC = () => {
                                 <p className="text-slate-500">
                                     {activeTab === 'courses' && 'Access and resume your purchased courses.'}
                                     {activeTab === 'notes' && 'Your premium and unlocked study materials.'}
-                                    {activeTab === 'live' && 'Join your upcoming live sessions.'}
+                                    {activeTab === 'live' && 'Attend live interactive classes with expert teachers.'}
                                     {activeTab === 'billing' && 'Manage your AI credits and premium subscriptions.'}
                                     {activeTab === 'settings' && 'Update your profile and preferences.'}
                                 </p>
                             </div>
+                            {activeTab === 'live' && (
+                                <div className="flex items-center gap-3">
+                                    <button className="flex items-center gap-2 bg-white border border-slate-200 text-slate-700 px-4 py-2.5 rounded-lg text-sm font-semibold hover:bg-slate-50 shadow-sm transition-colors">
+                                        <Calendar className="w-4 h-4 text-blue-600" /> My Joined Classes
+                                    </button>
+                                    <button className="flex items-center gap-2 bg-blue-600 text-white px-5 py-2.5 rounded-lg text-sm font-bold hover:bg-blue-700 shadow-sm transition-colors">
+                                        Join with Class Code <ArrowRight className="w-4 h-4" />
+                                    </button>
+                                </div>
+                            )}
                         </div>
                     )}
 
@@ -621,11 +631,18 @@ const StudentDashboard: React.FC = () => {
                                         </div>
                                     ))}
                                     {courses.length === 0 && (
-                                         <div className="text-center py-16 bg-white rounded-2xl border border-dashed border-slate-300">
-                                             <BookOpen className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-                                             <h3 className="text-lg font-bold text-slate-700 mb-1">No Courses Yet</h3>
-                                             <p className="text-slate-500 mb-6">You haven't enrolled in any courses.</p>
-                                             <Link to="/browse" className="bg-[#131A3F] text-white px-6 py-2.5 rounded-lg font-medium hover:bg-slate-800 transition-colors">Browse Catalog</Link>
+                                         <div className="bg-slate-50 rounded-2xl border border-indigo-100 p-12 flex flex-col items-center justify-center text-center relative overflow-hidden">
+                                             <div className="absolute right-10 top-1/2 -translate-y-1/2 opacity-20 pointer-events-none hidden md:block">
+                                                 <Compass className="w-32 h-32 text-indigo-400 rotate-12" />
+                                             </div>
+                                             <div className="w-16 h-16 bg-indigo-100 text-indigo-600 rounded-2xl flex items-center justify-center mb-4 relative z-10 shadow-sm border border-white">
+                                                 <BookOpen className="w-8 h-8" />
+                                             </div>
+                                             <h3 className="text-lg font-bold text-slate-900 mb-2 relative z-10">You haven't enrolled in any courses yet.</h3>
+                                             <p className="text-sm text-slate-500 mb-6 relative z-10 max-w-sm">Discover high-quality courses from expert teachers and start your learning journey.</p>
+                                             <Link to="/browse" className="bg-indigo-600 text-white px-6 py-2.5 rounded-lg text-sm font-bold hover:bg-indigo-700 transition-colors shadow-md relative z-10 flex items-center gap-2">
+                                                 Browse Catalog <ArrowRight className="w-4 h-4" />
+                                             </Link>
                                          </div>
                                     )}
                                 </div>
@@ -640,38 +657,52 @@ const StudentDashboard: React.FC = () => {
                                         <Link to="/browse" className="text-blue-600 text-sm font-bold flex items-center gap-1 hover:underline">View All <ArrowRight className="w-4 h-4" /></Link>
                                     </div>
                                     
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                                        {allCoursesState.filter(c => !user.purchasedCourseIds?.includes(c.id) && c.price !== 0).slice(0, 4).map((c, i) => (
-                                            <div key={c.id} className="bg-white rounded-xl border border-slate-100 shadow-sm overflow-hidden flex flex-col group">
-                                                <div className="aspect-[4/3] bg-slate-900 relative">
-                                                    {c.thumbnailUrl && <img src={c.thumbnailUrl} className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" />}
-                                                    <div className="absolute top-3 left-3 bg-white/20 backdrop-blur-md text-white text-[10px] font-bold px-2 py-0.5 rounded">
-                                                        {getSubjectBadge(c.subjectId)}
-                                                    </div>
-                                                    <div className="absolute top-3 right-3 text-white/70 hover:text-white cursor-pointer">
-                                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"></path></svg>
-                                                    </div>
+                                    {(() => {
+                                        const recommendedCourses = allCoursesState.filter(c => !user.purchasedCourseIds?.includes(c.id) && c.price !== 0).slice(0, 4);
+                                        if (recommendedCourses.length === 0) {
+                                            return (
+                                                <div className="bg-slate-50 rounded-2xl border border-dashed border-slate-200 p-10 flex flex-col items-center justify-center text-center">
+                                                    <BookOpen className="w-10 h-10 text-slate-300 mb-3" />
+                                                    <h3 className="text-sm font-bold text-slate-700 mb-1">You're all caught up!</h3>
+                                                    <p className="text-sm text-slate-500 max-w-sm">You have enrolled in all recommended courses for your branch and year. Browse the catalog for more topics.</p>
                                                 </div>
-                                                <div className="p-4 flex-1 flex flex-col">
-                                                    <h3 className="font-bold text-slate-900 mb-3 line-clamp-2 leading-snug">{c.title}</h3>
-                                                    <div className="flex items-center gap-2 mb-3">
-                                                        <div className="w-5 h-5 rounded-full bg-slate-200 flex items-center justify-center text-[8px] font-bold text-slate-600">P</div>
-                                                        <span className="text-xs text-slate-500">Prof. Name</span>
+                                            );
+                                        }
+                                        return (
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                                                {recommendedCourses.map((c, i) => (
+                                                    <div key={c.id} className="bg-white rounded-xl border border-slate-100 shadow-sm overflow-hidden flex flex-col group">
+                                                        <div className="aspect-[4/3] bg-slate-900 relative">
+                                                            {c.thumbnailUrl && <img src={c.thumbnailUrl} className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" />}
+                                                            <div className="absolute top-3 left-3 bg-white/20 backdrop-blur-md text-white text-[10px] font-bold px-2 py-0.5 rounded">
+                                                                {getSubjectBadge(c.subjectId)}
+                                                            </div>
+                                                            <div className="absolute top-3 right-3 text-white/70 hover:text-white cursor-pointer">
+                                                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"></path></svg>
+                                                            </div>
+                                                        </div>
+                                                        <div className="p-4 flex-1 flex flex-col">
+                                                            <h3 className="font-bold text-slate-900 mb-3 line-clamp-2 leading-snug">{c.title}</h3>
+                                                            <div className="flex items-center gap-2 mb-3">
+                                                                <div className="w-5 h-5 rounded-full bg-slate-200 flex items-center justify-center text-[8px] font-bold text-slate-600">P</div>
+                                                                <span className="text-xs text-slate-500">Prof. Name</span>
+                                                            </div>
+                                                            <div className="flex items-center gap-4 text-xs text-slate-500 mb-4">
+                                                                <span className="flex items-center gap-1"><Video className="w-3.5 h-3.5" /> 32 Lectures</span>
+                                                                <span className="flex items-center gap-1"><FileText className="w-3.5 h-3.5" /> 18 Notes</span>
+                                                            </div>
+                                                            <div className="mt-auto flex items-center justify-between">
+                                                                <span className="font-bold text-slate-900">₹{c.price}</span>
+                                                                <Link to={`/course/${c.id}`} className="bg-blue-50 text-blue-600 px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-blue-100 transition-colors flex items-center gap-1">
+                                                                    View Course <ArrowRight className="w-3 h-3" />
+                                                                </Link>
+                                                            </div>
+                                                        </div>
                                                     </div>
-                                                    <div className="flex items-center gap-4 text-xs text-slate-500 mb-4">
-                                                        <span className="flex items-center gap-1"><Video className="w-3.5 h-3.5" /> 32 Lectures</span>
-                                                        <span className="flex items-center gap-1"><FileText className="w-3.5 h-3.5" /> 18 Notes</span>
-                                                    </div>
-                                                    <div className="mt-auto flex items-center justify-between">
-                                                        <span className="font-bold text-slate-900">₹{c.price}</span>
-                                                        <Link to={`/course/${c.id}`} className="bg-blue-50 text-blue-600 px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-blue-100 transition-colors flex items-center gap-1">
-                                                            View Course <ArrowRight className="w-3 h-3" />
-                                                        </Link>
-                                                    </div>
-                                                </div>
+                                                ))}
                                             </div>
-                                        ))}
-                                    </div>
+                                        );
+                                    })()}
                                 </div>
 
                                 {/* Bottom Banner */}
@@ -874,77 +905,327 @@ const StudentDashboard: React.FC = () => {
                                         <Link to="/notes" className="text-blue-600 text-sm font-bold flex items-center gap-1 hover:underline">View All <ArrowRight className="w-4 h-4" /></Link>
                                     </div>
                                     
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                                        {allNotesState.filter(n => !user.purchasedNoteIds?.includes(n.id) && n.price !== 0).slice(0, 4).map((n, i) => (
-                                            <Link key={n.id} to={`/note/${n.id}`} className="bg-white rounded-xl border border-slate-100 shadow-sm overflow-hidden flex flex-col group">
-                                                <div className="aspect-[4/3] bg-slate-900 relative">
-                                                    {n.thumbnailUrl ? <img src={n.thumbnailUrl} className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" /> : <div className="w-full h-full bg-purple-900"></div>}
-                                                    <div className="absolute top-3 left-3 bg-white/20 backdrop-blur-md text-white text-[10px] font-bold px-2 py-0.5 rounded">
-                                                        {getSubjectBadge(n.subjectId)}
-                                                    </div>
-                                                    <div className="absolute top-3 right-3 text-white/70 hover:text-white cursor-pointer">
-                                                        <Bookmark className="w-5 h-5" />
-                                                    </div>
-                                                    <div className="absolute bottom-3 right-3 bg-white text-red-600 text-[10px] font-bold px-2 py-1 rounded shadow-md flex items-center gap-1">
-                                                        <FileText className="w-3 h-3" /> PDF
-                                                    </div>
+                                    {(() => {
+                                        const recommendedNotes = allNotesState.filter(n => !user.purchasedNoteIds?.includes(n.id) && n.price !== 0).slice(0, 4);
+                                        if (recommendedNotes.length === 0) {
+                                            return (
+                                                <div className="bg-slate-50 rounded-2xl border border-dashed border-slate-200 p-10 flex flex-col items-center justify-center text-center">
+                                                    <FileText className="w-10 h-10 text-slate-300 mb-3" />
+                                                    <h3 className="text-sm font-bold text-slate-700 mb-1">You've got everything!</h3>
+                                                    <p className="text-sm text-slate-500 max-w-sm">You have unlocked all recommended notes for your branch and year. Browse the catalog for more topics.</p>
                                                 </div>
-                                                <div className="p-4 flex-1 flex flex-col">
-                                                    <h3 className="font-bold text-slate-900 mb-2 line-clamp-2 leading-snug">{n.title}</h3>
-                                                    <div className="flex items-center gap-2 mb-3">
-                                                        <div className="w-5 h-5 rounded-full bg-slate-200 flex items-center justify-center text-[8px] font-bold text-slate-600">P</div>
-                                                        <span className="text-xs text-slate-500">Prof. Name</span>
-                                                    </div>
-                                                    <div className="flex items-center justify-between text-xs text-slate-500 mb-4">
-                                                        <span className="flex items-center gap-1"><FileText className="w-3.5 h-3.5" /> 130 Pages</span>
-                                                        <span className="flex items-center gap-1"><Download className="w-3.5 h-3.5" /> 2.1k+</span>
-                                                    </div>
-                                                    <div className="mt-auto flex items-center justify-between">
-                                                        <span className="font-bold text-slate-900">₹{n.price}</span>
-                                                        <span className="bg-blue-50 text-blue-600 px-3 py-1.5 rounded-lg text-xs font-bold group-hover:bg-blue-100 transition-colors flex items-center gap-1">
-                                                            View Notes <ArrowRight className="w-3 h-3" />
-                                                        </span>
-                                                    </div>
-                                                </div>
-                                            </Link>
-                                        ))}
-                                    </div>
+                                            );
+                                        }
+                                        return (
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                                                {recommendedNotes.map((n, i) => (
+                                                    <Link key={n.id} to={`/note/${n.id}`} className="bg-white rounded-xl border border-slate-100 shadow-sm overflow-hidden flex flex-col group">
+                                                        <div className="aspect-[4/3] bg-slate-900 relative">
+                                                            {n.thumbnailUrl ? <img src={n.thumbnailUrl} className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" /> : <div className="w-full h-full bg-purple-900"></div>}
+                                                            <div className="absolute top-3 left-3 bg-white/20 backdrop-blur-md text-white text-[10px] font-bold px-2 py-0.5 rounded">
+                                                                {getSubjectBadge(n.subjectId)}
+                                                            </div>
+                                                            <div className="absolute top-3 right-3 text-white/70 hover:text-white cursor-pointer">
+                                                                <Bookmark className="w-5 h-5" />
+                                                            </div>
+                                                            <div className="absolute bottom-3 right-3 bg-white text-red-600 text-[10px] font-bold px-2 py-1 rounded shadow-md flex items-center gap-1">
+                                                                <FileText className="w-3 h-3" /> PDF
+                                                            </div>
+                                                        </div>
+                                                        <div className="p-4 flex-1 flex flex-col">
+                                                            <h3 className="font-bold text-slate-900 mb-2 line-clamp-2 leading-snug">{n.title}</h3>
+                                                            <div className="flex items-center gap-2 mb-3">
+                                                                <div className="w-5 h-5 rounded-full bg-slate-200 flex items-center justify-center text-[8px] font-bold text-slate-600">P</div>
+                                                                <span className="text-xs text-slate-500">Prof. Name</span>
+                                                            </div>
+                                                            <div className="flex items-center justify-between text-xs text-slate-500 mb-4">
+                                                                <span className="flex items-center gap-1"><FileText className="w-3.5 h-3.5" /> 130 Pages</span>
+                                                                <span className="flex items-center gap-1"><Download className="w-3.5 h-3.5" /> 2.1k+</span>
+                                                            </div>
+                                                            <div className="mt-auto flex items-center justify-between">
+                                                                <span className="font-bold text-slate-900">₹{n.price}</span>
+                                                                <span className="bg-blue-50 text-blue-600 px-3 py-1.5 rounded-lg text-xs font-bold group-hover:bg-blue-100 transition-colors flex items-center gap-1">
+                                                                    View Notes <ArrowRight className="w-3 h-3" />
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                    </Link>
+                                                ))}
+                                            </div>
+                                        );
+                                    })()}
                                 </div>
                             </div>
                         )}
 
                         {activeTab === 'live' && (
-                             <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-                                {liveClasses.length > 0 ? (
-                                    <div className="divide-y divide-slate-100">
-                                        {liveClasses.map((lc, i) => (
-                                            <div key={i} className="p-6 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:bg-slate-50 transition-colors">
-                                                <div className="flex items-start gap-4">
-                                                    <div className="w-14 h-14 bg-emerald-50 rounded-xl border border-emerald-100 flex flex-col items-center justify-center shrink-0">
-                                                        <span className="text-sm font-bold text-emerald-700">{new Date(lc.scheduledAt).getDate()}</span>
-                                                        <span className="text-xs font-medium text-emerald-600 uppercase">{new Date(lc.scheduledAt).toLocaleString('default', {month: 'short'})}</span>
-                                                    </div>
-                                                    <div>
-                                                        <h3 className="font-bold text-slate-900 text-lg">{lc.topic}</h3>
-                                                        <p className="text-sm text-slate-500 flex items-center gap-1.5 mt-1">
-                                                            <Clock className="w-4 h-4 text-slate-400" />
-                                                            {new Date(lc.scheduledAt).toLocaleString([], {weekday: 'long', hour: '2-digit', minute:'2-digit'})}
-                                                        </p>
-                                                    </div>
-                                                </div>
-                                                <Link to={`/live-class/lobby/${lc.id}`} className="bg-emerald-500 hover:bg-emerald-600 text-white px-6 py-2.5 rounded-lg font-medium transition-colors text-center shadow-sm">
-                                                    Join Class
-                                                </Link>
+                             <div className="space-y-8 relative z-10">
+                                 {/* Filter Tabs */}
+                                 <div className="flex items-center gap-3 overflow-x-auto pb-2 md:pb-0">
+                                     <button className="flex items-center gap-2 bg-blue-600 text-white px-5 py-2.5 rounded-lg text-sm font-semibold whitespace-nowrap shadow-sm">
+                                         <Calendar className="w-4 h-4" /> Upcoming
+                                     </button>
+                                     <button className="flex items-center gap-2 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 px-5 py-2.5 rounded-lg text-sm font-semibold whitespace-nowrap transition-colors">
+                                         <Radio className="w-4 h-4 text-red-500" /> Live Now <span className="bg-red-100 text-red-600 px-2 py-0.5 rounded-full text-[10px]">2</span>
+                                     </button>
+                                     <button className="flex items-center gap-2 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 px-5 py-2.5 rounded-lg text-sm font-semibold whitespace-nowrap transition-colors">
+                                         <BookOpen className="w-4 h-4" /> My Classes
+                                     </button>
+                                     <button className="flex items-center gap-2 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 px-5 py-2.5 rounded-lg text-sm font-semibold whitespace-nowrap transition-colors">
+                                         <Play className="w-4 h-4" /> Recordings
+                                     </button>
+                                 </div>
+
+                                 {/* Featured Live Classes Grid */}
+                                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                                     {/* Dark Feature Card */}
+                                     <div className="lg:col-span-2 bg-[#131A3F] rounded-2xl p-6 md:p-8 flex flex-col md:flex-row items-center justify-between gap-6 border border-slate-800 shadow-md relative overflow-hidden group">
+                                         <div className="relative z-10 flex-1">
+                                             <div className="flex items-center gap-3 mb-4">
+                                                 <span className="flex items-center gap-1.5 bg-red-500 text-white px-3 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider shadow-sm"><Radio className="w-3 h-3" /> Live Now</span>
+                                                 <span className="flex items-center gap-1.5 bg-white/10 text-white/80 px-3 py-1 rounded-md text-[10px] font-semibold backdrop-blur-sm"><Eye className="w-3 h-3" /> 1.2K watching</span>
+                                             </div>
+                                             <h2 className="text-3xl font-extrabold text-white mb-2 leading-tight">Database Management System</h2>
+                                             <div className="flex items-center gap-4 text-sm text-slate-300 font-medium mb-6">
+                                                 <span className="flex items-center gap-2"><div className="w-6 h-6 rounded-full bg-slate-700 flex items-center justify-center text-[10px] text-white">PK</div> Prof. Kulkarni</span>
+                                                 <span className="w-1 h-1 bg-slate-500 rounded-full"></span>
+                                                 <span className="flex items-center gap-1.5"><FileText className="w-4 h-4" /> SE</span>
+                                                 <span className="w-1 h-1 bg-slate-500 rounded-full"></span>
+                                                 <span className="flex items-center gap-1.5"><FileText className="w-4 h-4" /> DBMS</span>
+                                             </div>
+                                             <button className="bg-white text-[#131A3F] px-6 py-3 rounded-lg font-bold hover:bg-slate-100 transition-colors flex items-center gap-2 shadow-sm text-sm">
+                                                 Join Live Class <ArrowRight className="w-4 h-4" />
+                                             </button>
+                                         </div>
+                                         <div className="w-full md:w-64 aspect-video md:aspect-square bg-slate-800 rounded-xl overflow-hidden shrink-0 relative z-10 border border-slate-700 shadow-inner">
+                                             <img src="https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=500&q=80" alt="Prof" className="w-full h-full object-cover opacity-80 mix-blend-luminosity group-hover:mix-blend-normal transition-all duration-500" />
+                                             <div className="absolute inset-0 bg-gradient-to-t from-[#131A3F] via-transparent to-transparent"></div>
+                                         </div>
+                                         {/* Background graphics */}
+                                         <div className="absolute top-0 right-0 w-full h-full opacity-10 pointer-events-none">
+                                            <svg className="absolute right-10 top-10 w-64 h-64 text-white" viewBox="0 0 100 100" fill="none" stroke="currentColor" strokeWidth="2"><path d="M10 50 Q 50 10 90 50 T 90 90" /></svg>
+                                         </div>
+                                     </div>
+
+                                     {/* Pink Feature Card */}
+                                     <div className="bg-red-50 rounded-2xl p-6 md:p-8 flex flex-col border border-red-100 shadow-sm relative overflow-hidden">
+                                         <div className="flex items-center gap-2 text-red-600 font-bold text-sm mb-4">
+                                             <Radio className="w-4 h-4 animate-pulse" /> Live Class in Progress
+                                         </div>
+                                         <h3 className="text-xl font-bold text-slate-900 mb-3 leading-snug">Operating Systems - Process Scheduling</h3>
+                                         <div className="flex items-center gap-3 text-xs text-slate-600 font-medium mb-6">
+                                             <span className="flex items-center gap-1.5"><div className="w-5 h-5 rounded-full bg-red-200 flex items-center justify-center text-[8px] text-red-800">PS</div> Prof. Sharma</span>
+                                             <span className="w-1 h-1 bg-slate-300 rounded-full"></span>
+                                             <span>TE</span>
+                                             <span className="w-1 h-1 bg-slate-300 rounded-full"></span>
+                                             <span>OS</span>
+                                         </div>
+                                         <div className="mt-auto">
+                                             <button className="bg-red-500 text-white px-6 py-2.5 rounded-lg font-bold hover:bg-red-600 transition-colors flex items-center gap-2 shadow-sm text-sm">
+                                                 Join Now <ArrowRight className="w-4 h-4" />
+                                             </button>
+                                         </div>
+                                         <div className="absolute right-0 bottom-0 opacity-10 pointer-events-none">
+                                            <Radio className="w-40 h-40 text-red-500 transform translate-x-10 translate-y-10" />
+                                         </div>
+                                     </div>
+                                 </div>
+
+                                 {/* Upcoming Live Classes List Section */}
+                                 <div>
+                                     <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+                                         <div className="flex items-center gap-3">
+                                             <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-lg flex items-center justify-center">
+                                                 <Calendar className="w-5 h-5" />
+                                             </div>
+                                             <div>
+                                                 <h3 className="text-xl font-bold text-slate-900">Upcoming Live Classes</h3>
+                                                 <p className="text-sm text-slate-500">Your scheduled live classes and upcoming sessions</p>
+                                             </div>
+                                         </div>
+                                         <div className="flex items-center gap-3 overflow-x-auto w-full md:w-auto">
+                                            <div className="bg-white border border-slate-200 rounded-lg px-3 py-1.5 flex flex-col shrink-0">
+                                                <span className="text-[10px] text-slate-400 font-medium leading-none mb-1">Branch</span>
+                                                <select className="bg-transparent text-xs font-semibold text-slate-700 focus:outline-none cursor-pointer">
+                                                    <option>All Branches</option>
+                                                </select>
                                             </div>
-                                        ))}
-                                    </div>
-                                ) : (
-                                    <div className="text-center py-16">
-                                        <Video className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-                                        <h3 className="text-lg font-bold text-slate-700 mb-1">No Scheduled Classes</h3>
-                                        <p className="text-slate-500">There are no upcoming live classes for your enrolled courses.</p>
-                                    </div>
-                                )}
+                                            <div className="bg-white border border-slate-200 rounded-lg px-3 py-1.5 flex flex-col shrink-0">
+                                                <span className="text-[10px] text-slate-400 font-medium leading-none mb-1">Year</span>
+                                                <select className="bg-transparent text-xs font-semibold text-slate-700 focus:outline-none cursor-pointer">
+                                                    <option>All Years</option>
+                                                </select>
+                                            </div>
+                                            <div className="bg-white border border-slate-200 rounded-lg px-3 py-1.5 flex flex-col shrink-0">
+                                                <span className="text-[10px] text-slate-400 font-medium leading-none mb-1">Subject</span>
+                                                <select className="bg-transparent text-xs font-semibold text-slate-700 focus:outline-none cursor-pointer">
+                                                    <option>All Subjects</option>
+                                                </select>
+                                            </div>
+                                            <button className="flex items-center gap-2 bg-white border border-slate-200 text-slate-700 px-4 py-2.5 rounded-lg text-sm font-semibold hover:bg-slate-50 shadow-sm whitespace-nowrap">
+                                                <Calendar className="w-4 h-4" /> This Week
+                                            </button>
+                                         </div>
+                                     </div>
+                                     
+                                     <div className="space-y-4">
+                                         {/* Class Item 1 */}
+                                         <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-4 flex flex-col md:flex-row items-start md:items-center gap-6 hover:shadow-md transition-shadow">
+                                             <div className="flex items-center gap-4 w-full md:w-48 shrink-0">
+                                                <div className="bg-blue-50 text-blue-600 px-4 py-2 rounded-lg text-center border border-blue-100">
+                                                    <div className="text-sm font-bold">Oct 8</div>
+                                                    <div className="text-xs font-medium">Today</div>
+                                                </div>
+                                                <div>
+                                                    <div className="text-sm font-bold text-slate-900">7:00 PM</div>
+                                                    <div className="text-xs text-slate-500 flex items-center gap-1 mt-0.5"><Clock className="w-3 h-3" /> 1h 30m</div>
+                                                </div>
+                                             </div>
+                                             
+                                             <div className="flex-1 flex items-start gap-4">
+                                                 <div className="w-20 h-14 bg-[#131A3F] rounded-lg shrink-0 flex items-center justify-center relative overflow-hidden">
+                                                     <div className="text-white font-extrabold text-lg z-10">DBMS</div>
+                                                     <div className="absolute right-0 opacity-20"><Database className="w-12 h-12" /></div>
+                                                 </div>
+                                                 <div>
+                                                     <h4 className="font-bold text-slate-900 text-base mb-1">Database Management System</h4>
+                                                     <div className="flex items-center gap-2 text-xs text-slate-500 mb-2">
+                                                         <span className="flex items-center gap-1.5 font-medium"><div className="w-4 h-4 rounded-full bg-slate-200 flex items-center justify-center text-[8px] text-slate-700">PK</div> Prof. Kulkarni</span>
+                                                         <span className="text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded font-bold">SE</span>
+                                                         <span className="text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded font-bold">DBMS</span>
+                                                     </div>
+                                                     <p className="text-xs text-slate-500">ER Diagrams, Normalization and Important Questions</p>
+                                                 </div>
+                                             </div>
+
+                                             <div className="flex items-center gap-3 w-full md:w-auto mt-4 md:mt-0">
+                                                 <button className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-blue-50 text-blue-600 px-4 py-2 rounded-lg text-sm font-semibold hover:bg-blue-100 transition-colors">
+                                                     <Calendar className="w-4 h-4" /> Add to Calendar
+                                                 </button>
+                                                 <button className="flex-1 md:flex-none bg-blue-600 text-white px-5 py-2 rounded-lg text-sm font-bold hover:bg-blue-700 transition-colors shadow-sm flex items-center justify-center gap-2">
+                                                     Join Class <ArrowRight className="w-4 h-4" />
+                                                 </button>
+                                             </div>
+                                         </div>
+
+                                         {/* Class Item 2 */}
+                                         <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-4 flex flex-col md:flex-row items-start md:items-center gap-6 hover:shadow-md transition-shadow">
+                                             <div className="flex items-center gap-4 w-full md:w-48 shrink-0">
+                                                <div className="bg-slate-50 text-slate-600 px-4 py-2 rounded-lg text-center border border-slate-200">
+                                                    <div className="text-sm font-bold text-slate-700">Oct 9</div>
+                                                    <div className="text-xs font-medium">Thu</div>
+                                                </div>
+                                                <div>
+                                                    <div className="text-sm font-bold text-slate-900">6:00 PM</div>
+                                                    <div className="text-xs text-slate-500 flex items-center gap-1 mt-0.5"><Clock className="w-3 h-3" /> 1h 0m</div>
+                                                </div>
+                                             </div>
+                                             
+                                             <div className="flex-1 flex items-start gap-4">
+                                                 <div className="w-20 h-14 bg-purple-900 rounded-lg shrink-0 flex items-center justify-center relative overflow-hidden">
+                                                     <div className="text-white font-extrabold text-lg z-10">OS</div>
+                                                     <div className="absolute right-0 opacity-20"><Settings className="w-12 h-12" /></div>
+                                                 </div>
+                                                 <div>
+                                                     <h4 className="font-bold text-slate-900 text-base mb-1">Operating Systems</h4>
+                                                     <div className="flex items-center gap-2 text-xs text-slate-500 mb-2">
+                                                         <span className="flex items-center gap-1.5 font-medium"><div className="w-4 h-4 rounded-full bg-slate-200 flex items-center justify-center text-[8px] text-slate-700">PS</div> Prof. Sharma</span>
+                                                         <span className="text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded font-bold">TE</span>
+                                                         <span className="text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded font-bold">OS</span>
+                                                     </div>
+                                                     <p className="text-xs text-slate-500">Process Scheduling, Deadlocks and Previous Year Questions</p>
+                                                 </div>
+                                             </div>
+
+                                             <div className="flex items-center gap-3 w-full md:w-auto mt-4 md:mt-0">
+                                                 <button className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-blue-50 text-blue-600 px-4 py-2 rounded-lg text-sm font-semibold hover:bg-blue-100 transition-colors">
+                                                     <Calendar className="w-4 h-4" /> Add to Calendar
+                                                 </button>
+                                                 <button className="flex-1 md:flex-none bg-white border border-slate-200 text-blue-600 px-5 py-2 rounded-lg text-sm font-semibold hover:bg-slate-50 transition-colors flex items-center justify-center gap-2">
+                                                     <Bell className="w-4 h-4" /> Remind Me
+                                                 </button>
+                                             </div>
+                                         </div>
+
+                                         {/* Class Item 3 */}
+                                         <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-4 flex flex-col md:flex-row items-start md:items-center gap-6 hover:shadow-md transition-shadow">
+                                             <div className="flex items-center gap-4 w-full md:w-48 shrink-0">
+                                                <div className="bg-slate-50 text-slate-600 px-4 py-2 rounded-lg text-center border border-slate-200">
+                                                    <div className="text-sm font-bold text-slate-700">Oct 10</div>
+                                                    <div className="text-xs font-medium">Fri</div>
+                                                </div>
+                                                <div>
+                                                    <div className="text-sm font-bold text-slate-900">5:30 PM</div>
+                                                    <div className="text-xs text-slate-500 flex items-center gap-1 mt-0.5"><Clock className="w-3 h-3" /> 1h 30m</div>
+                                                </div>
+                                             </div>
+                                             
+                                             <div className="flex-1 flex items-start gap-4">
+                                                 <div className="w-20 h-14 bg-emerald-900 rounded-lg shrink-0 flex items-center justify-center relative overflow-hidden">
+                                                     <div className="text-white font-bold text-xs leading-tight z-10 px-2 text-center">Data<br/>Structures</div>
+                                                     <div className="absolute right-0 opacity-20"><Brain className="w-12 h-12" /></div>
+                                                 </div>
+                                                 <div>
+                                                     <h4 className="font-bold text-slate-900 text-base mb-1">Data Structures</h4>
+                                                     <div className="flex items-center gap-2 text-xs text-slate-500 mb-2">
+                                                         <span className="flex items-center gap-1.5 font-medium"><div className="w-4 h-4 rounded-full bg-slate-200 flex items-center justify-center text-[8px] text-slate-700">PP</div> Prof. Patil</span>
+                                                         <span className="text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded font-bold">SE</span>
+                                                         <span className="text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded font-bold">DS</span>
+                                                     </div>
+                                                     <p className="text-xs text-slate-500">Trees, Graphs and Important Problems</p>
+                                                 </div>
+                                             </div>
+
+                                             <div className="flex items-center gap-3 w-full md:w-auto mt-4 md:mt-0">
+                                                 <button className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-blue-50 text-blue-600 px-4 py-2 rounded-lg text-sm font-semibold hover:bg-blue-100 transition-colors">
+                                                     <Calendar className="w-4 h-4" /> Add to Calendar
+                                                 </button>
+                                                 <button className="flex-1 md:flex-none bg-white border border-slate-200 text-blue-600 px-5 py-2 rounded-lg text-sm font-semibold hover:bg-slate-50 transition-colors flex items-center justify-center gap-2">
+                                                     <Bell className="w-4 h-4" /> Remind Me
+                                                 </button>
+                                             </div>
+                                         </div>
+
+                                          {/* Class Item 4 */}
+                                          <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-4 flex flex-col md:flex-row items-start md:items-center gap-6 hover:shadow-md transition-shadow">
+                                             <div className="flex items-center gap-4 w-full md:w-48 shrink-0">
+                                                <div className="bg-slate-50 text-slate-600 px-4 py-2 rounded-lg text-center border border-slate-200">
+                                                    <div className="text-sm font-bold text-slate-700">Oct 11</div>
+                                                    <div className="text-xs font-medium">Sat</div>
+                                                </div>
+                                                <div>
+                                                    <div className="text-sm font-bold text-slate-900">7:00 PM</div>
+                                                    <div className="text-xs text-slate-500 flex items-center gap-1 mt-0.5"><Clock className="w-3 h-3" /> 1h 0m</div>
+                                                </div>
+                                             </div>
+                                             
+                                             <div className="flex-1 flex items-start gap-4">
+                                                 <div className="w-20 h-14 bg-[#131A3F] rounded-lg shrink-0 flex items-center justify-center relative overflow-hidden">
+                                                     <div className="text-white font-bold text-xs leading-tight z-10 px-2 text-center">Computer<br/>Networks</div>
+                                                     <div className="absolute right-0 opacity-20"><Globe className="w-12 h-12" /></div>
+                                                 </div>
+                                                 <div>
+                                                     <h4 className="font-bold text-slate-900 text-base mb-1">Computer Networks</h4>
+                                                     <div className="flex items-center gap-2 text-xs text-slate-500 mb-2">
+                                                         <span className="flex items-center gap-1.5 font-medium"><div className="w-4 h-4 rounded-full bg-slate-200 flex items-center justify-center text-[8px] text-slate-700">PD</div> Prof. Deshmukh</span>
+                                                         <span className="text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded font-bold">TE</span>
+                                                         <span className="text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded font-bold">CN</span>
+                                                     </div>
+                                                     <p className="text-xs text-slate-500">OSI Model, TCP/IP and PYQs Discussion</p>
+                                                 </div>
+                                             </div>
+
+                                             <div className="flex items-center gap-3 w-full md:w-auto mt-4 md:mt-0">
+                                                 <button className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-blue-50 text-blue-600 px-4 py-2 rounded-lg text-sm font-semibold hover:bg-blue-100 transition-colors">
+                                                     <Calendar className="w-4 h-4" /> Add to Calendar
+                                                 </button>
+                                                 <button className="flex-1 md:flex-none bg-white border border-slate-200 text-blue-600 px-5 py-2 rounded-lg text-sm font-semibold hover:bg-slate-50 transition-colors flex items-center justify-center gap-2">
+                                                     <Bell className="w-4 h-4" /> Remind Me
+                                                 </button>
+                                             </div>
+                                         </div>
+                                     </div>
+                                 </div>
                              </div>
                         )}
 
