@@ -1,4 +1,33 @@
 User-agent: *
-Allow: /
 
+# ── Public pages — allow all ──────────────────────────────────────────────────
+Allow: /
+Allow: /about
+Allow: /browse
+Allow: /notes
+Allow: /exam-intelligence
+Allow: /be-toolkit
+Allow: /course/
+Allow: /sitemap.xml
+Allow: /img/
+Allow: /img/og-image.png
+
+# ── Private / admin areas — block crawlers ────────────────────────────────────
+Disallow: /admin
+Disallow: /super-admin
+Disallow: /teacher/
+Disallow: /profile
+Disallow: /live-class/
+Disallow: /login
+
+# ── API routes — never index ──────────────────────────────────────────────────
+Disallow: /api/
+
+# ── Note / Quiz / Viva detail pages — paywalled, noindex via meta ─────────────
+# Indexed via noindex meta tag in the page itself; listed here for belt-and-suspenders
+Disallow: /note/
+Disallow: /quiz/
+Disallow: /viva/
+
+# ── Sitemap ───────────────────────────────────────────────────────────────────
 Sitemap: https://unieval.in/sitemap.xml

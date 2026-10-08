@@ -6,6 +6,7 @@ import { useAuth } from '../context/AuthContext';
 import { useCredits } from '../context/AuthContext';
 import { BuyCreditsModal } from './QuizDetail';
 import { UserRole } from '../types';
+import { useSEO } from '../hooks/useSEO';
 
 const PRIORITY_CONFIG = {
   high:   { label: 'High',   icon: '🔥', classes: 'bg-red-100 text-red-700 border border-red-200' },
@@ -661,6 +662,12 @@ const BRANCH_ORDER = ['FE', 'SE', 'TE', 'BE'];
 const ExamIntelligence: React.FC = () => {
   const { user } = useAuth();
   const isSuperAdmin = user?.role === UserRole.SUPER_ADMIN;
+
+  useSEO({
+    title: 'SPPU Exam Intelligence | AI Study Plan & PYQs',
+    description: 'Get AI-driven SPPU exam intelligence, PYQ analysis, and custom study plans for Pune University Engineering students to easily pass semester exams.',
+    canonical: 'https://unieval.in/exam-intelligence',
+  });
 
   const [list, setList]               = useState<ListItem[]>([]);
   const [selected, setSelected]       = useState<ExamIntelligenceDoc | null>(null);

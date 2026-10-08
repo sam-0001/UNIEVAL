@@ -157,8 +157,19 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [isLoading, setIsLoading]           = useState(true);
   const [actionLoading, setActionLoading]   = useState(false);
   const [error, setError]                   = useState<string | null>(null);
-  const [showLoginModal, setShowLoginModal] = useState(false);
+  const [showLoginModal, setRealShowLoginModal] = useState(false);
   const [onLoginSuccess, setOnLoginSuccess] = useState<((user: User) => void) | null>(null);
+
+  const setShowLoginModal = useCallback((show: boolean) => {
+    if (typeof window !== 'undefined' && show) {
+        const isLanding = window.location.hostname === 'unieval.in' || window.location.hostname === 'www.unieval.in';
+        if (isLanding) {
+            window.location.href = 'https://app.unieval.in/login';
+            return;
+        }
+    }
+    setRealShowLoginModal(show);
+  }, []);
 
   // Single-device conflict flag
   const [deviceConflict, setDeviceConflict] = useState(false);

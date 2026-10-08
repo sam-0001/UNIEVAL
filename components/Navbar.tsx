@@ -63,19 +63,19 @@ const Navbar: React.FC = () => {
                 {/* Live Classes & Credit Badge — students only */}
                 {isStudent && (
                   <>
-                    <Link to="/profile#live-classes-section" title="Live Classes"
+                    <Link to="/dashboard" title="Live Classes"
                       className="flex items-center gap-1.5 bg-red-50 hover:bg-red-100 border border-red-200 px-3 py-1.5 rounded-full transition-colors">
                       <span className="text-sm animate-pulse">🔴</span>
                       <span className="text-xs font-extrabold text-red-700">Live</span>
                     </Link>
-                    <Link to="/profile" title="Quiz Credits"
+                    <Link to="/dashboard" title="Quiz Credits"
                       className="flex items-center gap-1.5 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 px-3 py-1.5 rounded-full transition-colors">
                       <span className="text-sm">{isUnlimited ? '⚡' : '🪙'}</span>
                       <span className="text-xs font-extrabold text-indigo-700">{isUnlimited ? '∞' : credits}</span>
                     </Link>
                   </>
                 )}
-                <Link to="/profile" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
+                <Link to="/dashboard" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
                   <div className="h-8 w-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold text-sm">
                     {user.name[0]}
                   </div>
@@ -100,7 +100,7 @@ const Navbar: React.FC = () => {
           <div className="px-4 pt-2 pb-6 space-y-2">
             {user ? (
               <>
-                <Link to="/profile" onClick={closeMobileMenu} className="flex items-center gap-3 px-3 py-3 border-b border-gray-100 mb-2 hover:bg-gray-50 transition-colors">
+                <Link to="/dashboard" onClick={closeMobileMenu} className="flex items-center gap-3 px-3 py-3 border-b border-gray-100 mb-2 hover:bg-gray-50 transition-colors">
                   <div className="h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold">
                     {user.name[0]}
                   </div>

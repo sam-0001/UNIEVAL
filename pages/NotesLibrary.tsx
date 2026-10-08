@@ -2,9 +2,16 @@ import React, { useState, useEffect } from 'react';
 import { api } from '../services/api';
 import { Note, Branch } from '../types';
 import { Link, useSearchParams } from 'react-router-dom';
+import { useSEO } from '../hooks/useSEO';
 
 const NotesLibrary: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
+
+  useSEO({
+    title: 'SPPU Notes & Study Material | Pune University Notes',
+    description: 'Download the best SPPU notes, cheat sheets, and study materials for Pune University Engineering students. FE, SE, TE, and BE notes available.',
+    canonical: 'https://unieval.in/notes',
+  });
 
   // --- Filters State ---
   const initialBranch = searchParams.get('branch') || '';
@@ -88,12 +95,12 @@ const NotesLibrary: React.FC = () => {
          <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
              <div>
                 <h1 className="text-3xl font-bold text-gray-900">
-                    {isFirstYearMode ? 'First Year Engineering (FE) Notes' : (selectedBranch ? `${selectedBranch} Notes` : 'Notes Library')}
+                    {isFirstYearMode ? 'First Year Engineering (FE) SPPU Notes' : (selectedBranch ? `${selectedBranch} SPPU Notes` : 'SPPU Notes Library')}
                 </h1>
                 <p className="mt-2 text-gray-600">
                 {isFirstYearMode 
-                    ? 'Common lecture notes and study materials for all branches.' 
-                    : 'Access lecture notes, cheat sheets, and study materials.'}
+                    ? 'Common lecture notes and study materials for all Pune University (SPPU) branches.' 
+                    : 'Access top-quality SPPU lecture notes, cheat sheets, and engineering study materials.'}
                 </p>
              </div>
              {/* Toggle Button for Context Switching */}

@@ -19,6 +19,7 @@ import payoutRoutes from "./server/routes/payout.js";
 import secureFileRoutes from "./server/routes/secureFile.js";
 import liveClassRoutes from "./server/routes/liveClass.js";
 import whatsappRoutes from './server/routes/whatsapp.js';
+import sitemapRoutes from './server/routes/sitemap.js';
 import connectDB, { getDBStatus } from "./server/db.js";
 import { connectRedis, isRedisAvailable } from "./server/redis.js";
 import { startScheduler } from "./server/services/scheduler.service.js";
@@ -85,7 +86,7 @@ async function startServer() {
                 fontSrc:    ["'self'", "https://fonts.gstatic.com", "data:"],
                 imgSrc:     ["'self'", "data:", "https:", "blob:"],
                 mediaSrc:   ["'self'", "https:", "blob:"],
-                connectSrc: ["'self'", "https://api.cashfree.com", "https://sandbox.cashfree.com", "https://*.r2.cloudflarestorage.com", "https://*.r2.dev", "https://*.daily.co", "wss://*.daily.co", "https://*.sentry.io"],
+                connectSrc: ["'self'", "https://api.cashfree.com", "https://sandbox.cashfree.com", "https://*.r2.cloudflarestorage.com", "https://*.r2.dev", "https://*.daily.co", "wss://*.daily.co", "https://*.sentry.io", "https://*.stream-io-video.com", "wss://*.stream-io-video.com", "https://stream-io-video.com", "wss://stream-io-video.com", "https://hint.stream-io-video.com", "https://*.stream-io-api.com", "wss://*.stream-io-api.com", "https://stream-io-api.com", "wss://stream-io-api.com", "https://*.getstream.io", "wss://*.getstream.io", "https://getstream.io", "wss://getstream.io"],
                 frameSrc:   ["'self'", "https://sandbox.cashfree.com", "https://payments.cashfree.com", "https://sdk.cashfree.com", "https://api.cashfree.com"],
                 workerSrc:  ["'self'", "blob:"],
                 // NOTE: upgradeInsecureRequests is intentionally omitted — server runs plain HTTP
@@ -183,6 +184,11 @@ async function startServer() {
     app.use('/api', secureFileRoutes);  // Secure PDF/file proxy — never exposes R2 URLs
     app.use('/api/live-classes', liveClassRoutes);
     app.use('/api/whatsapp', whatsappRoutes);
+
+    // ── Dynamic Sitemap ───────────────────────────────────────────────────────
+    // Served BEFORE the static file middleware so Express handles /sitemap.xml
+    // with live course data from MongoDB (not the static public/sitemap.xml).
+    app.use(sitemapRoutes);
 
     // ── Health check ──────────────────────────────────────────────────────────
     app.get('/api/health', async (_req, res) => {

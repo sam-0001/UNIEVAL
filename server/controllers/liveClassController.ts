@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { LiveClass, Course, User } from '../models.js';
 import { createDailyRoom, createMeetingToken, deleteDailyRoom, getDailyRoom } from '../services/daily.js';
+import { createStreamToken } from '../services/stream.js';
 import logger from '../logger.js';
 import crypto from 'crypto';
 import { redis } from '../redis.js';
@@ -26,7 +27,14 @@ export const scheduleLiveClass = async (req: Request, res: Response): Promise<vo
 
     // Create Daily room expiring 2 hours after end time
     const exp = Math.floor(new Date(scheduledEndTime).getTime() / 1000) + 7200;
-    const room = await createDailyRoom(exp);
+    let room = { name: `room-${crypto.randomUUID()}`, url: `https://dummy.com/room` };
+    try {
+      if (process.env.DAILY_API_KEY) {
+        room = await createDailyRoom(exp);
+      }
+    } catch (e) {
+      logger.warn('Failed to create Daily room, using dummy values for Stream compatibility', { error: e });
+    }
 
     const liveClass = await LiveClass.create({
       id: crypto.randomUUID(),
@@ -61,27 +69,16 @@ export const startLiveClass = async (req: Request, res: Response): Promise<void>
       return;
     }
 
-    try {
-      await getDailyRoom(liveClass.dailyRoomName);
-    } catch (e) {
-      // Room was deleted or expired, recreate it
-      const exp = Math.floor(new Date().getTime() / 1000) + 7200; // 2 hours from now
-      const newRoom = await createDailyRoom(exp);
-      liveClass.dailyRoomName = newRoom.name;
-      liveClass.dailyRoomUrl = newRoom.url;
-    }
-
     liveClass.status = 'live';
     await liveClass.save();
 
-    const token = await createMeetingToken(liveClass.dailyRoomName, true, userName);
-    res.status(200).json({ token, roomUrl: liveClass.dailyRoomUrl, liveClass });
+    const token = createStreamToken(teacherId);
+    res.status(200).json({ token, callId: liveClass.id, liveClass });
   } catch (error: any) {
-    logger.error('Error starting live class', { error: error.message });
-    res.status(500).json({ error: 'Failed to start live class' });
+    logger.error('Error starting live class', { error: error.message, stack: error.stack });
+    res.status(500).json({ error: 'Failed to start live class', details: error.message });
   }
 };
-
 export const joinLiveClass = async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
@@ -94,16 +91,12 @@ export const joinLiveClass = async (req: Request, res: Response): Promise<void> 
       return;
     }
 
-    // Anti-Piracy Concurrency Check is now handled strictly in socket.ts via force-disconnect.
-
-    const token = await createMeetingToken(liveClass.dailyRoomName, false, userName);
-    res.status(200).json({ token, roomUrl: liveClass.dailyRoomUrl, liveClass });
+    const token = createStreamToken(userId);
+    res.status(200).json({ token, callId: liveClass.id, liveClass });
   } catch (error: any) {
-    logger.error('Error joining live class', { error: error.message });
     res.status(500).json({ error: 'Failed to join live class' });
   }
 };
-
 export const endLiveClass = async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
@@ -115,7 +108,7 @@ export const endLiveClass = async (req: Request, res: Response): Promise<void> =
       return;
     }
 
-    await deleteDailyRoom(liveClass.dailyRoomName);
+    // Stream calls don't need explicit deletion here
     liveClass.status = 'completed';
     await liveClass.save();
 
@@ -129,7 +122,7 @@ export const endLiveClass = async (req: Request, res: Response): Promise<void> =
 export const getLiveClassesForCourse = async (req: Request, res: Response): Promise<void> => {
   try {
     const { courseId } = req.params;
-    const liveClasses = await LiveClass.find({ courseId, status: { $ne: 'completed' } }).sort({ scheduledStartTime: 1 });
+    const liveClasses = await LiveClass.find({ courseId, ...(req.query.status === 'completed' ? { status: 'completed' } : req.query.status === 'all' ? {} : { status: { $ne: 'completed' } }) }).sort({ scheduledStartTime: 1 });
     res.status(200).json({ liveClasses });
   } catch (error: any) {
     logger.error('Error fetching live classes', { error: error.message });
@@ -149,7 +142,7 @@ export const deleteLiveClass = async (req: Request, res: Response): Promise<void
     }
 
     try {
-      await deleteDailyRoom(liveClass.dailyRoomName);
+      // Stream calls don't need explicit deletion here
     } catch (e) {
       // Room might already be deleted or expired, ignore
     }
@@ -162,6 +155,21 @@ export const deleteLiveClass = async (req: Request, res: Response): Promise<void
   }
 };
 
+
+export const getLiveClassDetails = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const liveClass = await LiveClass.findOne({ id });
+    if (!liveClass) {
+      res.status(404).json({ error: 'Live class not found' });
+      return;
+    }
+    res.status(200).json({ liveClass });
+  } catch (error: any) {
+    res.status(500).json({ error: 'Failed to fetch live class details' });
+  }
+};
+
 export const getMyLiveClassSchedule = async (req: Request, res: Response): Promise<void> => {
   try {
     const user = (req as any).currentUser;
@@ -170,10 +178,6 @@ export const getMyLiveClassSchedule = async (req: Request, res: Response): Promi
       return;
     }
 
-    // Find free courses
-    const freeCourses = await Course.find({ price: 0 });
-    const freeCourseIds = freeCourses.map(c => c.id);
-
     // Get full user from DB to ensure purchasedCourseIds is up to date
     const dbUser = await User.findOne({ id: user.id });
     if (!dbUser) {
@@ -181,11 +185,12 @@ export const getMyLiveClassSchedule = async (req: Request, res: Response): Promi
       return;
     }
     
-    const validCourseIds = [...new Set([...(dbUser.purchasedCourseIds || []), ...freeCourseIds])];
+    // Student must be authorized (purchased, or if free then enrolled)
+    const validCourseIds = [...new Set([...(dbUser.purchasedCourseIds || [])])];
 
     const liveClasses = await LiveClass.find({
       courseId: { $in: validCourseIds },
-      status: { $in: ['scheduled', 'live'] }
+      ...(req.query.status === 'completed' ? { status: 'completed' } : req.query.status === 'all' ? {} : { ...(req.query.status === 'completed' ? { status: 'completed' } : req.query.status === 'all' ? {} : { ...(req.query.status === 'completed' ? { status: 'completed' } : req.query.status === 'all' ? {} : { status: { $in: ['scheduled', 'live'] } }) }) })
     }).sort({ scheduledStartTime: 1 });
 
     res.status(200).json({ liveClasses });
@@ -205,7 +210,7 @@ export const getTeacherLiveClassSchedule = async (req: Request, res: Response): 
 
     const liveClasses = await LiveClass.find({
       teacherId,
-      status: { $in: ['scheduled', 'live'] }
+      ...(req.query.status === 'completed' ? { status: 'completed' } : req.query.status === 'all' ? {} : { status: { $in: ['scheduled', 'live'] } })
     }).sort({ scheduledStartTime: 1 });
 
     res.status(200).json({ liveClasses });

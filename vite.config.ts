@@ -23,6 +23,8 @@ export default defineConfig(({ mode }) => {
         'import.meta.env.VITE_CASHFREE_APP_ID': JSON.stringify(env.VITE_CASHFREE_APP_ID),
         'import.meta.env.VITE_SUPER_ADMIN_EMAIL': JSON.stringify(env.VITE_SUPER_ADMIN_EMAIL),
         'import.meta.env.VITE_WHATSAPP_GROUP_LINK': JSON.stringify(env.VITE_WHATSAPP_GROUP_LINK),
+        // Base URL for canonical URL generation in useSEO hook
+        'import.meta.env.VITE_BASE_URL': JSON.stringify(env.VITE_BASE_URL || 'https://unieval.in'),
       },
       resolve: {
         alias: {

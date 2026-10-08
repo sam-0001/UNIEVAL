@@ -323,7 +323,7 @@ const Login: React.FC = () => {
     if (user && !showWhatsApp) {
       if (user.role === UserRole.SUPER_ADMIN) navigate('/super-admin');
       else if (user.role === UserRole.ADMIN || user.role === UserRole.TEACHER) navigate('/admin');
-      else navigate('/');
+      else navigate('/dashboard');
     }
   }, [user, navigate, showWhatsApp]);
 
@@ -628,7 +628,7 @@ const Login: React.FC = () => {
                   className="flex items-center justify-center gap-2 w-full bg-green-500 hover:bg-green-600 text-white font-bold py-3.5 px-6 rounded-xl mb-3 transition-colors shadow-lg shadow-green-500/25">
                   Join WhatsApp Community
                 </a>
-                <button onClick={() => { setShowWhatsApp(false); navigate('/'); }}
+                <button onClick={() => setShowWhatsApp(false)}
                   className="text-sm text-gray-400 hover:text-gray-600 transition-colors">
                   Skip for now
                 </button>

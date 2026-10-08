@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { api } from '../services/api';
 import { Note, NoteFile, User } from '../types';
 import { useAuth } from '../context/AuthContext';
@@ -21,6 +21,7 @@ type AppliedCoupon = {
 
 const NoteDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const { user, updateUser, setShowLoginModal, setOnLoginSuccess } = useAuth();
   const [note, setNote] = useState<Note | null>(null);
   const [loading, setLoading] = useState(true);
@@ -171,7 +172,7 @@ const NoteDetail: React.FC = () => {
               cashfree_payment_session_id: orderData.paymentSessionId,
               couponId: appliedCoupon?.couponId,
            }).then((res: any) => {
-              if (res.success) updateUser(res.user);
+              if (res.success) { updateUser(res.user); navigate('/dashboard'); }
            }).catch((e: any) => {
               setPaymentError('Payment received but verification failed. Contact support with your payment ID: ' + orderData.orderId);
            });

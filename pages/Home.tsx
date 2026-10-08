@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useSEO } from '../hooks/useSEO';
 
 // ─── Dataset ──────────────────────────────────────────────────────────────────
 
@@ -134,6 +135,12 @@ const Home: React.FC = () => {
   const { user, setShowLoginModal, setOnLoginSuccess } = useAuth();
   const navigate = useNavigate();
 
+  useSEO({
+    title: 'SPPU Notes, SPPU Exam Prep & Study Materials',
+    description: 'UniEval is the best study platform for SPPU (Pune University) students. Get top-quality SPPU notes, SPPU exam intelligence, SPPU PYQs, and high-weightage topics.',
+    canonical: 'https://unieval.in/',
+  });
+
   const [searchTerm,     setSearchTerm]     = useState('');
   const [startIndex,     setStartIndex]     = useState(0);
   const [activeCategory, setActiveCategory] = useState<string>('All');
@@ -193,18 +200,18 @@ const Home: React.FC = () => {
           {/* Audience pill */}
           <div className="inline-flex items-center gap-2 bg-white/10 border border-white/15 rounded-lg px-4 py-1.5 text-xs font-semibold text-white tracking-wide">
             <span className="w-1.5 h-1.5 rounded-full bg-brand-cobalt animate-pulse shrink-0" />
-            Built for SPPU Engineering Students — FE · SE · TE · BE
+            Built for SPPU (Pune University) Engineering Students — FE · SE · TE · BE
           </div>
 
           {/* Headline */}
           <h1 className="text-4xl sm:text-5xl lg:text-[3.5rem] font-extrabold tracking-tight leading-[1.1]">
-            SPPU Exam Prep,{' '}
+            SPPU Exam Prep & SPPU Notes,{' '}
             <span className="text-gradient-main">simplified.</span>
           </h1>
 
           {/* Subtext */}
           <p className="text-lg sm:text-xl text-slate-300 max-w-xl leading-relaxed">
-            Only study what matters. Skip the rest.
+            Get top-quality SPPU notes, PYQs, and exam intelligence. Only study what matters. Skip the rest.
           </p>
 
           {/* CTAs */}
@@ -433,7 +440,7 @@ const Home: React.FC = () => {
               <img src="/img/logo.jpeg" alt="UNIEVAL" className="w-7 h-7 rounded-md object-cover" />
               <span className="text-white font-bold">UNIEVAL</span>
             </div>
-            <p className="text-sm leading-relaxed">Empowering SPPU engineering students with smart, focused exam preparation tools.</p>
+            <p className="text-sm leading-relaxed">Empowering SPPU (Savitribai Phule Pune University) engineering students with smart SPPU notes, SPPU exam prep tools, and syllabus guides to crack exams easily.</p>
           </div>
           <div>
             <h4 className="text-gray-300 font-semibold mb-4 text-sm">Quick Links</h4>

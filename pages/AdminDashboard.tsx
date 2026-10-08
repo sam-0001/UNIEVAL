@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../services/api';
 import { Course, Note, Quiz, Viva, UserRole, Question } from '../types';
-import { Loader2, CheckCircle, AlertCircle, Trash2 } from 'lucide-react';
+import { Loader2, CheckCircle, AlertCircle, Trash2, Video } from 'lucide-react';
 import { SubjectSelector } from '../components/SubjectSelector';
 import { useSubjectSelection } from '../hooks/useSubjectSelection';
 import CouponManager from '../components/CouponManager';
@@ -628,7 +628,7 @@ const AdminDashboard: React.FC = () => {
                                       <p className="text-xs text-gray-500 mt-1">{new Date(lc.scheduledStartTime).toLocaleString()}</p>
                                   </div>
                                   <div className="flex items-center gap-2 mt-auto pt-2 border-t border-gray-100">
-                                      <button onClick={() => navigate(`/live-class/${lc.id}`)} className="flex-1 bg-indigo-600 text-white text-xs font-bold px-3 py-2 rounded hover:bg-indigo-700 transition text-center">
+                                      <button onClick={() => navigate(`/live-class/lobby/${lc.id}`)} className="flex-1 bg-indigo-600 text-white text-xs font-bold px-3 py-2 rounded hover:bg-indigo-700 transition text-center">
                                           Start Class
                                       </button>
                                       <button onClick={() => handleDeleteLiveClass(lc.id)} className="bg-red-50 text-red-600 hover:bg-red-100 border border-red-200 text-xs font-bold px-3 py-2 rounded transition flex items-center justify-center" title="Cancel Class">
@@ -674,7 +674,7 @@ const AdminDashboard: React.FC = () => {
                                 )}
                               </div>
                               <div className="flex gap-4">
-                                  <button onClick={() => openLiveModal(course.id)} className="text-blue-600 text-sm font-bold hover:underline">Live Classes</button>
+                                  <button onClick={() => navigate(`/teacher/live-classes/${course.id}`)} className="text-blue-600 text-sm font-bold hover:underline">Live Classes</button>
                                   <button onClick={() => setExpandedCouponProduct(prev => prev === course.id ? null : course.id)} className="text-slate-600 text-sm font-bold hover:underline">Coupons</button>
                                   <button onClick={() => handleEditCourse(course)} className="text-indigo-600 text-sm font-bold hover:underline">Edit</button>
                                   <button onClick={() => handleDeleteCourse(course)} className="text-red-600 text-sm font-bold hover:underline">Delete</button>
@@ -939,16 +939,24 @@ const AdminDashboard: React.FC = () => {
                       <h1 className="text-3xl font-bold text-slate-900">Publisher Dashboard</h1>
                       <p className="text-slate-500 mt-1">Manage Content, Analytics & Payouts</p>
                   </div>
-                  <button onClick={async () => {
-                      if (!window.confirm("Clear the live server cache? Use this if you just uploaded a video locally and want the live site to see it instantly.")) return;
+                  <div className="flex gap-3">
+                      <button 
+                          onClick={() => navigate('/teacher/live-classes')}
+                          className="text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 px-4 py-2 rounded-lg transition-colors shadow-sm flex items-center gap-2"
+                      >
+                          <Video className="w-4 h-4" /> Live Classes
+                      </button>
+                      <button onClick={async () => {
+                          if (!window.confirm("Clear the live server cache? Use this if you just uploaded a video locally and want the live site to see it instantly.")) return;
                       try {
                           await fetch('/api/admin/clear-cache', { method: 'POST', headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }});
                           alert('Server cache cleared successfully!');
                           window.location.reload();
                       } catch(e) { alert('Failed to clear cache'); }
                   }} className="text-sm font-bold text-slate-500 hover:text-indigo-600 bg-slate-100 hover:bg-slate-200 px-4 py-2 rounded-lg transition-colors border border-slate-200">
-                      Sync Live Server (Clear Cache)
-                  </button>
+                          Sync Live Server (Clear Cache)
+                      </button>
+                  </div>
               </div>
               <div className="mt-8 flex gap-2 overflow-x-auto no-scrollbar">
                   {[
@@ -1880,7 +1888,7 @@ const LiveModal: React.FC<{
                                             <p className="text-xs text-gray-500">{new Date(lc.scheduledAt).toLocaleString()}</p>
                                         </div>
                                         <div className="flex items-center gap-2">
-                                            <button onClick={() => navigate(`/live-class/${lc.id}`)} className="bg-indigo-600 text-white text-xs font-bold px-3 py-1.5 rounded hover:bg-indigo-700 transition">
+                                            <button onClick={() => navigate(`/live-class/lobby/${lc.id}`)} className="bg-indigo-600 text-white text-xs font-bold px-3 py-1.5 rounded hover:bg-indigo-700 transition">
                                                 Start Class
                                             </button>
                                             <button onClick={() => onDelete(lc.id)} className="bg-red-50 text-red-600 hover:bg-red-100 border border-red-200 text-xs font-bold px-2 py-1.5 rounded transition" title="Cancel Class">

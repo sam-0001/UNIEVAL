@@ -578,6 +578,13 @@ export const api = {
     return `${API_BASE}/secure-file/${noteId}/${fileId}?t=${encodeURIComponent(token)}`;
   },
 
+  
+  getLiveClassDetails: async (classId: string) => {
+    const res = await fetchJson(`/live-classes/info/${classId}`, {
+      headers: authHeaders()
+    });
+    return res.liveClass;
+  },
   getMyLiveClassSchedule: async (): Promise<{ liveClasses: any[] }> => {
     return fetchJson('/live-classes/my-schedule', {
       headers: authHeaders()

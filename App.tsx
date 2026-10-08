@@ -20,11 +20,14 @@ const QuizDetail          = lazy(() => import('./pages/QuizDetail'));
 const VivaDetail          = lazy(() => import('./pages/VivaDetail'));
 const NotesLibrary        = lazy(() => import('./pages/NotesLibrary'));
 const Profile             = lazy(() => import('./pages/Profile'));
+const StudentDashboard    = lazy(() => import('./pages/StudentDashboard'));
 const AdminDashboard      = lazy(() => import('./pages/AdminDashboard'));
 const SuperAdminDashboard = lazy(() => import('./pages/SuperAdminDashboard'));
 const ExamIntelligence    = lazy(() => import('./pages/ExamIntelligence'));
 const BEToolkit           = lazy(() => import('./pages/BEToolkit'));
 const LiveClassRoom       = lazy(() => import('./pages/LiveClassRoom'));
+const LiveClassLobby      = lazy(() => import('./pages/LiveClassLobby'));
+const TeacherLiveClasses  = lazy(() => import('./pages/TeacherLiveClasses'));
 
 // ── Loading fallback ──────────────────────────────────────────────────────────
 const PageLoader: React.FC = () => (
@@ -82,11 +85,26 @@ const AuthModalWrapper = () => {
 
 const AppContent = () => {
     const location = useLocation();
-    const isLiveClass = location.pathname.startsWith('/live-class');
+
+    React.useEffect(() => {
+        const isLandingDomain = typeof window !== 'undefined' && (window.location.hostname === 'unieval.in' || window.location.hostname === 'www.unieval.in');
+        if (isLandingDomain) {
+            // Only allow / and /about on the landing domain. Redirect everything else to app.unieval.in.
+            if (location.pathname !== '/' && location.pathname !== '/about') {
+                window.location.href = `https://app.unieval.in${location.pathname}${location.search}`;
+            }
+        }
+    }, [location.pathname, location.search]);
+
+    const isLiveClass = 
+        (location.pathname.startsWith('/live-class') && !location.pathname.startsWith('/live-class/lobby')) ||
+        location.pathname.startsWith('/teacher/live-classes');
+
+    const hideNavbar = isLiveClass || location.pathname.startsWith('/dashboard');
 
     return (
         <div className={`min-h-screen ${isLiveClass ? 'bg-[#0a0a0a]' : 'bg-slate-50'}`}>
-            {!isLiveClass && <Navbar />}
+            {!hideNavbar && <Navbar />}
             <AuthModalWrapper />
             <ErrorBoundary>
                 <Suspense fallback={<PageLoader />}>
@@ -101,11 +119,15 @@ const AppContent = () => {
                         <Route path="/viva/:id"         element={<VivaDetail />} />
                         <Route path="/notes"            element={<NotesLibrary />} />
                         <Route path="/profile"          element={<Profile />} />
+                        <Route path="/dashboard"        element={<StudentDashboard />} />
                         <Route path="/admin"            element={<AdminDashboard />} />
                         <Route path="/teacher/upload"   element={<AdminDashboard />} />
+                        <Route path="/teacher/live-classes" element={<TeacherLiveClasses />} />
+                        <Route path="/teacher/live-classes/:courseId" element={<TeacherLiveClasses />} />
                         <Route path="/super-admin"      element={<SuperAdminDashboard />} />
                         <Route path="/exam-intelligence" element={<ExamIntelligence />} />
                         <Route path="/be-toolkit"       element={<BEToolkit />} />
+                        <Route path="/live-class/lobby/:id" element={<LiveClassLobby />} />
                         <Route path="/live-class/:id"   element={<LiveClassRoom />} />
                         <Route path="*"                 element={<Navigate to="/" replace />} />
                     </Routes>
