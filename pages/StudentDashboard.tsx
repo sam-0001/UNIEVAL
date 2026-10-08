@@ -22,6 +22,7 @@ const StudentDashboard: React.FC = () => {
   const [courses, setCourses] = useState<Course[]>([]);
   const [notes, setNotes] = useState<Note[]>([]);
   const [liveClasses, setLiveClasses] = useState<any[]>([]);
+  const [subjects, setSubjects] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showBuyModal, setShowBuyModal] = useState(false);
 
@@ -29,10 +30,11 @@ const StudentDashboard: React.FC = () => {
     if (user && user.role === UserRole.STUDENT) {
       const fetchPurchases = async () => {
         try {
-          const [allCourses, allNotes, scheduleRes] = await Promise.all([
+          const [allCourses, allNotes, scheduleRes, allSubjects] = await Promise.all([
               api.getCourses(), 
               api.getNotes(), 
-              api.getMyLiveClassSchedule().catch(() => ({ liveClasses: [] }))
+              api.getMyLiveClassSchedule().catch(() => ({ liveClasses: [] })),
+              api.getSubjects()
           ]);
           setCourses(allCourses.filter(c => user.purchasedCourseIds?.includes(c.id) || c.price === 0));
           setNotes(allNotes.filter(n =>
@@ -41,6 +43,7 @@ const StudentDashboard: React.FC = () => {
             (n.collegeConfig && user.email.endsWith(n.collegeConfig.emailDomain.trim()))
           ));
           setLiveClasses(scheduleRes.liveClasses || []);
+          setSubjects(allSubjects || []);
         } catch (error) {
           console.error('Failed to fetch purchases', error);
         } finally {
@@ -72,6 +75,17 @@ const StudentDashboard: React.FC = () => {
     { id: 'live', label: 'Live Classes', icon: Video },
     { id: 'billing', label: 'Credits & Plans', icon: CreditCard },
   ];
+
+  const getSubjectBadge = (subjectId: string) => {
+    const subject = subjects.find(s => s.id === subjectId);
+    if (!subject) return subjectId.replace(/[0-9]/g, '').toUpperCase();
+    return subject.year === 1 ? 'FE' : subject.year === 2 ? 'SE' : subject.year === 3 ? 'TE' : 'BE';
+  };
+
+  const getSubjectName = (subjectId: string) => {
+    const subject = subjects.find(s => s.id === subjectId);
+    return subject ? subject.name : '';
+  };
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col md:flex-row font-sans">
@@ -257,7 +271,10 @@ const StudentDashboard: React.FC = () => {
                                                         </div>
                                                         <div className="flex-1 min-w-0">
                                                             <h4 className="font-semibold text-slate-800 text-sm truncate">{c.title}</h4>
-                                                            <p className="text-xs text-slate-500 truncate">{c.subjectId}</p>
+                                                            <p className="text-xs text-slate-500 truncate">
+                                                                <span className="font-bold text-slate-600">{getSubjectBadge(c.subjectId)}</span>
+                                                                {getSubjectName(c.subjectId) && <span className="ml-1">• {getSubjectName(c.subjectId)}</span>}
+                                                            </p>
                                                         </div>
                                                         <ChevronRight className="w-4 h-4 text-slate-400" />
                                                     </Link>
@@ -315,7 +332,10 @@ const StudentDashboard: React.FC = () => {
                                             </div>
                                         </div>
                                         <div className="p-5 flex-1 flex flex-col">
-                                            <div className="text-xs font-bold text-[#1F81FC] mb-1 uppercase tracking-wide">{c.subjectId}</div>
+                                            <div className="text-xs font-bold text-[#1F81FC] mb-1 uppercase tracking-wide">
+                                                {getSubjectBadge(c.subjectId)}
+                                                {getSubjectName(c.subjectId) && <span className="text-slate-400 font-medium ml-1 tracking-normal normal-case">• {getSubjectName(c.subjectId)}</span>}
+                                            </div>
                                             <h3 className="font-bold text-slate-900 mb-2 line-clamp-2">{c.title}</h3>
                                             <p className="text-sm text-slate-500 line-clamp-2 mb-4">{c.description}</p>
                                             
@@ -350,7 +370,10 @@ const StudentDashboard: React.FC = () => {
                                                 <FileText className="w-6 h-6" />
                                             </div>
                                             <div>
-                                                <div className="text-xs font-bold text-[#1F81FC] mb-1 uppercase tracking-wide">{n.subjectId}</div>
+                                                <div className="text-xs font-bold text-[#1F81FC] mb-1 uppercase tracking-wide">
+                                                    {getSubjectBadge(n.subjectId)}
+                                                    {getSubjectName(n.subjectId) && <span className="text-slate-400 font-medium ml-1 tracking-normal normal-case">• {getSubjectName(n.subjectId)}</span>}
+                                                </div>
                                                 <h3 className="font-bold text-slate-900 line-clamp-2">{n.title}</h3>
                                             </div>
                                         </div>
