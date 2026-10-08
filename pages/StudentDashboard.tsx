@@ -25,6 +25,7 @@ const StudentDashboard: React.FC = () => {
   const [subjects, setSubjects] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showBuyModal, setShowBuyModal] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     if (user && user.role === UserRole.STUDENT) {
@@ -206,7 +207,7 @@ const StudentDashboard: React.FC = () => {
                             <div className="flex items-center gap-4">
                                 <div className="relative hidden md:block">
                                     <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                                    <input type="text" placeholder="Search for courses, notes, subjects..." className="pl-10 pr-4 py-2 bg-white border border-slate-200 rounded-full text-sm w-72 focus:outline-none focus:ring-2 focus:ring-[#1F81FC]/20 shadow-sm" />
+                                    <input type="text" placeholder="Search for courses, notes, subjects..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-10 pr-4 py-2 bg-white border border-slate-200 rounded-full text-sm w-72 focus:outline-none focus:ring-2 focus:ring-[#1F81FC]/20 shadow-sm" />
                                 </div>
                                 <button className="w-10 h-10 bg-white border border-slate-200 rounded-full flex items-center justify-center text-slate-600 hover:bg-slate-50 relative shadow-sm transition-colors">
                                     <Bell className="w-5 h-5" />
@@ -240,7 +241,65 @@ const StudentDashboard: React.FC = () => {
 
                     {/* Tab Content */}
                     <div className="mt-8">
-                        {activeTab === 'overview' && (
+                        {searchQuery.trim() !== '' ? (
+                            <div className="space-y-8">
+                                <h2 className="text-xl font-bold text-slate-800">Search Results for "{searchQuery}"</h2>
+                                
+                                {/* Courses Results */}
+                                <div>
+                                    <h3 className="text-lg font-bold text-slate-700 mb-4 flex items-center gap-2"><BookOpen className="w-5 h-5 text-blue-500" /> Courses</h3>
+                                    {courses.filter(c => c.title.toLowerCase().includes(searchQuery.toLowerCase()) || (c.description || '').toLowerCase().includes(searchQuery.toLowerCase()) || getSubjectName(c.subjectId).toLowerCase().includes(searchQuery.toLowerCase()) || getSubjectBadge(c.subjectId).toLowerCase().includes(searchQuery.toLowerCase())).length > 0 ? (
+                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                            {courses.filter(c => c.title.toLowerCase().includes(searchQuery.toLowerCase()) || (c.description || '').toLowerCase().includes(searchQuery.toLowerCase()) || getSubjectName(c.subjectId).toLowerCase().includes(searchQuery.toLowerCase()) || getSubjectBadge(c.subjectId).toLowerCase().includes(searchQuery.toLowerCase())).map(c => (
+                                                <Link key={c.id} to={`/course/${c.id}`} className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden hover:shadow-md hover:-translate-y-1 transition-all group flex flex-col">
+                                                    <div className="aspect-video bg-slate-200 relative overflow-hidden">
+                                                        {c.thumbnailUrl ? <img src={c.thumbnailUrl} className="w-full h-full object-contain bg-slate-900 group-hover:scale-105 transition-transform duration-500" /> : <div className="w-full h-full bg-indigo-100"></div>}
+                                                    </div>
+                                                    <div className="p-5 flex-1 flex flex-col">
+                                                        <div className="text-xs font-bold text-[#1F81FC] mb-1 uppercase tracking-wide">
+                                                            {getSubjectBadge(c.subjectId)}
+                                                            {getSubjectName(c.subjectId) && <span className="text-slate-400 font-medium ml-1 tracking-normal normal-case">• {getSubjectName(c.subjectId)}</span>}
+                                                        </div>
+                                                        <h3 className="font-bold text-slate-900 mb-2 line-clamp-2">{c.title}</h3>
+                                                        <p className="text-sm text-slate-500 line-clamp-2 mb-4">{c.description}</p>
+                                                    </div>
+                                                </Link>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <p className="text-slate-500 text-sm">No matching courses found.</p>
+                                    )}
+                                </div>
+
+                                {/* Notes Results */}
+                                <div>
+                                    <h3 className="text-lg font-bold text-slate-700 mb-4 flex items-center gap-2 mt-8"><FileText className="w-5 h-5 text-purple-500" /> Notes</h3>
+                                    {notes.filter(n => n.title.toLowerCase().includes(searchQuery.toLowerCase()) || (n.description || '').toLowerCase().includes(searchQuery.toLowerCase()) || getSubjectName(n.subjectId).toLowerCase().includes(searchQuery.toLowerCase()) || getSubjectBadge(n.subjectId).toLowerCase().includes(searchQuery.toLowerCase())).length > 0 ? (
+                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                            {notes.filter(n => n.title.toLowerCase().includes(searchQuery.toLowerCase()) || (n.description || '').toLowerCase().includes(searchQuery.toLowerCase()) || getSubjectName(n.subjectId).toLowerCase().includes(searchQuery.toLowerCase()) || getSubjectBadge(n.subjectId).toLowerCase().includes(searchQuery.toLowerCase())).map(n => (
+                                                <Link key={n.id} to={`/note/${n.id}`} className="bg-white rounded-xl shadow-sm border border-slate-100 p-5 hover:shadow-md hover:-translate-y-1 transition-all group flex flex-col h-full">
+                                                    <div className="flex items-start gap-4 mb-4">
+                                                        <div className="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center shrink-0 text-blue-600 group-hover:bg-[#1F81FC] group-hover:text-white transition-colors">
+                                                            <FileText className="w-6 h-6" />
+                                                        </div>
+                                                        <div>
+                                                            <div className="text-xs font-bold text-[#1F81FC] mb-1 uppercase tracking-wide">
+                                                                {getSubjectBadge(n.subjectId)}
+                                                                {getSubjectName(n.subjectId) && <span className="text-slate-400 font-medium ml-1 tracking-normal normal-case">• {getSubjectName(n.subjectId)}</span>}
+                                                            </div>
+                                                            <h3 className="font-bold text-slate-900 line-clamp-2">{n.title}</h3>
+                                                        </div>
+                                                    </div>
+                                                    <p className="text-sm text-slate-500 line-clamp-2 mb-4 flex-1">{n.description}</p>
+                                                </Link>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <p className="text-slate-500 text-sm">No matching notes found.</p>
+                                    )}
+                                </div>
+                            </div>
+                        ) : activeTab === 'overview' && (
                             <div className="space-y-6">
                                 {/* Floating Get Credits Button (aligned to right, above grid) */}
                                 <div className="flex justify-end mt-[-10px] mb-2 hidden md:flex">
