@@ -213,7 +213,7 @@ const StudentDashboard: React.FC = () => {
                                     <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                                     <input type="text" placeholder="Search for courses, notes, subjects..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-10 pr-4 py-2 bg-white border border-slate-200 rounded-full text-sm w-72 focus:outline-none focus:ring-2 focus:ring-[#1F81FC]/20 shadow-sm" />
                                 </div>
-                                <button className="w-10 h-10 bg-white border border-slate-200 rounded-full flex items-center justify-center text-slate-600 hover:bg-slate-50 relative shadow-sm transition-colors">
+                                <button onClick={() => alert('Feature coming soon!')} className="w-10 h-10 bg-white border border-slate-200 rounded-full flex items-center justify-center text-slate-600 hover:bg-slate-50 relative shadow-sm transition-colors">
                                     <Bell className="w-5 h-5" />
                                     <span className="absolute top-2.5 right-2.5 w-2 h-2 bg-red-500 rounded-full border-2 border-white"></span>
                                 </button>
@@ -242,10 +242,10 @@ const StudentDashboard: React.FC = () => {
                             </div>
                             {activeTab === 'live' && (
                                 <div className="flex items-center gap-3">
-                                    <button className="flex items-center gap-2 bg-white border border-slate-200 text-slate-700 px-4 py-2.5 rounded-lg text-sm font-semibold hover:bg-slate-50 shadow-sm transition-colors">
+                                    <button onClick={() => alert('Feature coming soon!')} className="flex items-center gap-2 bg-white border border-slate-200 text-slate-700 px-4 py-2.5 rounded-lg text-sm font-semibold hover:bg-slate-50 shadow-sm transition-colors">
                                         <Calendar className="w-4 h-4 text-blue-600" /> My Joined Classes
                                     </button>
-                                    <button className="flex items-center gap-2 bg-blue-600 text-white px-5 py-2.5 rounded-lg text-sm font-bold hover:bg-blue-700 shadow-sm transition-colors">
+                                    <button onClick={() => alert('Feature coming soon!')} className="flex items-center gap-2 bg-blue-600 text-white px-5 py-2.5 rounded-lg text-sm font-bold hover:bg-blue-700 shadow-sm transition-colors">
                                         Join with Class Code <ArrowRight className="w-4 h-4" />
                                     </button>
                                 </div>
@@ -559,13 +559,13 @@ const StudentDashboard: React.FC = () => {
                                 {/* Filter Row */}
                                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white p-2 rounded-xl border border-slate-100 shadow-sm">
                                     <div className="flex items-center gap-2 overflow-x-auto w-full md:w-auto pb-2 md:pb-0">
-                                        <button className="flex items-center gap-2 bg-blue-50 text-blue-600 px-4 py-2 rounded-lg text-sm font-semibold whitespace-nowrap">
+                                        <button onClick={() => alert('Feature coming soon!')} className="flex items-center gap-2 bg-blue-50 text-blue-600 px-4 py-2 rounded-lg text-sm font-semibold whitespace-nowrap">
                                             <LayoutDashboard className="w-4 h-4" /> All Courses <span className="bg-white text-blue-600 px-1.5 py-0.5 rounded text-xs ml-1 shadow-sm">{courses.length}</span>
                                         </button>
-                                        <button className="flex items-center gap-2 text-slate-500 hover:bg-slate-50 px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors">
+                                        <button onClick={() => alert('Feature coming soon!')} className="flex items-center gap-2 text-slate-500 hover:bg-slate-50 px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors">
                                             <Clock className="w-4 h-4" /> In Progress <span className="bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded text-xs ml-1">1</span>
                                         </button>
-                                        <button className="flex items-center gap-2 text-slate-500 hover:bg-slate-50 px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors">
+                                        <button onClick={() => alert('Feature coming soon!')} className="flex items-center gap-2 text-slate-500 hover:bg-slate-50 px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors">
                                             <CheckCircle className="w-4 h-4" /> Completed <span className="bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded text-xs ml-1">0</span>
                                         </button>
                                     </div>
@@ -596,7 +596,7 @@ const StudentDashboard: React.FC = () => {
                                                         </span>
                                                         <h3 className="font-bold text-slate-900 text-xl mt-3 mb-4">{c.title}</h3>
                                                     </div>
-                                                    <button className="text-slate-400 hover:text-slate-600 p-1">
+                                                    <button onClick={() => alert('Feature coming soon!')} className="text-slate-400 hover:text-slate-600 p-1">
                                                         <span className="flex flex-col gap-0.5">
                                                             <span className="w-1 h-1 bg-current rounded-full"></span>
                                                             <span className="w-1 h-1 bg-current rounded-full"></span>
@@ -797,16 +797,16 @@ const StudentDashboard: React.FC = () => {
                                 {/* Filter Row */}
                                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                                     <div className="flex items-center gap-2 overflow-x-auto w-full md:w-auto pb-2 md:pb-0">
-                                        <button className="bg-blue-600 text-white px-5 py-2 rounded-lg text-sm font-semibold whitespace-nowrap shadow-sm">
+                                        <button onClick={() => alert('Feature coming soon!')} className="bg-blue-600 text-white px-5 py-2 rounded-lg text-sm font-semibold whitespace-nowrap shadow-sm">
                                             All Notes
                                         </button>
-                                        <button className="bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 px-5 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors">
+                                        <button onClick={() => alert('Feature coming soon!')} className="bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 px-5 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors">
                                             My Purchased
                                         </button>
-                                        <button className="bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 px-5 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors">
+                                        <button onClick={() => alert('Feature coming soon!')} className="bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 px-5 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors">
                                             Free Notes
                                         </button>
-                                        <button className="bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 px-5 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors">
+                                        <button onClick={() => alert('Feature coming soon!')} className="bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 px-5 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors">
                                             Saved
                                         </button>
                                     </div>
@@ -962,16 +962,16 @@ const StudentDashboard: React.FC = () => {
                              <div className="space-y-8 relative z-10">
                                  {/* Filter Tabs */}
                                  <div className="flex items-center gap-3 overflow-x-auto pb-2 md:pb-0">
-                                     <button className="flex items-center gap-2 bg-blue-600 text-white px-5 py-2.5 rounded-lg text-sm font-semibold whitespace-nowrap shadow-sm">
+                                     <button onClick={() => alert('Feature coming soon!')} className="flex items-center gap-2 bg-blue-600 text-white px-5 py-2.5 rounded-lg text-sm font-semibold whitespace-nowrap shadow-sm">
                                          <Calendar className="w-4 h-4" /> Upcoming
                                      </button>
-                                     <button className="flex items-center gap-2 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 px-5 py-2.5 rounded-lg text-sm font-semibold whitespace-nowrap transition-colors">
+                                     <button onClick={() => alert('Feature coming soon!')} className="flex items-center gap-2 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 px-5 py-2.5 rounded-lg text-sm font-semibold whitespace-nowrap transition-colors">
                                          <Radio className="w-4 h-4 text-red-500" /> Live Now <span className="bg-red-100 text-red-600 px-2 py-0.5 rounded-full text-[10px]">2</span>
                                      </button>
-                                     <button className="flex items-center gap-2 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 px-5 py-2.5 rounded-lg text-sm font-semibold whitespace-nowrap transition-colors">
+                                     <button onClick={() => alert('Feature coming soon!')} className="flex items-center gap-2 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 px-5 py-2.5 rounded-lg text-sm font-semibold whitespace-nowrap transition-colors">
                                          <BookOpen className="w-4 h-4" /> My Classes
                                      </button>
-                                     <button className="flex items-center gap-2 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 px-5 py-2.5 rounded-lg text-sm font-semibold whitespace-nowrap transition-colors">
+                                     <button onClick={() => alert('Feature coming soon!')} className="flex items-center gap-2 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 px-5 py-2.5 rounded-lg text-sm font-semibold whitespace-nowrap transition-colors">
                                          <Play className="w-4 h-4" /> Recordings
                                      </button>
                                  </div>
@@ -993,7 +993,7 @@ const StudentDashboard: React.FC = () => {
                                                  <span className="w-1 h-1 bg-slate-500 rounded-full"></span>
                                                  <span className="flex items-center gap-1.5"><FileText className="w-4 h-4" /> DBMS</span>
                                              </div>
-                                             <button className="bg-white text-[#131A3F] px-6 py-3 rounded-lg font-bold hover:bg-slate-100 transition-colors flex items-center gap-2 shadow-sm text-sm">
+                                             <button onClick={() => alert('Feature coming soon!')} className="bg-white text-[#131A3F] px-6 py-3 rounded-lg font-bold hover:bg-slate-100 transition-colors flex items-center gap-2 shadow-sm text-sm">
                                                  Join Live Class <ArrowRight className="w-4 h-4" />
                                              </button>
                                          </div>
@@ -1021,7 +1021,7 @@ const StudentDashboard: React.FC = () => {
                                              <span>OS</span>
                                          </div>
                                          <div className="mt-auto">
-                                             <button className="bg-red-500 text-white px-6 py-2.5 rounded-lg font-bold hover:bg-red-600 transition-colors flex items-center gap-2 shadow-sm text-sm">
+                                             <button onClick={() => alert('Feature coming soon!')} className="bg-red-500 text-white px-6 py-2.5 rounded-lg font-bold hover:bg-red-600 transition-colors flex items-center gap-2 shadow-sm text-sm">
                                                  Join Now <ArrowRight className="w-4 h-4" />
                                              </button>
                                          </div>
@@ -1062,7 +1062,7 @@ const StudentDashboard: React.FC = () => {
                                                     <option>All Subjects</option>
                                                 </select>
                                             </div>
-                                            <button className="flex items-center gap-2 bg-white border border-slate-200 text-slate-700 px-4 py-2.5 rounded-lg text-sm font-semibold hover:bg-slate-50 shadow-sm whitespace-nowrap">
+                                            <button onClick={() => alert('Feature coming soon!')} className="flex items-center gap-2 bg-white border border-slate-200 text-slate-700 px-4 py-2.5 rounded-lg text-sm font-semibold hover:bg-slate-50 shadow-sm whitespace-nowrap">
                                                 <Calendar className="w-4 h-4" /> This Week
                                             </button>
                                          </div>
@@ -1099,10 +1099,10 @@ const StudentDashboard: React.FC = () => {
                                              </div>
 
                                              <div className="flex items-center gap-3 w-full md:w-auto mt-4 md:mt-0">
-                                                 <button className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-blue-50 text-blue-600 px-4 py-2 rounded-lg text-sm font-semibold hover:bg-blue-100 transition-colors">
+                                                 <button onClick={() => alert('Feature coming soon!')} className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-blue-50 text-blue-600 px-4 py-2 rounded-lg text-sm font-semibold hover:bg-blue-100 transition-colors">
                                                      <Calendar className="w-4 h-4" /> Add to Calendar
                                                  </button>
-                                                 <button className="flex-1 md:flex-none bg-blue-600 text-white px-5 py-2 rounded-lg text-sm font-bold hover:bg-blue-700 transition-colors shadow-sm flex items-center justify-center gap-2">
+                                                 <button onClick={() => alert('Feature coming soon!')} className="flex-1 md:flex-none bg-blue-600 text-white px-5 py-2 rounded-lg text-sm font-bold hover:bg-blue-700 transition-colors shadow-sm flex items-center justify-center gap-2">
                                                      Join Class <ArrowRight className="w-4 h-4" />
                                                  </button>
                                              </div>
@@ -1138,10 +1138,10 @@ const StudentDashboard: React.FC = () => {
                                              </div>
 
                                              <div className="flex items-center gap-3 w-full md:w-auto mt-4 md:mt-0">
-                                                 <button className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-blue-50 text-blue-600 px-4 py-2 rounded-lg text-sm font-semibold hover:bg-blue-100 transition-colors">
+                                                 <button onClick={() => alert('Feature coming soon!')} className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-blue-50 text-blue-600 px-4 py-2 rounded-lg text-sm font-semibold hover:bg-blue-100 transition-colors">
                                                      <Calendar className="w-4 h-4" /> Add to Calendar
                                                  </button>
-                                                 <button className="flex-1 md:flex-none bg-white border border-slate-200 text-blue-600 px-5 py-2 rounded-lg text-sm font-semibold hover:bg-slate-50 transition-colors flex items-center justify-center gap-2">
+                                                 <button onClick={() => alert('Feature coming soon!')} className="flex-1 md:flex-none bg-white border border-slate-200 text-blue-600 px-5 py-2 rounded-lg text-sm font-semibold hover:bg-slate-50 transition-colors flex items-center justify-center gap-2">
                                                      <Bell className="w-4 h-4" /> Remind Me
                                                  </button>
                                              </div>
@@ -1177,10 +1177,10 @@ const StudentDashboard: React.FC = () => {
                                              </div>
 
                                              <div className="flex items-center gap-3 w-full md:w-auto mt-4 md:mt-0">
-                                                 <button className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-blue-50 text-blue-600 px-4 py-2 rounded-lg text-sm font-semibold hover:bg-blue-100 transition-colors">
+                                                 <button onClick={() => alert('Feature coming soon!')} className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-blue-50 text-blue-600 px-4 py-2 rounded-lg text-sm font-semibold hover:bg-blue-100 transition-colors">
                                                      <Calendar className="w-4 h-4" /> Add to Calendar
                                                  </button>
-                                                 <button className="flex-1 md:flex-none bg-white border border-slate-200 text-blue-600 px-5 py-2 rounded-lg text-sm font-semibold hover:bg-slate-50 transition-colors flex items-center justify-center gap-2">
+                                                 <button onClick={() => alert('Feature coming soon!')} className="flex-1 md:flex-none bg-white border border-slate-200 text-blue-600 px-5 py-2 rounded-lg text-sm font-semibold hover:bg-slate-50 transition-colors flex items-center justify-center gap-2">
                                                      <Bell className="w-4 h-4" /> Remind Me
                                                  </button>
                                              </div>
@@ -1216,10 +1216,10 @@ const StudentDashboard: React.FC = () => {
                                              </div>
 
                                              <div className="flex items-center gap-3 w-full md:w-auto mt-4 md:mt-0">
-                                                 <button className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-blue-50 text-blue-600 px-4 py-2 rounded-lg text-sm font-semibold hover:bg-blue-100 transition-colors">
+                                                 <button onClick={() => alert('Feature coming soon!')} className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-blue-50 text-blue-600 px-4 py-2 rounded-lg text-sm font-semibold hover:bg-blue-100 transition-colors">
                                                      <Calendar className="w-4 h-4" /> Add to Calendar
                                                  </button>
-                                                 <button className="flex-1 md:flex-none bg-white border border-slate-200 text-blue-600 px-5 py-2 rounded-lg text-sm font-semibold hover:bg-slate-50 transition-colors flex items-center justify-center gap-2">
+                                                 <button onClick={() => alert('Feature coming soon!')} className="flex-1 md:flex-none bg-white border border-slate-200 text-blue-600 px-5 py-2 rounded-lg text-sm font-semibold hover:bg-slate-50 transition-colors flex items-center justify-center gap-2">
                                                      <Bell className="w-4 h-4" /> Remind Me
                                                  </button>
                                              </div>
