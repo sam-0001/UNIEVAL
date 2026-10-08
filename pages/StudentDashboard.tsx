@@ -5,7 +5,7 @@ import { Course, Note, UserRole } from '../types';
 import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { 
   LayoutDashboard, BookOpen, FileText, Video, 
-  Settings, CreditCard, Sparkles, GraduationCap, ChevronRight, CheckCircle, Clock, LogOut, Menu, X, Brain, Wrench, Search, Bell, ArrowRight, Play, Zap, Compass, Rocket, Calendar
+  Settings, CreditCard, Sparkles, GraduationCap, ChevronRight, CheckCircle, Clock, LogOut, Menu, X, Brain, Wrench, Search, Bell, ArrowRight, Play, Zap, Compass, Rocket, Calendar, Download, Bookmark, Star, Navigation
 } from 'lucide-react';
 import { BuyCreditsModal } from './QuizDetail';
 
@@ -21,6 +21,7 @@ const StudentDashboard: React.FC = () => {
 
   const [allCoursesState, setAllCoursesState] = useState<Course[]>([]);
   const [courses, setCourses] = useState<Course[]>([]);
+  const [allNotesState, setAllNotesState] = useState<Note[]>([]);
   const [notes, setNotes] = useState<Note[]>([]);
   const [liveClasses, setLiveClasses] = useState<any[]>([]);
   const [subjects, setSubjects] = useState<any[]>([]);
@@ -40,6 +41,7 @@ const StudentDashboard: React.FC = () => {
           ]);
           setAllCoursesState(allCourses);
           setCourses(allCourses.filter(c => user.purchasedCourseIds?.includes(c.id) || c.price === 0));
+          setAllNotesState(allNotes);
           setNotes(allNotes.filter(n =>
             user.purchasedNoteIds?.includes(n.id) ||
             n.price === 0 ||
@@ -697,40 +699,217 @@ const StudentDashboard: React.FC = () => {
                         )}
 
                         {activeTab === 'notes' && (
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                {notes.map(n => (
-                                    <Link key={n.id} to={`/note/${n.id}`} className="bg-white rounded-xl shadow-sm border border-slate-100 p-5 hover:shadow-md hover:-translate-y-1 transition-all group flex flex-col h-full">
-                                        <div className="flex items-start gap-4 mb-4">
-                                            <div className="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center shrink-0 text-blue-600 group-hover:bg-[#1F81FC] group-hover:text-white transition-colors">
-                                                <FileText className="w-6 h-6" />
-                                            </div>
-                                            <div>
-                                                <div className="text-xs font-bold text-[#1F81FC] mb-1 uppercase tracking-wide">
-                                                    {getSubjectBadge(n.subjectId)}
-                                                    {getSubjectName(n.subjectId) && <span className="text-slate-400 font-medium ml-1 tracking-normal normal-case">• {getSubjectName(n.subjectId)}</span>}
-                                                </div>
-                                                <h3 className="font-bold text-slate-900 line-clamp-2">{n.title}</h3>
-                                            </div>
-                                        </div>
-                                        <p className="text-sm text-slate-500 line-clamp-2 mb-4 flex-1">{n.description}</p>
-                                        <div className="mt-auto flex items-center justify-between pt-4 border-t border-slate-50">
-                                            <div className="text-xs font-medium text-slate-500 bg-slate-100 px-2.5 py-1 rounded-md">
-                                                {n.sections?.length || 0} Sections
-                                            </div>
-                                            <span className="text-sm font-semibold text-[#1F81FC] flex items-center gap-1 group-hover:text-indigo-600">
-                                                Open <ChevronRight className="w-4 h-4"/>
-                                            </span>
-                                        </div>
+                            <div className="space-y-8 relative z-10">
+                                {/* Notes Header (New Design) */}
+                                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                                    <div>
+                                        <h1 className="text-3xl font-bold text-[#131A3F] mb-1">My Notes</h1>
+                                        <p className="text-slate-500 text-sm">Your purchased notes and study material</p>
+                                    </div>
+                                    <Link to="/notes" className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-5 py-2.5 rounded-xl font-medium hover:opacity-90 transition-opacity flex items-center gap-2 shadow-sm text-sm">
+                                        Browse More Notes <ArrowRight className="w-4 h-4" />
                                     </Link>
-                                ))}
-                                {notes.length === 0 && (
-                                     <div className="col-span-full text-center py-16 bg-white rounded-2xl border border-dashed border-slate-300">
-                                         <FileText className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-                                         <h3 className="text-lg font-bold text-slate-700 mb-1">No Notes Yet</h3>
-                                         <p className="text-slate-500 mb-6">You don't have access to any note packages.</p>
-                                         <Link to="/notes" className="bg-[#131A3F] text-white px-6 py-2.5 rounded-lg font-medium hover:bg-slate-800 transition-colors">Browse Notes</Link>
-                                     </div>
-                                )}
+                                </div>
+
+                                {/* Top Stats Row */}
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                                    <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm flex items-center gap-4">
+                                        <div className="w-12 h-12 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600 shrink-0">
+                                            <FileText className="w-6 h-6" />
+                                        </div>
+                                        <div>
+                                            <p className="text-xs font-semibold text-slate-500">Total Notes</p>
+                                            <div className="flex items-baseline gap-2">
+                                                <h3 className="text-2xl font-bold text-slate-900 leading-none mt-1">{notes.length}</h3>
+                                            </div>
+                                            <p className="text-[10px] text-slate-400 mt-1">Purchased by you</p>
+                                        </div>
+                                    </div>
+                                    <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm flex items-center gap-4">
+                                        <div className="w-12 h-12 rounded-xl bg-green-50 flex items-center justify-center text-green-600 shrink-0">
+                                            <Download className="w-6 h-6" />
+                                        </div>
+                                        <div>
+                                            <p className="text-xs font-semibold text-slate-500">Downloads</p>
+                                            <div className="flex items-baseline gap-2">
+                                                <h3 className="text-2xl font-bold text-slate-900 leading-none mt-1">0</h3>
+                                            </div>
+                                            <p className="text-[10px] text-slate-400 mt-1">Notes downloaded</p>
+                                        </div>
+                                    </div>
+                                    <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm flex items-center gap-4">
+                                        <div className="w-12 h-12 rounded-xl bg-purple-50 flex items-center justify-center text-purple-600 shrink-0">
+                                            <Bookmark className="w-6 h-6" />
+                                        </div>
+                                        <div>
+                                            <p className="text-xs font-semibold text-slate-500">Saved Notes</p>
+                                            <div className="flex items-baseline gap-2">
+                                                <h3 className="text-2xl font-bold text-slate-900 leading-none mt-1">0</h3>
+                                            </div>
+                                            <p className="text-[10px] text-slate-400 mt-1">Marked for later</p>
+                                        </div>
+                                    </div>
+                                    <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm flex items-center gap-4">
+                                        <div className="w-12 h-12 rounded-xl bg-orange-50 flex items-center justify-center text-orange-500 shrink-0">
+                                            <Star className="w-6 h-6" />
+                                        </div>
+                                        <div>
+                                            <p className="text-xs font-semibold text-slate-500">Free Notes</p>
+                                            <div className="flex items-baseline gap-2">
+                                                <h3 className="text-2xl font-bold text-slate-900 leading-none mt-1">0</h3>
+                                            </div>
+                                            <p className="text-[10px] text-slate-400 mt-1">Accessed for free</p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Filter Row */}
+                                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                                    <div className="flex items-center gap-2 overflow-x-auto w-full md:w-auto pb-2 md:pb-0">
+                                        <button className="bg-blue-600 text-white px-5 py-2 rounded-lg text-sm font-semibold whitespace-nowrap shadow-sm">
+                                            All Notes
+                                        </button>
+                                        <button className="bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 px-5 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors">
+                                            My Purchased
+                                        </button>
+                                        <button className="bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 px-5 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors">
+                                            Free Notes
+                                        </button>
+                                        <button className="bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 px-5 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors">
+                                            Saved
+                                        </button>
+                                    </div>
+                                    <div className="flex items-center gap-3 overflow-x-auto w-full md:w-auto">
+                                        <div className="bg-white border border-slate-200 rounded-lg px-3 py-1.5 flex flex-col shrink-0">
+                                            <span className="text-[10px] text-slate-400 font-medium leading-none mb-1">Branch</span>
+                                            <select className="bg-transparent text-xs font-semibold text-slate-700 focus:outline-none cursor-pointer">
+                                                <option>All Branches</option>
+                                            </select>
+                                        </div>
+                                        <div className="bg-white border border-slate-200 rounded-lg px-3 py-1.5 flex flex-col shrink-0">
+                                            <span className="text-[10px] text-slate-400 font-medium leading-none mb-1">Year</span>
+                                            <select className="bg-transparent text-xs font-semibold text-slate-700 focus:outline-none cursor-pointer">
+                                                <option>All Years</option>
+                                            </select>
+                                        </div>
+                                        <div className="bg-white border border-slate-200 rounded-lg px-3 py-1.5 flex flex-col shrink-0">
+                                            <span className="text-[10px] text-slate-400 font-medium leading-none mb-1">Subject</span>
+                                            <select className="bg-transparent text-xs font-semibold text-slate-700 focus:outline-none cursor-pointer">
+                                                <option>All Subjects</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Recently Purchased Notes */}
+                                <div>
+                                    <div className="flex items-center justify-between mb-4">
+                                        <div>
+                                            <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2"><Clock className="w-5 h-5 text-blue-500" /> Recently Purchased Notes</h2>
+                                            <p className="text-sm text-slate-500 ml-7">Your latest notes and study material</p>
+                                        </div>
+                                        <Link to="/notes" className="text-blue-600 text-sm font-bold flex items-center gap-1 hover:underline">View All <ArrowRight className="w-4 h-4" /></Link>
+                                    </div>
+                                    
+                                    {notes.length > 0 ? (
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                                            {notes.slice(0,4).map(n => (
+                                                <Link key={n.id} to={`/note/${n.id}`} className="bg-white rounded-xl border border-slate-100 shadow-sm overflow-hidden flex flex-col group">
+                                                    <div className="aspect-[4/3] bg-slate-900 relative">
+                                                        {n.thumbnailUrl ? <img src={n.thumbnailUrl} className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" /> : <div className="w-full h-full bg-indigo-900"></div>}
+                                                        <div className="absolute top-3 left-3 bg-white/20 backdrop-blur-md text-white text-[10px] font-bold px-2 py-0.5 rounded">
+                                                            {getSubjectBadge(n.subjectId)}
+                                                        </div>
+                                                        <div className="absolute top-3 right-3 text-white/70 hover:text-white cursor-pointer">
+                                                            <Bookmark className="w-5 h-5" />
+                                                        </div>
+                                                        <div className="absolute bottom-3 right-3 bg-white text-red-600 text-[10px] font-bold px-2 py-1 rounded shadow-md flex items-center gap-1">
+                                                            <FileText className="w-3 h-3" /> PDF
+                                                        </div>
+                                                    </div>
+                                                    <div className="p-4 flex-1 flex flex-col">
+                                                        <h3 className="font-bold text-slate-900 mb-2 line-clamp-2 leading-snug">{n.title}</h3>
+                                                        <div className="flex items-center gap-2 mb-3">
+                                                            <div className="w-5 h-5 rounded-full bg-slate-200 flex items-center justify-center text-[8px] font-bold text-slate-600">P</div>
+                                                            <span className="text-xs text-slate-500">Prof. Name</span>
+                                                        </div>
+                                                        <div className="flex items-center justify-between text-xs text-slate-500 mb-4">
+                                                            <span className="flex items-center gap-1"><FileText className="w-3.5 h-3.5" /> 120 Pages</span>
+                                                            <span className="flex items-center gap-1"><Download className="w-3.5 h-3.5" /> 2.4k+</span>
+                                                        </div>
+                                                        <div className="mt-auto flex items-center justify-between">
+                                                            <span className="font-bold text-slate-900">₹{n.price}</span>
+                                                            <span className="bg-blue-50 text-blue-600 px-3 py-1.5 rounded-lg text-xs font-bold group-hover:bg-blue-100 transition-colors flex items-center gap-1">
+                                                                View Notes <ArrowRight className="w-3 h-3" />
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                </Link>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <div className="bg-slate-50 rounded-2xl border border-blue-100 p-12 flex flex-col items-center justify-center text-center relative overflow-hidden">
+                                            <div className="absolute right-10 top-1/2 -translate-y-1/2 opacity-20 pointer-events-none hidden md:block">
+                                                <Navigation className="w-32 h-32 text-blue-400 rotate-45" />
+                                            </div>
+                                            <div className="w-16 h-16 bg-blue-100 text-blue-500 rounded-2xl flex items-center justify-center mb-4 relative z-10 shadow-sm border border-white">
+                                                <FileText className="w-8 h-8" />
+                                            </div>
+                                            <h3 className="text-lg font-bold text-slate-900 mb-2 relative z-10">You haven't purchased any notes yet.</h3>
+                                            <p className="text-sm text-slate-500 mb-6 relative z-10 max-w-sm">Explore high quality notes prepared by expert teachers.</p>
+                                            <Link to="/notes" className="bg-blue-600 text-white px-6 py-2.5 rounded-lg text-sm font-bold hover:bg-blue-700 transition-colors shadow-md relative z-10 flex items-center gap-2">
+                                                Browse Notes <ArrowRight className="w-4 h-4" />
+                                            </Link>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Recommended for You */}
+                                <div className="pt-4">
+                                    <div className="flex items-center justify-between mb-4">
+                                        <div>
+                                            <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2"><Sparkles className="w-5 h-5 text-orange-500" /> Recommended for You</h2>
+                                            <p className="text-sm text-slate-500">Popular notes based on your branch and year</p>
+                                        </div>
+                                        <Link to="/notes" className="text-blue-600 text-sm font-bold flex items-center gap-1 hover:underline">View All <ArrowRight className="w-4 h-4" /></Link>
+                                    </div>
+                                    
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                                        {allNotesState.filter(n => !user.purchasedNoteIds?.includes(n.id) && n.price !== 0).slice(0, 4).map((n, i) => (
+                                            <Link key={n.id} to={`/note/${n.id}`} className="bg-white rounded-xl border border-slate-100 shadow-sm overflow-hidden flex flex-col group">
+                                                <div className="aspect-[4/3] bg-slate-900 relative">
+                                                    {n.thumbnailUrl ? <img src={n.thumbnailUrl} className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" /> : <div className="w-full h-full bg-purple-900"></div>}
+                                                    <div className="absolute top-3 left-3 bg-white/20 backdrop-blur-md text-white text-[10px] font-bold px-2 py-0.5 rounded">
+                                                        {getSubjectBadge(n.subjectId)}
+                                                    </div>
+                                                    <div className="absolute top-3 right-3 text-white/70 hover:text-white cursor-pointer">
+                                                        <Bookmark className="w-5 h-5" />
+                                                    </div>
+                                                    <div className="absolute bottom-3 right-3 bg-white text-red-600 text-[10px] font-bold px-2 py-1 rounded shadow-md flex items-center gap-1">
+                                                        <FileText className="w-3 h-3" /> PDF
+                                                    </div>
+                                                </div>
+                                                <div className="p-4 flex-1 flex flex-col">
+                                                    <h3 className="font-bold text-slate-900 mb-2 line-clamp-2 leading-snug">{n.title}</h3>
+                                                    <div className="flex items-center gap-2 mb-3">
+                                                        <div className="w-5 h-5 rounded-full bg-slate-200 flex items-center justify-center text-[8px] font-bold text-slate-600">P</div>
+                                                        <span className="text-xs text-slate-500">Prof. Name</span>
+                                                    </div>
+                                                    <div className="flex items-center justify-between text-xs text-slate-500 mb-4">
+                                                        <span className="flex items-center gap-1"><FileText className="w-3.5 h-3.5" /> 130 Pages</span>
+                                                        <span className="flex items-center gap-1"><Download className="w-3.5 h-3.5" /> 2.1k+</span>
+                                                    </div>
+                                                    <div className="mt-auto flex items-center justify-between">
+                                                        <span className="font-bold text-slate-900">₹{n.price}</span>
+                                                        <span className="bg-blue-50 text-blue-600 px-3 py-1.5 rounded-lg text-xs font-bold group-hover:bg-blue-100 transition-colors flex items-center gap-1">
+                                                            View Notes <ArrowRight className="w-3 h-3" />
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            </Link>
+                                        ))}
+                                    </div>
+                                </div>
                             </div>
                         )}
 
