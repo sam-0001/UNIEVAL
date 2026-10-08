@@ -5,7 +5,7 @@ import { Course, Note, UserRole } from '../types';
 import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { 
   LayoutDashboard, BookOpen, FileText, Video, 
-  Settings, CreditCard, Sparkles, GraduationCap, ChevronRight, CheckCircle, Clock, LogOut, Menu, X, Brain, Wrench
+  Settings, CreditCard, Sparkles, GraduationCap, ChevronRight, CheckCircle, Clock, LogOut, Menu, X, Brain, Wrench, Search, Bell, ArrowRight, Play, Zap, Compass, Rocket
 } from 'lucide-react';
 import { BuyCreditsModal } from './QuizDetail';
 
@@ -193,127 +193,278 @@ const StudentDashboard: React.FC = () => {
             ) : (
                 <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-20">
                     {/* Header */}
-                    <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
-                        <div>
-                            <h1 className="text-3xl font-bold text-[#131A3F] mb-2">
-                                {activeTab === 'overview' && 'Welcome back, ' + user.name.split(' ')[0] + '! 👋'}
-                                {activeTab === 'courses' && 'My Courses'}
-                                {activeTab === 'notes' && 'My Notes Library'}
-                                {activeTab === 'live' && 'Live Classes'}
-                                {activeTab === 'billing' && 'Credits & Plans'}
-                                {activeTab === 'settings' && 'Account Settings'}
-                            </h1>
-                            <p className="text-slate-500">
-                                {activeTab === 'overview' && 'Here is what is happening with your learning journey.'}
-                                {activeTab === 'courses' && 'Access and resume your purchased courses.'}
-                                {activeTab === 'notes' && 'Your premium and unlocked study materials.'}
-                                {activeTab === 'live' && 'Join your upcoming live sessions.'}
-                                {activeTab === 'billing' && 'Manage your AI credits and premium subscriptions.'}
-                                {activeTab === 'settings' && 'Update your profile and preferences.'}
-                            </p>
+                    {activeTab === 'overview' ? (
+                        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 relative z-20">
+                            <div>
+                                <h1 className="text-3xl font-bold text-[#131A3F] mb-1 flex items-center gap-2">
+                                    Welcome back, {user.name.split(' ')[0]}! <span className="animate-wave origin-bottom-right">👋</span>
+                                </h1>
+                                <p className="text-slate-500 text-sm">
+                                    Here is what is happening with your learning journey.
+                                </p>
+                            </div>
+                            <div className="flex items-center gap-4">
+                                <div className="relative hidden md:block">
+                                    <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                                    <input type="text" placeholder="Search for courses, notes, subjects..." className="pl-10 pr-4 py-2 bg-white border border-slate-200 rounded-full text-sm w-72 focus:outline-none focus:ring-2 focus:ring-[#1F81FC]/20 shadow-sm" />
+                                </div>
+                                <button className="w-10 h-10 bg-white border border-slate-200 rounded-full flex items-center justify-center text-slate-600 hover:bg-slate-50 relative shadow-sm transition-colors">
+                                    <Bell className="w-5 h-5" />
+                                    <span className="absolute top-2.5 right-2.5 w-2 h-2 bg-red-500 rounded-full border-2 border-white"></span>
+                                </button>
+                                <div className="w-10 h-10 bg-[#131A3F] rounded-full flex items-center justify-center text-white font-bold shadow-sm">
+                                    {user.name.charAt(0)}
+                                </div>
+                            </div>
                         </div>
-                        {activeTab === 'overview' && (
-                             <button onClick={() => setActiveTab('billing')} className="flex items-center gap-2 bg-gradient-to-r from-[#1F81FC] to-[#7F26FE] text-white px-5 py-2.5 rounded-lg font-medium shadow-md shadow-indigo-500/20 hover:scale-105 transition-transform">
-                                <Sparkles className="w-4 h-4" /> Get More Credits
-                             </button>
-                        )}
-                    </div>
+                    ) : (
+                        <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+                            <div>
+                                <h1 className="text-3xl font-bold text-[#131A3F] mb-2">
+                                    {activeTab === 'courses' && 'My Courses'}
+                                    {activeTab === 'notes' && 'My Notes Library'}
+                                    {activeTab === 'live' && 'Live Classes'}
+                                    {activeTab === 'billing' && 'Credits & Plans'}
+                                    {activeTab === 'settings' && 'Account Settings'}
+                                </h1>
+                                <p className="text-slate-500">
+                                    {activeTab === 'courses' && 'Access and resume your purchased courses.'}
+                                    {activeTab === 'notes' && 'Your premium and unlocked study materials.'}
+                                    {activeTab === 'live' && 'Join your upcoming live sessions.'}
+                                    {activeTab === 'billing' && 'Manage your AI credits and premium subscriptions.'}
+                                    {activeTab === 'settings' && 'Update your profile and preferences.'}
+                                </p>
+                            </div>
+                        </div>
+                    )}
 
                     {/* Tab Content */}
                     <div className="mt-8">
                         {activeTab === 'overview' && (
-                            <div className="space-y-8">
+                            <div className="space-y-6">
+                                {/* Floating Get Credits Button (aligned to right, above grid) */}
+                                <div className="flex justify-end mt-[-10px] mb-2 hidden md:flex">
+                                     <button onClick={() => setActiveTab('billing')} className="flex items-center gap-2 bg-gradient-to-r from-[#1F81FC] to-[#7F26FE] text-white px-5 py-2 rounded-lg font-bold shadow-md shadow-indigo-500/20 hover:scale-105 transition-transform text-sm">
+                                        <Sparkles className="w-4 h-4" /> Get More Credits
+                                     </button>
+                                </div>
+
                                 {/* Stats Grid */}
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                                    <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-start gap-4 hover:shadow-md transition-shadow">
-                                        <div className="p-3 bg-indigo-50 rounded-xl text-indigo-600"><BookOpen className="w-6 h-6" /></div>
-                                        <div>
-                                            <p className="text-sm text-slate-500 font-medium">Enrolled Courses</p>
-                                            <h3 className="text-2xl font-bold text-slate-800 mt-1">{courses.length}</h3>
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mt-2">
+                                    <div className="bg-blue-50/50 p-5 rounded-2xl border border-blue-100 flex flex-col relative overflow-hidden group cursor-pointer hover:bg-blue-50 transition-colors" onClick={() => setActiveTab('courses')}>
+                                        <div className="flex items-center gap-3 mb-2">
+                                            <div className="p-2 bg-white rounded-lg text-blue-600 shadow-sm"><BookOpen className="w-5 h-5" /></div>
+                                            <span className="text-xs font-bold text-slate-600">Enrolled Courses</span>
                                         </div>
-                                    </div>
-                                    <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-start gap-4 hover:shadow-md transition-shadow">
-                                        <div className="p-3 bg-blue-50 rounded-xl text-blue-600"><FileText className="w-6 h-6" /></div>
-                                        <div>
-                                            <p className="text-sm text-slate-500 font-medium">Notes Unlocked</p>
-                                            <h3 className="text-2xl font-bold text-slate-800 mt-1">{notes.length}</h3>
+                                        <div className="flex items-end justify-between mt-2 z-10">
+                                            <h3 className="text-3xl font-extrabold text-slate-800">{courses.length}</h3>
+                                            <div className="w-5 h-5 bg-white rounded-full flex items-center justify-center shadow-sm text-blue-500 group-hover:translate-x-1 transition-transform">
+                                                <ArrowRight className="w-3 h-3" />
+                                            </div>
                                         </div>
+                                        <div className="absolute -bottom-4 -right-4 w-24 h-24 bg-blue-100 rounded-full opacity-30 pointer-events-none"></div>
                                     </div>
-                                    <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-start gap-4 hover:shadow-md transition-shadow">
-                                        <div className="p-3 bg-emerald-50 rounded-xl text-emerald-600"><Video className="w-6 h-6" /></div>
-                                        <div>
-                                            <p className="text-sm text-slate-500 font-medium">Upcoming Live</p>
-                                            <h3 className="text-2xl font-bold text-slate-800 mt-1">{liveClasses.length}</h3>
+                                    
+                                    <div className="bg-purple-50/50 p-5 rounded-2xl border border-purple-100 flex flex-col relative overflow-hidden group cursor-pointer hover:bg-purple-50 transition-colors" onClick={() => setActiveTab('notes')}>
+                                        <div className="flex items-center gap-3 mb-2">
+                                            <div className="p-2 bg-white rounded-lg text-purple-600 shadow-sm"><FileText className="w-5 h-5" /></div>
+                                            <span className="text-xs font-bold text-slate-600">Notes Unlocked</span>
                                         </div>
+                                        <div className="flex items-end justify-between mt-2 z-10">
+                                            <h3 className="text-3xl font-extrabold text-slate-800">{notes.length}</h3>
+                                            <div className="w-5 h-5 bg-white rounded-full flex items-center justify-center shadow-sm text-purple-500 group-hover:translate-x-1 transition-transform">
+                                                <ArrowRight className="w-3 h-3" />
+                                            </div>
+                                        </div>
+                                        <div className="absolute -bottom-4 -right-4 w-24 h-24 bg-purple-100 rounded-full opacity-30 pointer-events-none"></div>
                                     </div>
-                                    <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-start gap-4 hover:shadow-md transition-shadow cursor-pointer" onClick={() => setActiveTab('billing')}>
-                                        <div className="p-3 bg-purple-50 rounded-xl text-purple-600"><Sparkles className="w-6 h-6" /></div>
-                                        <div>
-                                            <p className="text-sm text-slate-500 font-medium">AI Credits</p>
-                                            <h3 className="text-2xl font-bold text-slate-800 mt-1">{isUnlimited ? '∞' : credits}</h3>
+
+                                    <div className="bg-emerald-50/50 p-5 rounded-2xl border border-emerald-100 flex flex-col relative overflow-hidden group cursor-pointer hover:bg-emerald-50 transition-colors" onClick={() => setActiveTab('live')}>
+                                        <div className="flex items-center gap-3 mb-2">
+                                            <div className="p-2 bg-white rounded-lg text-emerald-600 shadow-sm"><Video className="w-5 h-5" /></div>
+                                            <span className="text-xs font-bold text-slate-600">Upcoming Live</span>
+                                        </div>
+                                        <div className="flex items-end justify-between mt-2 z-10">
+                                            <h3 className="text-3xl font-extrabold text-slate-800">{liveClasses.length}</h3>
+                                            <div className="w-5 h-5 bg-white rounded-full flex items-center justify-center shadow-sm text-emerald-500 group-hover:translate-x-1 transition-transform">
+                                                <ArrowRight className="w-3 h-3" />
+                                            </div>
+                                        </div>
+                                        <div className="absolute -bottom-4 -right-4 w-24 h-24 bg-emerald-100 rounded-full opacity-30 pointer-events-none"></div>
+                                    </div>
+
+                                    <div className="bg-orange-50/50 p-5 rounded-2xl border border-orange-100 flex flex-col relative overflow-hidden group cursor-pointer hover:bg-orange-50 transition-colors" onClick={() => setActiveTab('billing')}>
+                                        <div className="flex items-center gap-3 mb-2">
+                                            <div className="p-2 bg-white rounded-lg text-orange-500 shadow-sm"><Sparkles className="w-5 h-5" /></div>
+                                            <span className="text-xs font-bold text-slate-600">AI Credits</span>
+                                        </div>
+                                        <div className="flex items-end justify-between mt-2 z-10">
+                                            <h3 className="text-3xl font-extrabold text-slate-800">{isUnlimited ? '∞' : credits}</h3>
+                                            <div className="w-5 h-5 bg-white rounded-full flex items-center justify-center shadow-sm text-orange-500 group-hover:translate-x-1 transition-transform">
+                                                <ArrowRight className="w-3 h-3" />
+                                            </div>
+                                        </div>
+                                        <div className="absolute -bottom-4 -right-4 w-24 h-24 bg-orange-100 rounded-full opacity-30 pointer-events-none"></div>
+                                    </div>
+                                </div>
+
+                                {/* Middle Section: Continue Learning & Keep Growing */}
+                                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                                    <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-100 p-6 shadow-sm flex flex-col">
+                                        <div className="flex items-center justify-between mb-6">
+                                            <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2"><BookOpen className="w-5 h-5 text-blue-500" /> Continue Learning</h3>
+                                            <button onClick={() => setActiveTab('courses')} className="text-sm text-blue-600 font-medium hover:underline flex items-center gap-1">View All <ChevronRight className="w-4 h-4"/></button>
+                                        </div>
+                                        {courses.length > 0 ? (
+                                            <div className="flex-1 flex flex-col justify-center">
+                                                {courses.slice(0, 1).map(c => (
+                                                    <div key={c.id} className="flex flex-col md:flex-row items-center gap-6 p-5 bg-slate-50 rounded-xl border border-slate-100">
+                                                        <div className="w-full md:w-48 aspect-video bg-slate-200 rounded-lg overflow-hidden shrink-0 shadow-sm">
+                                                            {c.thumbnailUrl ? <img src={c.thumbnailUrl} className="w-full h-full object-contain bg-slate-900" /> : <div className="w-full h-full bg-indigo-100"></div>}
+                                                        </div>
+                                                        <div className="flex-1 w-full">
+                                                            <h4 className="font-bold text-slate-800 text-lg mb-1 line-clamp-1">{c.title}</h4>
+                                                            <p className="text-xs text-slate-500 font-medium mb-4 uppercase">
+                                                                {getSubjectBadge(c.subjectId)}
+                                                            </p>
+                                                            <div className="flex items-center gap-4 w-full">
+                                                                <div className="flex-1 h-2 bg-slate-200 rounded-full overflow-hidden">
+                                                                    <div className="h-full bg-blue-500 rounded-full" style={{ width: '0%' }}></div>
+                                                                </div>
+                                                                <span className="text-xs font-bold text-slate-600">0%</span>
+                                                            </div>
+                                                        </div>
+                                                        <Link to={`/course/${c.id}`} className="w-full md:w-auto mt-4 md:mt-0 shrink-0 bg-blue-50 text-blue-600 px-6 py-2.5 rounded-lg text-sm font-bold hover:bg-blue-100 transition-colors flex items-center justify-center gap-2 border border-blue-100">
+                                                            Continue <ArrowRight className="w-4 h-4" />
+                                                        </Link>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        ) : (
+                                            <div className="flex-1 flex flex-col items-center justify-center text-slate-500 text-sm bg-slate-50 rounded-xl border border-dashed border-slate-200 p-6">
+                                                No courses enrolled yet. <br/>
+                                                <Link to="/browse" className="text-blue-600 font-bold mt-3 inline-block hover:underline">Browse Courses</Link>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    <div className="bg-[#131A3F] rounded-2xl p-6 shadow-sm relative overflow-hidden flex flex-col justify-center">
+                                        <div className="absolute right-0 bottom-0 pointer-events-none opacity-20">
+                                            <GraduationCap className="w-40 h-40 text-blue-400 transform translate-x-10 translate-y-10" />
+                                        </div>
+                                        <div className="relative z-10 flex-1 flex flex-col justify-center">
+                                            <h3 className="text-2xl font-bold text-white mb-3 leading-tight">Keep Learning,<br/>Keep Growing! <Rocket className="inline w-6 h-6 text-red-400" /></h3>
+                                            <p className="text-slate-300 text-sm mb-6 pr-8">Explore new courses, attend live classes, and boost your preparation.</p>
+                                            <div>
+                                                <Link to="/browse" className="inline-flex items-center gap-2 bg-white text-[#131A3F] px-5 py-2.5 rounded-lg text-sm font-bold hover:bg-slate-100 transition-colors shadow-sm">
+                                                    Browse Courses <ArrowRight className="w-4 h-4" />
+                                                </Link>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
 
-                                {/* Quick Access */}
-                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                                    <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
+                                {/* Bottom Section 1: Upcoming Live & Quick Actions */}
+                                <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+                                    <div className="lg:col-span-3 bg-white rounded-2xl border border-slate-100 p-6 shadow-sm flex flex-col">
                                         <div className="flex items-center justify-between mb-6">
-                                            <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2"><BookOpen className="w-5 h-5 text-indigo-500" /> Recent Courses</h3>
-                                            <button onClick={() => setActiveTab('courses')} className="text-sm text-[#1F81FC] font-medium hover:underline">View All</button>
+                                            <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2"><Video className="w-5 h-5 text-emerald-500" /> Upcoming Live Classes</h3>
+                                            <button onClick={() => setActiveTab('live')} className="text-sm text-blue-600 font-medium hover:underline flex items-center gap-1">View All <ChevronRight className="w-4 h-4"/></button>
                                         </div>
-                                        {courses.length > 0 ? (
-                                            <div className="space-y-4">
-                                                {courses.slice(0, 3).map(c => (
-                                                    <Link key={c.id} to={`/course/${c.id}`} className="flex items-center gap-4 p-3 hover:bg-slate-50 rounded-xl transition-colors border border-transparent hover:border-slate-100">
-                                                        <div className="w-16 h-12 bg-slate-200 rounded-lg overflow-hidden shrink-0">
-                                                            {c.thumbnailUrl ? <img src={c.thumbnailUrl} className="w-full h-full object-contain bg-slate-900" /> : <div className="w-full h-full bg-indigo-100"></div>}
-                                                        </div>
-                                                        <div className="flex-1 min-w-0">
-                                                            <h4 className="font-semibold text-slate-800 text-sm truncate">{c.title}</h4>
-                                                            <p className="text-xs text-slate-500 truncate">
-                                                                <span className="font-bold text-slate-600">{getSubjectBadge(c.subjectId)}</span>
-                                                                {getSubjectName(c.subjectId) && <span className="ml-1">• {getSubjectName(c.subjectId)}</span>}
-                                                            </p>
-                                                        </div>
-                                                        <ChevronRight className="w-4 h-4 text-slate-400" />
-                                                    </Link>
-                                                ))}
+                                        <div className="flex-1 flex flex-col items-center justify-center bg-slate-50 rounded-xl border border-slate-100 p-8 text-center min-h-[220px]">
+                                            <div className="w-16 h-16 bg-blue-50 rounded-2xl flex items-center justify-center text-blue-500 mb-4 border border-blue-100 shadow-sm relative">
+                                                <Play className="w-8 h-8 fill-current" />
+                                                <div className="absolute -top-2 -right-2 w-5 h-5 bg-white rounded-full flex items-center justify-center border border-slate-200"><Calendar className="w-3 h-3 text-slate-400"/></div>
                                             </div>
-                                        ) : (
-                                            <div className="text-center py-8 text-slate-500 text-sm bg-slate-50 rounded-xl border border-dashed border-slate-200">
-                                                No courses enrolled yet. <br/>
-                                                <Link to="/browse" className="text-[#1F81FC] font-medium mt-2 inline-block hover:underline">Browse Courses</Link>
-                                            </div>
-                                        )}
+                                            <h4 className="font-bold text-slate-800 mb-1">No upcoming live classes.</h4>
+                                            <p className="text-sm text-slate-500 mb-6">Stay tuned for new live sessions!</p>
+                                            <button onClick={() => setActiveTab('live')} className="bg-blue-50 text-blue-600 px-5 py-2.5 rounded-lg text-sm font-bold hover:bg-blue-100 transition-colors flex items-center gap-2 border border-blue-100">
+                                                Browse Live Classes <ArrowRight className="w-4 h-4" />
+                                            </button>
+                                        </div>
                                     </div>
 
-                                    <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
-                                        <div className="flex items-center justify-between mb-6">
-                                            <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2"><Video className="w-5 h-5 text-emerald-500" /> Live Classes</h3>
-                                            <button onClick={() => setActiveTab('live')} className="text-sm text-[#1F81FC] font-medium hover:underline">View All</button>
+                                    <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-100 p-6 shadow-sm">
+                                        <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2 mb-6"><Zap className="w-5 h-5 text-blue-500" /> Quick Actions</h3>
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                            <button onClick={() => setActiveTab('courses')} className="flex items-center justify-between p-4 bg-slate-50 hover:bg-slate-100 rounded-xl transition-colors border border-slate-100 group">
+                                                <div className="flex items-center gap-3 text-left">
+                                                    <div className="p-2.5 bg-blue-100 rounded-lg text-blue-600"><BookOpen className="w-5 h-5" /></div>
+                                                    <div>
+                                                        <h4 className="font-bold text-slate-800 text-sm">My Courses</h4>
+                                                        <p className="text-[10px] text-slate-500 mt-0.5">Continue learning</p>
+                                                    </div>
+                                                </div>
+                                                <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-slate-600" />
+                                            </button>
+                                            <button onClick={() => setActiveTab('notes')} className="flex items-center justify-between p-4 bg-slate-50 hover:bg-slate-100 rounded-xl transition-colors border border-slate-100 group">
+                                                <div className="flex items-center gap-3 text-left">
+                                                    <div className="p-2.5 bg-purple-100 rounded-lg text-purple-600"><FileText className="w-5 h-5" /></div>
+                                                    <div>
+                                                        <h4 className="font-bold text-slate-800 text-sm">My Notes</h4>
+                                                        <p className="text-[10px] text-slate-500 mt-0.5">View purchased notes</p>
+                                                    </div>
+                                                </div>
+                                                <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-slate-600" />
+                                            </button>
+                                            <button onClick={() => setActiveTab('live')} className="flex items-center justify-between p-4 bg-slate-50 hover:bg-slate-100 rounded-xl transition-colors border border-slate-100 group">
+                                                <div className="flex items-center gap-3 text-left">
+                                                    <div className="p-2.5 bg-emerald-100 rounded-lg text-emerald-600"><Video className="w-5 h-5" /></div>
+                                                    <div>
+                                                        <h4 className="font-bold text-slate-800 text-sm">Live Classes</h4>
+                                                        <p className="text-[10px] text-slate-500 mt-0.5">Join upcoming sessions</p>
+                                                    </div>
+                                                </div>
+                                                <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-slate-600" />
+                                            </button>
+                                            <button onClick={() => setActiveTab('billing')} className="flex items-center justify-between p-4 bg-slate-50 hover:bg-slate-100 rounded-xl transition-colors border border-slate-100 group">
+                                                <div className="flex items-center gap-3 text-left">
+                                                    <div className="p-2.5 bg-orange-100 rounded-lg text-orange-500"><CreditCard className="w-5 h-5" /></div>
+                                                    <div>
+                                                        <h4 className="font-bold text-slate-800 text-sm">Credits & Plans</h4>
+                                                        <p className="text-[10px] text-slate-500 mt-0.5">Get more credits</p>
+                                                    </div>
+                                                </div>
+                                                <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-slate-600" />
+                                            </button>
                                         </div>
-                                        {liveClasses.length > 0 ? (
-                                            <div className="space-y-4">
-                                                {liveClasses.slice(0, 3).map((lc, i) => (
-                                                    <Link key={i} to={`/live-class/lobby/${lc.id}`} className="flex items-center gap-4 p-3 bg-emerald-50 hover:bg-emerald-100 rounded-xl transition-colors border border-emerald-100">
-                                                        <div className="w-12 h-12 bg-white rounded-lg flex flex-col items-center justify-center shrink-0 shadow-sm">
-                                                            <span className="text-xs font-bold text-emerald-600">{new Date(lc.scheduledAt).getDate()}</span>
-                                                            <span className="text-[10px] font-medium text-slate-500 uppercase">{new Date(lc.scheduledAt).toLocaleString('default', {month: 'short'})}</span>
-                                                        </div>
-                                                        <div className="flex-1 min-w-0">
-                                                            <h4 className="font-semibold text-emerald-900 text-sm truncate">{lc.topic}</h4>
-                                                            <p className="text-xs text-emerald-700 truncate flex items-center gap-1"><Clock className="w-3 h-3"/> {new Date(lc.scheduledAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</p>
-                                                        </div>
-                                                        <span className="text-xs font-bold bg-emerald-500 text-white px-2 py-1 rounded-full animate-pulse">Join</span>
-                                                    </Link>
-                                                ))}
+                                    </div>
+                                </div>
+
+                                {/* Bottom Section 2: Explore More */}
+                                <div className="bg-white rounded-2xl border border-slate-100 p-6 shadow-sm">
+                                    <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2 mb-6"><Compass className="w-5 h-5 text-blue-500" /> Explore More</h3>
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                        <Link to="/exam-intelligence" className="flex items-center justify-between p-5 bg-slate-50 hover:bg-purple-50 rounded-xl transition-colors border border-slate-100 hover:border-purple-200 group">
+                                            <div className="flex items-center gap-4 text-left">
+                                                <div className="p-3 bg-purple-100 rounded-lg text-purple-600"><Brain className="w-5 h-5" /></div>
+                                                <div>
+                                                    <h4 className="font-bold text-slate-800 text-sm">Exam Prep</h4>
+                                                    <p className="text-[11px] text-slate-500 mt-0.5">Syllabus, PYQs, important topics</p>
+                                                </div>
                                             </div>
-                                        ) : (
-                                            <div className="text-center py-8 text-slate-500 text-sm bg-slate-50 rounded-xl border border-dashed border-slate-200">
-                                                No upcoming live classes.
+                                            <ArrowRight className="w-4 h-4 text-slate-400 group-hover:text-purple-600 transition-colors" />
+                                        </Link>
+                                        <Link to="/be-toolkit" className="flex items-center justify-between p-5 bg-slate-50 hover:bg-yellow-50 rounded-xl transition-colors border border-slate-100 hover:border-yellow-200 group">
+                                            <div className="flex items-center gap-4 text-left">
+                                                <div className="p-3 bg-yellow-100 rounded-lg text-yellow-600"><Wrench className="w-5 h-5" /></div>
+                                                <div>
+                                                    <h4 className="font-bold text-slate-800 text-sm">BE Toolkit</h4>
+                                                    <p className="text-[11px] text-slate-500 mt-0.5">Useful tools for engineering students</p>
+                                                </div>
                                             </div>
-                                        )}
+                                            <ArrowRight className="w-4 h-4 text-slate-400 group-hover:text-yellow-600 transition-colors" />
+                                        </Link>
+                                        <Link to="/notes" className="flex items-center justify-between p-5 bg-slate-50 hover:bg-blue-50 rounded-xl transition-colors border border-slate-100 hover:border-blue-200 group">
+                                            <div className="flex items-center gap-4 text-left">
+                                                <div className="p-3 bg-blue-100 rounded-lg text-blue-600"><FileText className="w-5 h-5" /></div>
+                                                <div>
+                                                    <h4 className="font-bold text-slate-800 text-sm">Browse Notes</h4>
+                                                    <p className="text-[11px] text-slate-500 mt-0.5">Explore subject wise notes</p>
+                                                </div>
+                                            </div>
+                                            <ArrowRight className="w-4 h-4 text-slate-400 group-hover:text-blue-600 transition-colors" />
+                                        </Link>
                                     </div>
                                 </div>
                             </div>
