@@ -5,7 +5,7 @@ import { Course, Note, UserRole } from '../types';
 import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { 
   LayoutDashboard, BookOpen, FileText, Video, 
-  Settings, CreditCard, Sparkles, GraduationCap, ChevronRight, CheckCircle, Clock, LogOut, Menu, X, Brain, Wrench, Search, Bell, ArrowRight, Play, Zap, Compass, Rocket
+  Settings, CreditCard, Sparkles, GraduationCap, ChevronRight, CheckCircle, Clock, LogOut, Menu, X, Brain, Wrench, Search, Bell, ArrowRight, Play, Zap, Compass, Rocket, Calendar
 } from 'lucide-react';
 import { BuyCreditsModal } from './QuizDetail';
 

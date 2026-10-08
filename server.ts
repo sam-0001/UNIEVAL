@@ -86,7 +86,7 @@ async function startServer() {
                 fontSrc:    ["'self'", "https://fonts.gstatic.com", "data:"],
                 imgSrc:     ["'self'", "data:", "https:", "blob:"],
                 mediaSrc:   ["'self'", "https:", "blob:"],
-                connectSrc: ["'self'", "https://api.cashfree.com", "https://sandbox.cashfree.com", "https://*.r2.cloudflarestorage.com", "https://*.r2.dev", "https://*.daily.co", "wss://*.daily.co", "https://*.sentry.io", "https://*.stream-io-video.com", "wss://*.stream-io-video.com", "https://stream-io-video.com", "wss://stream-io-video.com", "https://hint.stream-io-video.com", "https://*.stream-io-api.com", "wss://*.stream-io-api.com", "https://stream-io-api.com", "wss://stream-io-api.com", "https://*.getstream.io", "wss://*.getstream.io", "https://getstream.io", "wss://getstream.io"],
+                connectSrc: ["'self'", "https://api.cashfree.com", "https://sandbox.cashfree.com", "https://sdk.cashfree.com", "https://*.r2.cloudflarestorage.com", "https://*.r2.dev", "https://*.daily.co", "wss://*.daily.co", "https://*.sentry.io", "https://*.stream-io-video.com", "wss://*.stream-io-video.com", "https://stream-io-video.com", "wss://stream-io-video.com", "https://hint.stream-io-video.com", "https://*.stream-io-api.com", "wss://*.stream-io-api.com", "https://stream-io-api.com", "wss://stream-io-api.com", "https://*.getstream.io", "wss://*.getstream.io", "https://getstream.io", "wss://getstream.io"],
                 frameSrc:   ["'self'", "https://sandbox.cashfree.com", "https://payments.cashfree.com", "https://sdk.cashfree.com", "https://api.cashfree.com"],
                 workerSrc:  ["'self'", "blob:"],
                 // NOTE: upgradeInsecureRequests is intentionally omitted — server runs plain HTTP
