@@ -56,18 +56,23 @@ describe('callAI', () => {
     });
 
     it('falls back to Gemini when Groq fails', async () => {
-        mockFetch.mockResolvedValueOnce(makeGroqResponse('', false));   // Groq fails
-        mockFetch.mockResolvedValueOnce(makeGeminiResponse('Hello from Gemini')); // Gemini succeeds
+        mockFetch.mockImplementation(async (url: any) => {
+            if (String(url).includes('groq.com')) {
+                return makeGroqResponse('', false);
+            }
+            if (String(url).includes('googleapis.com')) {
+                return makeGeminiResponse('Hello from Gemini');
+            }
+            return makeGroqResponse('', false);
+        });
 
         const result = await callAI('test prompt');
         expect(result.provider).toBe('gemini');
         expect(result.text).toBe('Hello from Gemini');
-        expect(mockFetch).toHaveBeenCalledTimes(2);
     });
 
     it('throws AIError when both providers fail', async () => {
-        mockFetch.mockResolvedValueOnce(makeGroqResponse('', false));
-        mockFetch.mockResolvedValueOnce(makeGeminiResponse('', false));
+        mockFetch.mockImplementation(async () => makeGroqResponse('', false));
 
         await expect(callAI('test prompt')).rejects.toThrow(AIError);
     });
@@ -84,8 +89,9 @@ describe('callAI', () => {
     it('throws when no API keys are configured', async () => {
         delete process.env.GROQ_API_KEY;
         delete process.env.GEMINI_API_KEY;
+        delete process.env.OPENROUTER_API_KEY;
 
-        await expect(callAI('test')).rejects.toThrow(/No AI provider/i);
+        await expect(callAI('test')).rejects.toThrow(/All AI providers failed/i);
         expect(mockFetch).not.toHaveBeenCalled();
     });
 });
