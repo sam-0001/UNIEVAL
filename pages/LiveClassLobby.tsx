@@ -17,6 +17,9 @@ const LiveClassLobby: React.FC = () => {
                 if (id) {
                     const res = await api.getLiveClassDetails(id);
                     setLiveClass(res);
+                    if (res?.status === 'live') {
+                        navigate(`/live-class/${id}`, { replace: true });
+                    }
                 }
             } catch (err) {
                 console.error("Failed to fetch live class details", err);
@@ -25,7 +28,7 @@ const LiveClassLobby: React.FC = () => {
             }
         };
         fetchClassDetails();
-    }, [id]);
+    }, [id, navigate]);
 
     if (loading) {
         return (

@@ -4,8 +4,8 @@ import { api } from '../services/api';
 import { Course, Note, UserRole } from '../types';
 import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { 
-  LayoutDashboard, BookOpen, FileText, Video, 
-  Settings, CreditCard, Sparkles, GraduationCap, ChevronRight, CheckCircle, Clock, LogOut, Menu, X, Brain, Wrench, Search, Bell, ArrowRight, Play, Zap, Compass, Rocket, Calendar, Download, Bookmark, Star, Navigation, Radio, Eye, Users, MonitorPlay, AlertCircle, Database, Globe
+  LayoutDashboard, BookOpen, FileText, Video, VideoOff,
+  Settings, CreditCard, Sparkles, GraduationCap, ChevronRight, CheckCircle, Clock, LogOut, Menu, X, Brain, Wrench, Search, Bell, ArrowRight, Play, Zap, Compass, Rocket, Calendar, Download, Bookmark, Star, Navigation, Radio, Eye, Users, MonitorPlay, AlertCircle, Database, Globe, ExternalLink, Loader2
 } from 'lucide-react';
 import { BuyCreditsModal } from './QuizDetail';
 
@@ -35,6 +35,44 @@ const StudentDashboard: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [showBuyModal, setShowBuyModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [liveTabFilter, setLiveTabFilter] = useState<'upcoming' | 'live' | 'my-classes' | 'recordings'>('upcoming');
+  const [activeRecording, setActiveRecording] = useState<any | null>(null);
+  const [playbackStreamUrl, setPlaybackStreamUrl] = useState<string | null>(null);
+  const [playbackLoading, setPlaybackLoading] = useState(false);
+  const [playbackError, setPlaybackError] = useState('');
+
+  const handleOpenRecording = async (lc: any) => {
+    setActiveRecording(lc);
+    setPlaybackLoading(true);
+    setPlaybackError('');
+    setPlaybackStreamUrl(null);
+
+    // If direct MP4 / external video URL
+    if (lc.recordingUrl && !lc.recordingUrl.includes('webinar.gg')) {
+      setPlaybackStreamUrl(lc.recordingUrl);
+      setPlaybackLoading(false);
+      return;
+    }
+
+    try {
+      const res = await api.getLiveClassPlayback(lc.id);
+      if (res.playbackUrl) {
+        setPlaybackStreamUrl(res.playbackUrl);
+      } else {
+        throw new Error('Playback URL unavailable');
+      }
+    } catch (err: any) {
+      console.error('Error opening recording:', err);
+      const fallback = lc.recordingUrl || lc.dailyRoomUrl;
+      if (fallback?.includes('token=')) {
+        setPlaybackStreamUrl(fallback);
+      } else {
+        setPlaybackError(err.message || 'Failed to initialize secure recording replay session');
+      }
+    } finally {
+      setPlaybackLoading(false);
+    }
+  };
 
   useEffect(() => {
     if (user && user.role === UserRole.STUDENT) {
@@ -365,7 +403,7 @@ const StudentDashboard: React.FC = () => {
                                                             <button onClick={() => alert('Feature coming soon!')} className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-blue-50 text-blue-600 px-4 py-2 rounded-lg text-sm font-semibold hover:bg-blue-100 transition-colors">
                                                                 <Calendar className="w-4 h-4" /> Add to Calendar
                                                             </button>
-                                                            <button onClick={() => navigate(`/live-class/lobby/${lc.id}`)} className="flex-1 md:flex-none bg-blue-600 text-white px-5 py-2 rounded-lg text-sm font-bold hover:bg-blue-700 transition-colors shadow-sm flex items-center justify-center gap-2">
+                                                            <button onClick={() => navigate(`/live-class/${lc.id}`)} className="flex-1 md:flex-none bg-blue-600 text-white px-5 py-2 rounded-lg text-sm font-bold hover:bg-blue-700 transition-colors shadow-sm flex items-center justify-center gap-2">
                                                                 Join Class <ArrowRight className="w-4 h-4" />
                                                             </button>
                                                         </div>
@@ -1023,67 +1061,206 @@ const StudentDashboard: React.FC = () => {
                             </div>
                         )}
 
-                        {activeTab === 'live' && (
+                        {activeTab === 'live' && (() => {
+                            const upcomingClasses = liveClasses.filter((lc: any) => lc.status === 'scheduled');
+                            const activeLiveClasses = liveClasses.filter((lc: any) => lc.status === 'live' || lc.status === 'in-progress');
+                            const recordedClasses = liveClasses.filter((lc: any) => lc.status === 'completed' || lc.recordingUrl);
+
+                            const currentFilteredClasses = (() => {
+                                if (liveTabFilter === 'upcoming') return upcomingClasses;
+                                if (liveTabFilter === 'live') return activeLiveClasses;
+                                if (liveTabFilter === 'recordings') return recordedClasses;
+                                return liveClasses; // 'my-classes'
+                            })();
+
+                            return (
                              <div className="space-y-8 relative z-10">
                                  {/* Filter Tabs */}
                                  <div className="flex items-center gap-3 overflow-x-auto pb-2 md:pb-0">
-                                     <button onClick={() => alert('Feature coming soon!')} className="flex items-center gap-2 bg-blue-600 text-white px-5 py-2.5 rounded-lg text-sm font-semibold whitespace-nowrap shadow-sm">
-                                         <Calendar className="w-4 h-4" /> Upcoming
+                                     <button 
+                                         onClick={() => setLiveTabFilter('upcoming')} 
+                                         className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold whitespace-nowrap transition-all ${
+                                             liveTabFilter === 'upcoming' 
+                                                 ? 'bg-blue-600 text-white shadow-sm' 
+                                                 : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50'
+                                         }`}
+                                     >
+                                         <Calendar className="w-4 h-4" /> 
+                                         <span>Upcoming</span> 
+                                         <span className={`px-2 py-0.5 rounded-full text-[10px] ${
+                                             liveTabFilter === 'upcoming' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600'
+                                         }`}>
+                                             {upcomingClasses.length}
+                                         </span>
                                      </button>
-                                     <button onClick={() => alert('Feature coming soon!')} className="flex items-center gap-2 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 px-5 py-2.5 rounded-lg text-sm font-semibold whitespace-nowrap transition-colors">
-                                         <Radio className="w-4 h-4 text-red-500" /> Live Now <span className="bg-red-100 text-red-600 px-2 py-0.5 rounded-full text-[10px]">{liveClasses.filter((lc: any) => lc.status === 'live' || lc.status === 'in-progress').length}</span>
+
+                                     <button 
+                                         onClick={() => setLiveTabFilter('live')} 
+                                         className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold whitespace-nowrap transition-all ${
+                                             liveTabFilter === 'live' 
+                                                 ? 'bg-red-600 text-white shadow-sm' 
+                                                 : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50'
+                                         }`}
+                                     >
+                                         <Radio className={`w-4 h-4 ${liveTabFilter === 'live' ? 'text-white' : 'text-red-500 animate-pulse'}`} /> 
+                                         <span>Live Now</span> 
+                                         <span className={`px-2 py-0.5 rounded-full text-[10px] ${
+                                             liveTabFilter === 'live' ? 'bg-white/20 text-white' : 'bg-red-100 text-red-600'
+                                         }`}>
+                                             {activeLiveClasses.length}
+                                         </span>
                                      </button>
-                                     <button onClick={() => alert('Feature coming soon!')} className="flex items-center gap-2 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 px-5 py-2.5 rounded-lg text-sm font-semibold whitespace-nowrap transition-colors">
-                                         <BookOpen className="w-4 h-4" /> My Classes
+
+                                     <button 
+                                         onClick={() => setLiveTabFilter('my-classes')} 
+                                         className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold whitespace-nowrap transition-all ${
+                                             liveTabFilter === 'my-classes' 
+                                                 ? 'bg-blue-600 text-white shadow-sm' 
+                                                 : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50'
+                                         }`}
+                                     >
+                                         <BookOpen className="w-4 h-4" /> 
+                                         <span>My Classes</span> 
+                                         <span className={`px-2 py-0.5 rounded-full text-[10px] ${
+                                             liveTabFilter === 'my-classes' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600'
+                                         }`}>
+                                             {liveClasses.length}
+                                         </span>
                                      </button>
-                                     <button onClick={() => alert('Feature coming soon!')} className="flex items-center gap-2 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 px-5 py-2.5 rounded-lg text-sm font-semibold whitespace-nowrap transition-colors">
-                                         <Play className="w-4 h-4" /> Recordings
+
+                                     <button 
+                                         disabled
+                                         className="flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold whitespace-nowrap bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed select-none opacity-80"
+                                         title="Class recordings are coming soon"
+                                     >
+                                         <Play className="w-4 h-4 text-slate-400" /> 
+                                         <span>Recordings</span> 
+                                         <span className="px-2 py-0.5 rounded-full text-[10px] bg-slate-200 text-slate-500 font-bold">
+                                             Coming Soon
+                                         </span>
                                      </button>
                                  </div>
 
-                                 {/* Dynamic Live Classes List Section */}
+                                 {/* Dynamic Live Classes / Recordings List Section */}
                                  <div>
                                      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
                                          <div className="flex items-center gap-3">
-                                             <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-lg flex items-center justify-center">
-                                                 <Calendar className="w-5 h-5" />
+                                             <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                                                 liveTabFilter === 'recordings' 
+                                                     ? 'bg-indigo-50 text-indigo-600' 
+                                                     : liveTabFilter === 'live' 
+                                                     ? 'bg-red-50 text-red-600' 
+                                                     : 'bg-blue-50 text-blue-600'
+                                             }`}>
+                                                 {liveTabFilter === 'recordings' ? (
+                                                     <Play className="w-5 h-5 fill-current" />
+                                                 ) : liveTabFilter === 'live' ? (
+                                                     <Radio className="w-5 h-5" />
+                                                 ) : (
+                                                     <Calendar className="w-5 h-5" />
+                                                 )}
                                              </div>
                                              <div>
-                                                 <h3 className="text-xl font-bold text-slate-900">Upcoming Live Classes</h3>
-                                                 <p className="text-sm text-slate-500">Your scheduled live classes and upcoming sessions</p>
+                                                 <h3 className="text-xl font-bold text-slate-900">
+                                                     {liveTabFilter === 'recordings' 
+                                                         ? 'Class Recordings & Replays' 
+                                                         : liveTabFilter === 'live' 
+                                                         ? 'Classes Happening Live Now' 
+                                                         : liveTabFilter === 'my-classes' 
+                                                         ? 'All Enrolled Course Sessions' 
+                                                         : 'Upcoming Live Classes'}
+                                                 </h3>
+                                                 <p className="text-sm text-slate-500">
+                                                     {liveTabFilter === 'recordings' 
+                                                         ? 'Replay completed lectures and interactive recordings anytime' 
+                                                         : liveTabFilter === 'live' 
+                                                         ? 'Join directly to participate with audio, video, and live chat' 
+                                                         : liveTabFilter === 'my-classes' 
+                                                         ? 'Full history of upcoming schedules and past recordings' 
+                                                         : 'Your scheduled live classes and upcoming live broadcasts'}
+                                                 </p>
                                              </div>
                                          </div>
                                      </div>
                                      
-                                     {liveClasses.length === 0 ? (
+                                     {currentFilteredClasses.length === 0 ? (
                                          <div className="bg-slate-50 border border-slate-200 rounded-2xl p-12 flex flex-col items-center justify-center text-center">
-                                             <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mb-4">
-                                                 <Calendar className="w-8 h-8 text-blue-600" />
+                                             <div className={`w-16 h-16 rounded-full flex items-center justify-center mb-4 ${
+                                                 liveTabFilter === 'recordings' 
+                                                     ? 'bg-indigo-100 text-indigo-600' 
+                                                     : liveTabFilter === 'live' 
+                                                     ? 'bg-red-100 text-red-600' 
+                                                     : 'bg-blue-100 text-blue-600'
+                                             }`}>
+                                                 {liveTabFilter === 'recordings' ? (
+                                                     <Play className="w-8 h-8 fill-current" />
+                                                 ) : liveTabFilter === 'live' ? (
+                                                     <Radio className="w-8 h-8" />
+                                                 ) : (
+                                                     <Calendar className="w-8 h-8" />
+                                                 )}
                                              </div>
-                                             <h3 className="text-xl font-bold text-slate-800 mb-2">No upcoming live classes</h3>
+                                             <h3 className="text-xl font-bold text-slate-800 mb-2">
+                                                 {liveTabFilter === 'recordings' 
+                                                     ? 'No recordings available yet' 
+                                                     : liveTabFilter === 'live' 
+                                                     ? 'No classes live right now' 
+                                                     : 'No live classes found'}
+                                             </h3>
                                              <p className="text-slate-500 max-w-sm">
-                                                 Check back later for new schedules.
+                                                 {liveTabFilter === 'recordings' 
+                                                     ? 'Recordings will automatically become available once live classes conclude.' 
+                                                     : liveTabFilter === 'live' 
+                                                     ? 'Check the Upcoming tab to see scheduled lecture dates and times.' 
+                                                     : 'Check back later for new class sessions scheduled by instructors.'}
                                              </p>
                                          </div>
                                      ) : (
                                          <div className="space-y-4">
-                                             {liveClasses.map((lc: any) => {
+                                             {currentFilteredClasses.map((lc: any) => {
                                                  const dateObj = new Date(lc.scheduledStartTime);
                                                  const isToday = new Date().toDateString() === dateObj.toDateString();
                                                  const dateStr = dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
                                                  const dayStr = isToday ? 'Today' : dateObj.toLocaleDateString('en-US', { weekday: 'short' });
                                                  const timeStr = dateObj.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+                                                 const isLive = lc.status === 'live' || lc.status === 'in-progress';
+                                                 const isCompleted = lc.status === 'completed';
+                                                 const hasRealRecording = Boolean(
+                                                     lc.recordingUrl &&
+                                                     lc.recordingUrl.trim().length > 0 &&
+                                                     lc.recordingUrl !== lc.dailyRoomUrl &&
+                                                     !lc.recordingUrl.endsWith(lc.dailyRoomName || '')
+                                                 );
                                                  
                                                  return (
                                                      <div key={lc.id} className="bg-white rounded-xl border border-slate-100 shadow-sm p-4 flex flex-col md:flex-row items-start md:items-center gap-6 hover:shadow-md transition-shadow">
                                                          <div className="flex items-center gap-4 w-full md:w-48 shrink-0">
-                                                             <div className={`px-4 py-2 rounded-lg text-center border ${isToday ? 'bg-blue-50 text-blue-600 border-blue-100' : 'bg-slate-50 text-slate-600 border-slate-200'}`}>
+                                                             <div className={`px-4 py-2 rounded-lg text-center border ${
+                                                                 isLive 
+                                                                     ? 'bg-red-50 text-red-600 border-red-200' 
+                                                                     : isCompleted 
+                                                                     ? 'bg-indigo-50 text-indigo-600 border-indigo-100' 
+                                                                     : isToday 
+                                                                     ? 'bg-blue-50 text-blue-600 border-blue-100' 
+                                                                     : 'bg-slate-50 text-slate-600 border-slate-200'
+                                                             }`}>
                                                                  <div className="text-sm font-bold">{dateStr}</div>
                                                                  <div className="text-xs font-medium">{dayStr}</div>
                                                              </div>
                                                              <div>
                                                                  <div className="text-sm font-bold text-slate-900">{timeStr}</div>
-                                                                 <div className="text-xs text-slate-500 flex items-center gap-1 mt-0.5"><Clock className="w-3 h-3" /> 1h 0m</div>
+                                                                 <div className="text-xs text-slate-500 flex items-center gap-1 mt-0.5">
+                                                                     {isLive ? (
+                                                                         <span className="text-red-600 font-semibold flex items-center gap-1">
+                                                                             <span className="w-2 h-2 rounded-full bg-red-500 animate-ping inline-block" />
+                                                                             Broadcasting
+                                                                         </span>
+                                                                     ) : isCompleted ? (
+                                                                         <span className="text-indigo-600 font-medium">Recorded Session</span>
+                                                                     ) : (
+                                                                         <><Clock className="w-3 h-3" /> Scheduled</>
+                                                                     )}
+                                                                 </div>
                                                              </div>
                                                          </div>
                                                          
@@ -1095,21 +1272,44 @@ const StudentDashboard: React.FC = () => {
                                                              <div>
                                                                  <h4 className="font-bold text-slate-900 text-base mb-1">{lc.title}</h4>
                                                                  <div className="flex items-center gap-2 text-xs text-slate-500 mb-2">
-                                                                     <span className="flex items-center gap-1.5 font-medium"><div className="w-4 h-4 rounded-full bg-slate-200 flex items-center justify-center text-[8px] text-slate-700">T</div> Teacher</span>
+                                                                     <span className="flex items-center gap-1.5 font-medium"><div className="w-4 h-4 rounded-full bg-slate-200 flex items-center justify-center text-[8px] text-slate-700">T</div> {lc.teacherName || 'Instructor'}</span>
                                                                      {lc.course && <span className="text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded font-bold">{lc.course}</span>}
                                                                      {lc.subject && <span className="text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded font-bold">{lc.subject}</span>}
                                                                  </div>
-                                                                 <p className="text-xs text-slate-500">Live Interactive Session</p>
+                                                                 <p className="text-xs text-slate-500">
+                                                                     {isCompleted 
+                                                                         ? (hasRealRecording ? 'Class concluded • Recording replay available' : 'Class concluded • No recording available') 
+                                                                         : 'Live Interactive Classroom with Teacher & Peers'}
+                                                                 </p>
                                                              </div>
                                                          </div>
 
                                                          <div className="flex items-center gap-3 w-full md:w-auto mt-4 md:mt-0">
-                                                             <button onClick={() => alert('Feature coming soon!')} className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-blue-50 text-blue-600 px-4 py-2 rounded-lg text-sm font-semibold hover:bg-blue-100 transition-colors">
-                                                                 <Calendar className="w-4 h-4" /> Add to Calendar
-                                                             </button>
-                                                             <button onClick={() => navigate(`/live-class/lobby/${lc.id}`)} className="flex-1 md:flex-none bg-blue-600 text-white px-5 py-2 rounded-lg text-sm font-bold hover:bg-blue-700 transition-colors shadow-sm flex items-center justify-center gap-2">
-                                                                 Join Class <ArrowRight className="w-4 h-4" />
-                                                             </button>
+                                                             {isCompleted || liveTabFilter === 'recordings' ? (
+                                                                 <button 
+                                                                     disabled
+                                                                     className="flex-1 md:flex-none bg-slate-100 text-slate-400 border border-slate-200 px-4 py-2.5 rounded-lg text-xs font-semibold flex items-center justify-center gap-2 cursor-not-allowed select-none"
+                                                                     title="Class recordings are currently unavailable"
+                                                                 >
+                                                                     <VideoOff className="w-3.5 h-3.5 text-slate-400" />
+                                                                     <span>Recording Unavailable</span>
+                                                                 </button>
+                                                             ) : isLive ? (
+                                                                 <button 
+                                                                     onClick={() => navigate(`/live-class/${lc.id}`)} 
+                                                                     className="flex-1 md:flex-none bg-gradient-to-r from-red-600 to-rose-600 text-white px-5 py-2.5 rounded-lg text-sm font-bold hover:opacity-95 transition-all shadow-md shadow-red-500/20 flex items-center justify-center gap-2 active:scale-95 animate-pulse"
+                                                                 >
+                                                                     <Radio className="w-4 h-4" />
+                                                                     <span>Join Live Now</span>
+                                                                 </button>
+                                                             ) : (
+                                                                 <button 
+                                                                     onClick={() => navigate(`/live-class/${lc.id}`)} 
+                                                                     className="flex-1 md:flex-none bg-blue-600 text-white px-5 py-2 rounded-lg text-sm font-bold hover:bg-blue-700 transition-colors shadow-sm flex items-center justify-center gap-2"
+                                                                 >
+                                                                     Join Class <ArrowRight className="w-4 h-4" />
+                                                                 </button>
+                                                             )}
                                                          </div>
                                                      </div>
                                                  );
@@ -1118,7 +1318,8 @@ const StudentDashboard: React.FC = () => {
                                      )}
                                  </div>
                              </div>
-                        )}
+                            );
+                        })()}
 
                         {activeTab === 'billing' && (
                             <div className="max-w-2xl">
@@ -1201,6 +1402,95 @@ const StudentDashboard: React.FC = () => {
             )}
         </main>
         {showBuyModal && <BuyCreditsModal onClose={() => setShowBuyModal(false)} />}
+        
+        {/* In-App Live Class Recording Player Modal */}
+        {activeRecording && (
+          <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-6 animate-fadeIn">
+            <div className="w-full max-w-5xl bg-[#131A3F] border border-slate-700/80 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[95vh]">
+              {/* Header */}
+              <div className="h-14 px-4 sm:px-6 bg-[#0B0F19] border-b border-slate-800 flex items-center justify-between shrink-0">
+                <div className="flex items-center gap-3 min-w-0">
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 shrink-0">
+                    <Play className="w-3.5 h-3.5 fill-current" />
+                    RECORDING
+                  </span>
+                  <h3 className="text-sm sm:text-base font-bold text-white truncate max-w-sm sm:max-w-md md:max-w-lg">
+                    {activeRecording.title}
+                  </h3>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  {playbackStreamUrl && (
+                    <a
+                      href={playbackStreamUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800/90 text-slate-200 hover:text-white hover:bg-slate-700 border border-slate-700 transition-all"
+                      title="Open recording in separate tab"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5" />
+                      <span className="hidden sm:inline">Pop-out</span>
+                    </a>
+                  )}
+                  <button
+                    onClick={() => setActiveRecording(null)}
+                    className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+                    title="Close recording player"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Embedded Video Surface */}
+              <div className="aspect-video w-full bg-black relative flex items-center justify-center overflow-hidden flex-1">
+                {playbackLoading ? (
+                  <div className="flex flex-col items-center gap-3 text-slate-300">
+                    <Loader2 className="w-10 h-10 text-[#1F81FC] animate-spin" />
+                    <span className="text-sm font-semibold text-white">Minting Authenticated Replay Token...</span>
+                    <span className="text-xs text-slate-400">Verifying secure student enrollment</span>
+                  </div>
+                ) : playbackError ? (
+                  <div className="flex flex-col items-center gap-3 p-6 text-center max-w-md">
+                    <AlertCircle className="w-10 h-10 text-rose-400" />
+                    <span className="text-sm font-bold text-white">Playback Error</span>
+                    <span className="text-xs text-slate-300 leading-relaxed">{playbackError}</span>
+                    <button
+                      onClick={() => handleOpenRecording(activeRecording)}
+                      className="px-5 py-2.5 rounded-xl bg-[#1F81FC] hover:bg-blue-600 text-xs font-bold text-white transition-all shadow-md"
+                    >
+                      Retry Loading Replay
+                    </button>
+                  </div>
+                ) : playbackStreamUrl ? (
+                  <iframe
+                    src={playbackStreamUrl}
+                    allow="camera; microphone; fullscreen; display-capture; autoplay; encrypted-media"
+                    className="w-full h-full border-none"
+                    title={activeRecording.title || "Class Recording"}
+                  />
+                ) : null}
+              </div>
+
+              {/* Info Footer */}
+              <div className="px-4 sm:px-6 py-3 bg-[#131A3F] border-t border-slate-800/80 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-400 shrink-0">
+                <div className="flex items-center gap-4">
+                  {activeRecording.course && (
+                    <span>Course: <strong className="text-slate-200">{activeRecording.course}</strong></span>
+                  )}
+                  {activeRecording.teacherName && (
+                    <span>Instructor: <strong className="text-slate-200">{activeRecording.teacherName}</strong></span>
+                  )}
+                </div>
+                <button
+                  onClick={() => setActiveRecording(null)}
+                  className="px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 transition-colors"
+                >
+                  Close Player
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
     </div>
   );
 };

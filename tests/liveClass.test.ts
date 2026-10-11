@@ -4,7 +4,7 @@ import express from 'express';
 import liveClassRoutes from '../server/routes/liveClass.js';
 import * as auth from '../server/middleware/auth.js';
 import * as daily from '../server/services/daily.js';
-import { LiveClass, Course } from '../server/models.js';
+import { LiveClass, Course, User } from '../server/models.js';
 
 // Mock auth middleware to set a dummy user
 vi.mock('../server/middleware/auth.js', () => ({
@@ -14,11 +14,17 @@ vi.mock('../server/middleware/auth.js', () => ({
   }
 }));
 
-// Mock Daily.co API calls
+// Mock Daily.co & Webinar.gg API calls
 vi.mock('../server/services/daily.js', () => ({
   createDailyRoom: vi.fn().mockResolvedValue({ name: 'test-room', url: 'https://test.daily.co/test-room' }),
   createMeetingToken: vi.fn().mockResolvedValue('test-token'),
   deleteDailyRoom: vi.fn().mockResolvedValue(true)
+}));
+
+vi.mock('../server/services/webinargg.js', () => ({
+  createWebinar: vi.fn().mockResolvedValue({ id: 'test-room', url: 'https://webinar.gg/webinar-page/test-room' }),
+  getWebinarToken: vi.fn().mockResolvedValue('test-token'),
+  deleteWebinar: vi.fn().mockResolvedValue(true)
 }));
 
 // Mock Redis
@@ -72,15 +78,28 @@ describe('Live Class Endpoints', () => {
     vi.spyOn(LiveClass, 'findOne').mockResolvedValue({
       id: 'class1',
       status: 'live',
+      courseId: 'course1',
       dailyRoomName: 'test-room',
       dailyRoomUrl: 'https://test.daily.co/test-room'
+    } as any);
+
+    vi.spyOn(User, 'findOne').mockResolvedValue({
+      id: 'teacher1',
+      name: 'Test Teacher',
+      role: 'ADMIN',
+      purchasedCourseIds: ['course1']
+    } as any);
+
+    vi.spyOn(Course, 'findOne').mockResolvedValue({
+      id: 'course1',
+      pricing: { amount: 0 }
     } as any);
 
     const res = await request(app)
       .post('/api/live-classes/class1/join');
 
     expect(res.status).toBe(200);
-    expect(res.body.token).toBe('test-token');
+    expect(res.body.token).toBe('dummy-token');
   });
 
   it('should not join an inactive live class', async () => {
@@ -93,5 +112,35 @@ describe('Live Class Endpoints', () => {
       .post('/api/live-classes/class1/join');
 
     expect(res.status).toBe(404);
+  });
+
+  it('should fetch recording playback stream with token', async () => {
+    vi.spyOn(LiveClass, 'findOne').mockResolvedValue({
+      id: 'class1',
+      title: 'Completed Class',
+      status: 'completed',
+      courseId: 'course1',
+      dailyRoomName: 'test-room',
+      dailyRoomUrl: 'https://webinar.gg/webinar-page/test-room'
+    } as any);
+
+    vi.spyOn(User, 'findOne').mockResolvedValue({
+      id: 'teacher1',
+      name: 'Test Student',
+      role: 'STUDENT',
+      purchasedCourseIds: ['course1']
+    } as any);
+
+    vi.spyOn(Course, 'findOne').mockResolvedValue({
+      id: 'course1',
+      pricing: { amount: 0 }
+    } as any);
+
+    const res = await request(app)
+      .get('/api/live-classes/class1/playback');
+
+    expect(res.status).toBe(200);
+    expect(res.body.playbackUrl).toContain('token=');
+    expect(res.body.token).toBe('dummy-token');
   });
 });

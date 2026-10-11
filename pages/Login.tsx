@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../services/api';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { UserRole } from '../types';
 
 type AuthView = 'LOGIN' | 'SIGNUP' | 'FORGOT_PASSWORD';
@@ -116,7 +116,10 @@ const StepIndicator: React.FC<{ current: SignupStep }> = ({ current }) => (
 // ─── Main Component ───────────────────────────────────────────────────────────
 const Login: React.FC = () => {
   const navigate = useNavigate();
-  const [view, setView] = useState<AuthView>('LOGIN');
+  const location = useLocation();
+  const searchParams = new URLSearchParams(location.search);
+  const initialView: AuthView = (location.state as any)?.view || (searchParams.get('mode') === 'signup' ? 'SIGNUP' : 'LOGIN');
+  const [view, setView] = useState<AuthView>(initialView);
   const { login, register, sendOtp, verifyOtp, verifyPhoneOtp, resetPassword, error, isLoading, actionLoading, setError, updateUser } = useAuth();
 
   // Form States
@@ -321,11 +324,17 @@ const Login: React.FC = () => {
   const { user } = useAuth();
   React.useEffect(() => {
     if (user && !showWhatsApp) {
+      const redirectUrl = sessionStorage.getItem('redirect_after_login') || (location.state as any)?.from;
+      if (redirectUrl) {
+        sessionStorage.removeItem('redirect_after_login');
+        navigate(redirectUrl, { replace: true });
+        return;
+      }
       if (user.role === UserRole.SUPER_ADMIN) navigate('/super-admin');
       else if (user.role === UserRole.ADMIN || user.role === UserRole.TEACHER) navigate('/admin');
       else navigate('/dashboard');
     }
-  }, [user, navigate, showWhatsApp]);
+  }, [user, navigate, showWhatsApp, location.state]);
 
   const anyLoading = actionLoading || isLoading;
 
@@ -625,6 +634,7 @@ const Login: React.FC = () => {
                 </p>
                 <a href={(import.meta as any).env.VITE_WHATSAPP_GROUP_LINK || '#'}
                   target="_blank" rel="noopener noreferrer"
+                  onClick={() => setShowWhatsApp(false)}
                   className="flex items-center justify-center gap-2 w-full bg-green-500 hover:bg-green-600 text-white font-bold py-3.5 px-6 rounded-xl mb-3 transition-colors shadow-lg shadow-green-500/25">
                   Join WhatsApp Community
                 </a>

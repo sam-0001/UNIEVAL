@@ -12,6 +12,9 @@ export const initSocket = (server: HttpServer) => {
     }
   });
 
+  // Track active participants per room in-memory
+  const roomParticipants = new Map<string, Map<string, { userId: string; userName: string }>>();
+
   io.on('connection', (socket) => {
     logger.info(`Socket connected: ${socket.id}`);
 
@@ -22,8 +25,13 @@ export const initSocket = (server: HttpServer) => {
 
     // ─── Join Room ────────────────────────────────────────────────────────────
     socket.on('join-room', async ({ roomId, userId, userName }) => {
-      if (currentRoomId) {
+      if (currentRoomId && currentUserId) {
         // Leave previous room if re-joining (e.g. reconnect)
+        const prevRoom = roomParticipants.get(currentRoomId);
+        if (prevRoom) {
+          prevRoom.delete(currentUserId);
+          if (prevRoom.size === 0) roomParticipants.delete(currentRoomId);
+        }
         socket.leave(currentRoomId);
       }
 
@@ -33,6 +41,18 @@ export const initSocket = (server: HttpServer) => {
 
       socket.join(roomId);
       logger.info(`User ${userName} (${userId}) joined room ${roomId}`);
+
+      // Track participant in room
+      if (!roomParticipants.has(roomId)) {
+        roomParticipants.set(roomId, new Map());
+      }
+      if (userId) {
+        roomParticipants.get(roomId)!.set(userId, { userId, userName });
+      }
+
+      // Send the current roster of real participants to the newly joined client
+      const participantsList = Array.from(roomParticipants.get(roomId)!.values());
+      socket.emit('room-participants', participantsList);
 
       // Anti-Piracy: kick previous session for the same user
       if (redis) {
@@ -206,10 +226,43 @@ export const initSocket = (server: HttpServer) => {
       io.to(currentRoomId).emit('hand-raised', { userId: currentUserId, userName: currentUserName });
     });
 
+    // ─── Screen Share & Video Broadcast State ─────────────────────────────────
+    socket.on('screen-share-changed', (data: { isSharing: boolean }) => {
+      if (!currentRoomId) return;
+      socket.to(currentRoomId).emit('screen-share-changed', {
+        isSharing: !!data.isSharing,
+        userId: currentUserId,
+        userName: currentUserName,
+      });
+    });
+
+    socket.on('video-state-changed', (data: { isVideoOn: boolean }) => {
+      if (!currentRoomId) return;
+      socket.to(currentRoomId).emit('video-state-changed', {
+        isVideoOn: !!data.isVideoOn,
+        userId: currentUserId,
+        userName: currentUserName,
+      });
+    });
+
+    socket.on('end-live-class', () => {
+      if (!currentRoomId) return;
+      io.to(currentRoomId).emit('class-ended', {
+        message: 'This live class has been ended by the teacher.'
+      });
+    });
+
     // ─── Disconnect ───────────────────────────────────────────────────────────
     socket.on('disconnect', () => {
       logger.info(`Socket disconnected: ${socket.id} (user: ${currentUserName})`);
-      if (currentRoomId) {
+      if (currentRoomId && currentUserId) {
+        const roomMap = roomParticipants.get(currentRoomId);
+        if (roomMap) {
+          roomMap.delete(currentUserId);
+          if (roomMap.size === 0) {
+            roomParticipants.delete(currentRoomId);
+          }
+        }
         socket.to(currentRoomId).emit('user-left', { userId: currentUserId, userName: currentUserName });
         if (redis && currentUserId) {
           redis.del(`liveclass:${currentRoomId}:user:${currentUserId}`);

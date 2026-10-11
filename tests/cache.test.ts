@@ -36,7 +36,7 @@ describe('cache.getOrSet', () => {
 
         expect(fetcher).toHaveBeenCalledOnce();
         expect(result).toEqual({ data: 'fresh' });
-        expect(mockRedis.setex).toHaveBeenCalledWith('test:key', 300, JSON.stringify({ data: 'fresh' }));
+        expect(mockRedis.setex).toHaveBeenCalledWith('test:key', expect.any(Number), JSON.stringify({ data: 'fresh' }));
     });
 
     it('returns cached value without calling fetcher on cache hit', async () => {

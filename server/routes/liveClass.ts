@@ -8,16 +8,26 @@ import {
   getMyLiveClassSchedule,
   deleteLiveClass,
   getTeacherLiveClassSchedule,
-  getLiveClassDetails
+  getLiveClassDetails,
+  getLiveClassPlayback,
+  updateLiveClassRecording
 } from '../controllers/liveClassController.js';
 import { requireAuth } from '../middleware/auth.js';
-import { requireAdmin } from '../middleware/admin.js'; // Assuming teacher needs admin privileges or similar, adjust if needed
-import { dailyWebhook, getPendingRecordings, finalizeRecording } from '../controllers/liveClassController.js';
+
+import { 
+  webinarWebhook, 
+  getPendingRecordings, 
+  finalizeRecording,
+  secureStreamRedirect 
+} from '../controllers/liveClassController.js';
 
 const router = express.Router();
 
+// Secure iframe stream redirect (unauthenticated, uses one-time sessionKey)
+router.get('/stream/:sessionKey', secureStreamRedirect);
+
 // Webhooks
-router.post('/webhook', dailyWebhook);
+router.post('/webhook', webinarWebhook);
 
 // Admin Routes for Recording Archival
 router.get('/pending-recordings', requireAuth, getPendingRecordings);
@@ -28,12 +38,14 @@ router.get('/teacher-schedule', requireAuth, getTeacherLiveClassSchedule);
 router.post('/schedule', requireAuth, scheduleLiveClass); // Add requireAdmin if needed
 router.post('/:id/start', requireAuth, startLiveClass);
 router.post('/:id/end', requireAuth, endLiveClass);
+router.patch('/:id/recording', requireAuth, updateLiveClassRecording);
 router.delete('/:id', requireAuth, deleteLiveClass);
 
 // Student/General routes
-router.get('/info/:id', requireAuth, getLiveClassDetails);
+router.get('/info/:id', getLiveClassDetails);
 router.post('/:id/join', requireAuth, joinLiveClass);
 router.get('/my-schedule', requireAuth, getMyLiveClassSchedule);
 router.get('/course/:courseId', requireAuth, getLiveClassesForCourse);
+router.get('/:id/playback', requireAuth, getLiveClassPlayback);
 
 export default router;

@@ -628,7 +628,7 @@ const AdminDashboard: React.FC = () => {
                                       <p className="text-xs text-gray-500 mt-1">{new Date(lc.scheduledStartTime).toLocaleString()}</p>
                                   </div>
                                   <div className="flex items-center gap-2 mt-auto pt-2 border-t border-gray-100">
-                                      <button onClick={() => navigate(`/live-class/lobby/${lc.id}`)} className="flex-1 bg-indigo-600 text-white text-xs font-bold px-3 py-2 rounded hover:bg-indigo-700 transition text-center">
+                                      <button onClick={() => navigate(`/live-class/${lc.id}`)} className="flex-1 bg-indigo-600 text-white text-xs font-bold px-3 py-2 rounded hover:bg-indigo-700 transition text-center">
                                           Start Class
                                       </button>
                                       <button onClick={() => handleDeleteLiveClass(lc.id)} className="bg-red-50 text-red-600 hover:bg-red-100 border border-red-200 text-xs font-bold px-3 py-2 rounded transition flex items-center justify-center" title="Cancel Class">
@@ -1888,7 +1888,7 @@ const LiveModal: React.FC<{
                                             <p className="text-xs text-gray-500">{new Date(lc.scheduledAt).toLocaleString()}</p>
                                         </div>
                                         <div className="flex items-center gap-2">
-                                            <button onClick={() => navigate(`/live-class/lobby/${lc.id}`)} className="bg-indigo-600 text-white text-xs font-bold px-3 py-1.5 rounded hover:bg-indigo-700 transition">
+                                            <button onClick={() => navigate(`/live-class/${lc.id}`)} className="bg-indigo-600 text-white text-xs font-bold px-3 py-1.5 rounded hover:bg-indigo-700 transition">
                                                 Start Class
                                             </button>
                                             <button onClick={() => onDelete(lc.id)} className="bg-red-50 text-red-600 hover:bg-red-100 border border-red-200 text-xs font-bold px-2 py-1.5 rounded transition" title="Cancel Class">

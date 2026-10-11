@@ -19,8 +19,10 @@ async function fetchJson<T>(url: string, options?: RequestInit, timeoutMs = 1500
     if (!response.ok) {
       // Try to parse JSON error body; fall back to status-based messages
       let errorMessage: string;
+      let errorBody: any = null;
       try {
         const body = await response.json();
+        errorBody = body;
         errorMessage = body.error || body.message || `Request failed with status ${response.status}`;
       } catch {
         // Response was not JSON (e.g. Nginx HTML error page)
@@ -36,7 +38,11 @@ async function fetchJson<T>(url: string, options?: RequestInit, timeoutMs = 1500
           errorMessage = `Request failed (${response.status}). Please try again.`;
         }
       }
-      throw new Error(errorMessage);
+      const customErr: any = new Error(errorMessage);
+      customErr.status = response.status;
+      customErr.code = errorBody?.code;
+      customErr.data = errorBody;
+      throw customErr;
     }
     return response.json();
   } catch (err: any) {
@@ -583,22 +589,22 @@ export const api = {
     const res = await fetchJson(`/live-classes/info/${classId}`, {
       headers: authHeaders()
     });
-    return res.liveClass;
+    return (res as any).liveClass;
   },
-  getMyLiveClassSchedule: async (): Promise<{ liveClasses: any[] }> => {
-    return fetchJson('/live-classes/my-schedule', {
+  getMyLiveClassSchedule: async (status: string = 'all'): Promise<{ liveClasses: any[] }> => {
+    return fetchJson(`/live-classes/my-schedule?status=${encodeURIComponent(status)}`, {
       headers: authHeaders()
     });
   },
 
-  startLiveClass: async (classId: string): Promise<{ token: string; roomUrl: string; liveClass: any }> => {
+  startLiveClass: async (classId: string): Promise<{ sessionKey: string; callId: string; liveClass: any; streamUrl?: string }> => {
     return fetchJson(`/live-classes/${classId}/start`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...authHeaders() }
     });
   },
 
-  joinLiveClass: async (classId: string): Promise<{ token: string; roomUrl: string; liveClass: any }> => {
+  joinLiveClass: async (classId: string): Promise<{ sessionKey: string; callId: string; liveClass: any; streamUrl?: string }> => {
     return fetchJson(`/live-classes/${classId}/join`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...authHeaders() }
@@ -609,6 +615,20 @@ export const api = {
     return fetchJson(`/live-classes/${classId}/end`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...authHeaders() }
+    });
+  },
+
+  getLiveClassPlayback: async (classId: string): Promise<{ playbackUrl: string; sessionKey?: string; token?: string; type?: string; title?: string }> => {
+    return fetchJson(`/live-classes/${classId}/playback`, {
+      headers: authHeaders()
+    });
+  },
+
+  updateLiveClassRecording: async (classId: string, recordingUrl: string): Promise<{ liveClass: any; message: string }> => {
+    return fetchJson(`/live-classes/${classId}/recording`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      body: JSON.stringify({ recordingUrl })
     });
   },
 };

@@ -205,7 +205,7 @@ const Profile: React.FC = () => {
                   
                   {isLive ? (
                     <button 
-                      onClick={() => navigate(`/live-class/lobby/${lc.id}`)}
+                      onClick={() => navigate(`/live-class/${lc.id}`)}
                       className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-2.5 rounded-lg text-sm transition-colors shadow-sm shadow-red-200 animate-pulse"
                     >
                       Join Live Class

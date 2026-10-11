@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { UserRole, User } from '../types';
+import { useNavigate } from 'react-router-dom';
 
 type AuthView = 'LOGIN' | 'SIGNUP' | 'FORGOT_PASSWORD';
 
@@ -169,6 +170,7 @@ const StepIndicator: React.FC<{ current: SignupStep }> = ({ current }) => (
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 const LoginModal: React.FC = () => {
+  const navigate = useNavigate();
   const {
     showLoginModal, setShowLoginModal,
     login, register, sendOtp, verifyOtp, verifyPhoneOtp, resetPassword,
@@ -216,6 +218,11 @@ const LoginModal: React.FC = () => {
 
   const handleSuccess = (user?: User) => {
     setShowLoginModal(false);
+    const redirectUrl = sessionStorage.getItem('redirect_after_login');
+    if (redirectUrl) {
+      sessionStorage.removeItem('redirect_after_login');
+      navigate(redirectUrl);
+    }
     if (onLoginSuccess) {
       if (user) {
         onLoginSuccess(user);

@@ -315,6 +315,7 @@ const liveClassSchema = new mongoose.Schema({
   dailyRoomUrl: { type: String, required: true },
   status: { type: String, enum: ['scheduled', 'live', 'completed'], default: 'scheduled', index: true },
   recordingUrl: { type: String, default: null },
+  passcode: { type: String, default: '' },
 }, { timestamps: true });
 
 liveClassSchema.index({ courseId: 1, status: 1 });

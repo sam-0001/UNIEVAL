@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import Navbar from '../components/Navbar';
-import { Video, Calendar, Clock, Plus, MonitorPlay, Copy, Play, Trash2, ArrowLeft, Sun, Moon, Loader2 } from 'lucide-react';
+import { Video, Calendar, Clock, Plus, MonitorPlay, Copy, Play, Trash2, ArrowLeft, Sun, Moon, Loader2, VideoOff, Link, CheckCircle2 } from 'lucide-react';
 
 const TeacherLiveClasses: React.FC = () => {
     const { courseId } = useParams<{ courseId: string }>();
@@ -22,7 +22,13 @@ const TeacherLiveClasses: React.FC = () => {
     const [isScheduling, setIsScheduling] = useState(false);
     const [title, setTitle] = useState('');
     const [scheduledAt, setScheduledAt] = useState('');
+    const [durationHours, setDurationHours] = useState<number>(2);
     const [showScheduleModal, setShowScheduleModal] = useState(false);
+
+    // Recording management states
+    const [editingRecordingClass, setEditingRecordingClass] = useState<any | null>(null);
+    const [recordingUrlInput, setRecordingUrlInput] = useState('');
+    const [isSavingRecording, setIsSavingRecording] = useState(false);
 
     useEffect(() => {
         if (isLoading) return;
@@ -95,7 +101,7 @@ const TeacherLiveClasses: React.FC = () => {
                     courseId: selectedCourse, 
                     title, 
                     scheduledStartTime: startTime.toISOString(),
-                    scheduledEndTime: new Date(startTime.getTime() + 60 * 60 * 1000).toISOString()
+                    scheduledEndTime: new Date(startTime.getTime() + durationHours * 60 * 60 * 1000).toISOString()
                 })
             });
             
@@ -135,6 +141,25 @@ const TeacherLiveClasses: React.FC = () => {
         }
     };
 
+    const handleSaveRecording = async () => {
+        if (!editingRecordingClass) return;
+        setIsSavingRecording(true);
+        try {
+            const res = await api.updateLiveClassRecording(editingRecordingClass.id, recordingUrlInput);
+            if (res.liveClass) {
+                setLiveClasses(prev => prev.map(c => c.id === editingRecordingClass.id ? { ...c, recordingUrl: res.liveClass.recordingUrl } : c));
+            }
+            alert('Recording URL saved successfully!');
+            setEditingRecordingClass(null);
+            setRecordingUrlInput('');
+        } catch (err: any) {
+            console.error('Save recording error:', err);
+            alert(err.message || 'Failed to save recording URL');
+        } finally {
+            setIsSavingRecording(false);
+        }
+    };
+
     const startInstantMeeting = async () => {
         if (isCreatingInstant) return;
         if (!selectedCourse || selectedCourse === 'all') {
@@ -154,7 +179,8 @@ const TeacherLiveClasses: React.FC = () => {
                     courseId: selectedCourse, 
                     title: instantTitle, 
                     scheduledStartTime: new Date().toISOString(),
-                    scheduledEndTime: new Date(Date.now() + 60 * 60 * 1000).toISOString()
+                    // Support long classes up to 6 hours so it never cuts off
+                    scheduledEndTime: new Date(Date.now() + 6 * 60 * 60 * 1000).toISOString()
                 })
             });
             if (res.ok) {
@@ -308,34 +334,61 @@ const TeacherLiveClasses: React.FC = () => {
                                             </div>
                                             <p className="text-slate-500 dark:text-gray-400 text-sm mb-6 flex items-center gap-2">
                                                 <Clock className="w-4 h-4 text-slate-400" />
-                                                {new Date(lc.scheduledAt).toLocaleString()}
+                                                {new Date(lc.scheduledStartTime || lc.scheduledAt || lc.createdAt || Date.now()).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}
                                             </p>
                                         </div>
-                                        <div className="flex items-center gap-2 mt-auto">
-                                            <button 
-                                                onClick={() => navigate(`/live-class/${lc.id}`)}
-                                                className="flex-1 bg-indigo-600 hover:bg-indigo-700 dark:bg-blue-600 dark:hover:bg-blue-700 text-white py-2 px-4 rounded-lg font-bold transition-colors flex items-center justify-center gap-2"
-                                            >
-                                                <Play className="w-4 h-4" /> Start
-                                            </button>
-                                            <button 
-                                                onClick={() => {
-                                                    navigator.clipboard.writeText(`${window.location.origin}/live-class/lobby/${lc.id}`);
-                                                    alert('Link copied!');
-                                                }}
-                                                className="px-4 py-2 bg-slate-100 dark:bg-[#252A41] hover:bg-slate-200 dark:hover:bg-[#2A2E3D] text-slate-600 dark:text-gray-300 rounded-lg transition-colors"
-                                                title="Copy Student Link"
-                                            >
-                                                <Copy className="w-4 h-4" />
-                                            </button>
-                                            <button 
-                                                onClick={() => handleDelete(lc.id)}
-                                                className="px-4 py-2 bg-red-50 hover:bg-red-100 border border-red-100 text-red-600 rounded-lg transition-colors"
-                                                title="Delete Meeting"
-                                            >
-                                                <Trash2 className="w-4 h-4" />
-                                            </button>
-                                        </div>
+                                        {viewMode === 'completed' ? (
+                                            <div className="flex flex-col gap-2.5 mt-auto">
+                                                <div className="flex items-center justify-between text-xs">
+                                                    <span className="text-slate-500 dark:text-gray-400 font-medium">Session Status:</span>
+                                                    <span className="inline-flex items-center gap-1 text-slate-600 dark:text-slate-300 font-medium bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded">
+                                                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" /> Completed
+                                                    </span>
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    <button
+                                                        disabled
+                                                        className="flex-1 bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/60 text-slate-400 dark:text-slate-500 py-2 px-3 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 cursor-not-allowed select-none"
+                                                        title="Recordings are currently unavailable"
+                                                    >
+                                                        <VideoOff className="w-3.5 h-3.5" /> Recording Unavailable
+                                                    </button>
+                                                    <button 
+                                                        onClick={() => handleDelete(lc.id)}
+                                                        className="p-2 bg-red-50 hover:bg-red-100 dark:bg-red-950/30 dark:hover:bg-red-900/40 border border-red-100 dark:border-red-900/50 text-red-600 dark:text-red-400 rounded-lg transition-colors"
+                                                        title="Delete Meeting"
+                                                    >
+                                                        <Trash2 className="w-4 h-4" />
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <div className="flex items-center gap-2 mt-auto">
+                                                <button 
+                                                    onClick={() => navigate(`/live-class/${lc.id}`)}
+                                                    className="flex-1 bg-indigo-600 hover:bg-indigo-700 dark:bg-blue-600 dark:hover:bg-blue-700 text-white py-2 px-4 rounded-lg font-bold transition-colors flex items-center justify-center gap-2"
+                                                >
+                                                    <Play className="w-4 h-4" /> Start
+                                                </button>
+                                                <button 
+                                                    onClick={() => {
+                                                        navigator.clipboard.writeText(`${window.location.origin}/live-class/lobby/${lc.id}`);
+                                                        alert('Link copied!');
+                                                    }}
+                                                    className="px-4 py-2 bg-slate-100 dark:bg-[#252A41] hover:bg-slate-200 dark:hover:bg-[#2A2E3D] text-slate-600 dark:text-gray-300 rounded-lg transition-colors"
+                                                    title="Copy Student Link"
+                                                >
+                                                    <Copy className="w-4 h-4" />
+                                                </button>
+                                                <button 
+                                                    onClick={() => handleDelete(lc.id)}
+                                                    className="px-4 py-2 bg-red-50 hover:bg-red-100 border border-red-100 text-red-600 rounded-lg transition-colors"
+                                                    title="Delete Meeting"
+                                                >
+                                                    <Trash2 className="w-4 h-4" />
+                                                </button>
+                                            </div>
+                                        )}
                                     </div>
                                 ))}
                             </div>
@@ -371,6 +424,21 @@ const TeacherLiveClasses: React.FC = () => {
                                         className="w-full bg-slate-50 dark:bg-[#161925] border border-slate-200 dark:border-[#2A2E3D] rounded-lg p-3 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none"
                                     />
                                 </div>
+                                <div>
+                                    <label className="block text-sm font-bold text-slate-600 dark:text-gray-300 mb-2">Class Duration</label>
+                                    <select
+                                        value={durationHours}
+                                        onChange={e => setDurationHours(Number(e.target.value))}
+                                        className="w-full bg-slate-50 dark:bg-[#161925] border border-slate-200 dark:border-[#2A2E3D] rounded-lg p-3 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none"
+                                    >
+                                        <option value={1}>1 Hour (Standard lecture)</option>
+                                        <option value={2}>2 Hours (Standard session)</option>
+                                        <option value={3}>3 Hours (Extended marathon)</option>
+                                        <option value={4}>4 Hours (Deep-dive workshop)</option>
+                                        <option value={6}>6 Hours (Long mega-session)</option>
+                                    </select>
+                                    <p className="text-xs text-slate-400 dark:text-gray-500 mt-1">Class can run continuously for up to this duration without auto-terminating.</p>
+                                </div>
                             </div>
 
                             <div className="flex gap-3 mt-8">
@@ -386,6 +454,55 @@ const TeacherLiveClasses: React.FC = () => {
                                     className="flex-1 py-3 bg-indigo-600 hover:bg-indigo-700 dark:bg-blue-600 dark:hover:bg-blue-700 text-white disabled:opacity-50 rounded-lg font-bold transition-colors"
                                 >
                                     {isScheduling ? 'Scheduling...' : 'Schedule'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Edit / Attach Recording Modal */}
+            {editingRecordingClass && (
+                <div className="fixed inset-0 bg-slate-900/60 dark:bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+                    <div className="bg-white dark:bg-[#1C1F2E] w-full max-w-md rounded-2xl shadow-2xl border border-slate-200 dark:border-[#2A2E3D] overflow-hidden">
+                        <div className="p-6 text-slate-900 dark:text-white">
+                            <h2 className="text-xl font-bold mb-2 text-slate-900 dark:text-white">Attach Video Recording</h2>
+                            <p className="text-xs text-slate-500 dark:text-gray-400 mb-4">
+                                Paste the genuine video recording replay URL (e.g., Cloudflare R2 / MP4 / Vimeo / Webinar replay stream) for <strong>{editingRecordingClass.title}</strong>. Students will be able to watch it directly.
+                            </p>
+                            
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-gray-400 mb-1">Video Recording URL</label>
+                                    <input 
+                                        type="url" 
+                                        value={recordingUrlInput} 
+                                        onChange={e => setRecordingUrlInput(e.target.value)}
+                                        className="w-full bg-slate-50 dark:bg-[#161925] border border-slate-200 dark:border-[#2A2E3D] rounded-lg p-3 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none text-sm"
+                                        placeholder="https://.../recording.mp4"
+                                    />
+                                    <p className="text-[11px] text-slate-400 dark:text-gray-500 mt-1">
+                                        Leave empty and save if you wish to clear or remove the recording link.
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div className="flex gap-3 mt-6">
+                                <button 
+                                    onClick={() => {
+                                        setEditingRecordingClass(null);
+                                        setRecordingUrlInput('');
+                                    }}
+                                    className="flex-1 py-2.5 bg-slate-100 dark:bg-[#252A41] hover:bg-slate-200 dark:hover:bg-[#2A2E3D] text-slate-700 dark:text-gray-200 rounded-lg font-bold text-sm transition-colors"
+                                >
+                                    Cancel
+                                </button>
+                                <button 
+                                    onClick={handleSaveRecording}
+                                    disabled={isSavingRecording}
+                                    className="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-700 dark:bg-blue-600 dark:hover:bg-blue-700 text-white disabled:opacity-50 rounded-lg font-bold text-sm transition-colors flex items-center justify-center gap-2"
+                                >
+                                    {isSavingRecording ? 'Saving...' : 'Save Recording'}
                                 </button>
                             </div>
                         </div>
