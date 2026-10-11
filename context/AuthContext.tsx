@@ -161,13 +161,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [onLoginSuccess, setOnLoginSuccess] = useState<((user: User) => void) | null>(null);
 
   const setShowLoginModal = useCallback((show: boolean) => {
-    if (typeof window !== 'undefined' && show) {
-        const isLanding = window.location.hostname === 'unieval.in' || window.location.hostname === 'www.unieval.in';
-        if (isLanding) {
-            window.location.href = 'https://app.unieval.in/login';
-            return;
-        }
-    }
     setRealShowLoginModal(show);
   }, []);
 

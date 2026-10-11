@@ -40,22 +40,45 @@ const Navbar: React.FC = () => {
           </div>
 
           {/* Desktop nav */}
-          <div className="hidden md:flex items-center space-x-8">
+          <div className="hidden md:flex items-center space-x-7">
             {user ? (
               <>
                 <Link to="/browse" className="text-sm font-medium text-slate-600 hover:text-indigo-600 transition-colors">Browse</Link>
                 <Link to="/notes" className="text-sm font-medium text-slate-600 hover:text-indigo-600 transition-colors">Notes</Link>
                 <Link to="/exam-intelligence" className="text-sm font-medium text-slate-600 hover:text-indigo-600 transition-colors">Exam Prep</Link>
                 <Link to="/be-toolkit" className="text-sm font-medium text-slate-600 hover:text-indigo-600 transition-colors">BE Toolkit</Link>
+                {isStudent && (
+                  <Link to="/dashboard?tab=live" className="text-sm font-bold text-rose-600 hover:text-rose-700 flex items-center gap-1.5 transition-colors">
+                    <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse"></span>
+                    Live Classes
+                  </Link>
+                )}
                 {user.role === UserRole.TEACHER && (
-                  <Link to="/teacher/upload" className="text-sm font-medium text-slate-600 hover:text-indigo-600 transition-colors">Upload</Link>
+                  <>
+                    <Link to="/teacher/live-classes" className="text-sm font-bold text-rose-600 hover:text-rose-700 flex items-center gap-1.5 transition-colors">
+                      <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse"></span>
+                      Live Classes
+                    </Link>
+                    <Link to="/teacher/upload" className="text-sm font-medium text-slate-600 hover:text-indigo-600 transition-colors">Upload</Link>
+                  </>
                 )}
                 {user.role === UserRole.ADMIN && (
-                  <Link to="/admin" className="text-sm font-medium text-slate-600 hover:text-indigo-600 transition-colors">Admin</Link>
+                  <>
+                    <Link to="/teacher/live-classes" className="text-sm font-bold text-rose-600 hover:text-rose-700 flex items-center gap-1.5 transition-colors">
+                      <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse"></span>
+                      Live Classes
+                    </Link>
+                    <Link to="/admin" className="text-sm font-medium text-slate-600 hover:text-indigo-600 transition-colors">Admin</Link>
+                  </>
                 )}
               </>
             ) : (
-              <Link to="/about" className="text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors">About Us</Link>
+              <>
+                <Link to="/browse" className="text-sm font-medium text-slate-600 hover:text-indigo-600 transition-colors">Courses</Link>
+                <Link to="/notes" className="text-sm font-medium text-slate-600 hover:text-indigo-600 transition-colors">Notes</Link>
+                <Link to="/exam-intelligence" className="text-sm font-medium text-slate-600 hover:text-indigo-600 transition-colors">Exam Prep</Link>
+                <Link to="/about" className="text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors">About Us</Link>
+              </>
             )}
 
             {user ? (
@@ -63,10 +86,10 @@ const Navbar: React.FC = () => {
                 {/* Live Classes & Credit Badge — students only */}
                 {isStudent && (
                   <>
-                    <Link to="/dashboard" title="Live Classes"
-                      className="flex items-center gap-1.5 bg-red-50 hover:bg-red-100 border border-red-200 px-3 py-1.5 rounded-full transition-colors">
-                      <span className="text-sm animate-pulse">🔴</span>
-                      <span className="text-xs font-extrabold text-red-700">Live</span>
+                    <Link to="/dashboard?tab=live" title="Live Classes"
+                      className="flex items-center gap-1.5 bg-rose-50 hover:bg-rose-100 border border-rose-200 px-3 py-1.5 rounded-full transition-colors">
+                      <span className="text-xs animate-pulse">🔴</span>
+                      <span className="text-xs font-extrabold text-rose-700">Live</span>
                     </Link>
                     <Link to="/dashboard" title="Quiz Credits"
                       className="flex items-center gap-1.5 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 px-3 py-1.5 rounded-full transition-colors">
@@ -110,7 +133,7 @@ const Navbar: React.FC = () => {
                   </div>
                   {isStudent && (
                     <div className="flex flex-col gap-1 items-end">
-                      <span className="flex items-center gap-1 bg-red-50 border border-red-200 px-2 py-1 rounded-full text-xs font-extrabold text-red-700">
+                      <span className="flex items-center gap-1 bg-rose-50 border border-rose-200 px-2 py-1 rounded-full text-xs font-extrabold text-rose-700">
                         <span className="animate-pulse">🔴</span> Live
                       </span>
                       <span className="flex items-center gap-1 bg-indigo-50 border border-indigo-200 px-2 py-1 rounded-full text-xs font-extrabold text-indigo-700">
@@ -119,15 +142,30 @@ const Navbar: React.FC = () => {
                     </div>
                   )}
                 </Link>
+                {isStudent && (
+                  <Link to="/dashboard?tab=live" onClick={closeMobileMenu} className="flex items-center gap-2 px-3 py-2 rounded-md text-base font-bold text-rose-600 hover:bg-rose-50">
+                    <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse"></span> Live Classes
+                  </Link>
+                )}
                 <Link to="/browse" onClick={closeMobileMenu} className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-indigo-600 hover:bg-gray-50">Browse Content</Link>
                 <Link to="/notes" onClick={closeMobileMenu} className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-indigo-600 hover:bg-gray-50">Notes Library</Link>
                 <Link to="/exam-intelligence" onClick={closeMobileMenu} className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-indigo-600 hover:bg-gray-50">Exam Prep</Link>
                 <Link to="/be-toolkit" onClick={closeMobileMenu} className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-indigo-600 hover:bg-gray-50">BE Toolkit</Link>
                 {user.role === UserRole.TEACHER && (
-                  <Link to="/teacher/upload" onClick={closeMobileMenu} className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-indigo-600 hover:bg-gray-50">Upload Content</Link>
+                  <>
+                    <Link to="/teacher/live-classes" onClick={closeMobileMenu} className="flex items-center gap-2 px-3 py-2 rounded-md text-base font-bold text-rose-600 hover:bg-rose-50">
+                      <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse"></span> Live Classes
+                    </Link>
+                    <Link to="/teacher/upload" onClick={closeMobileMenu} className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-indigo-600 hover:bg-gray-50">Upload Content</Link>
+                  </>
                 )}
                 {user.role === UserRole.ADMIN && (
-                  <Link to="/admin" onClick={closeMobileMenu} className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-indigo-600 hover:bg-gray-50">Admin Dashboard</Link>
+                  <>
+                    <Link to="/teacher/live-classes" onClick={closeMobileMenu} className="flex items-center gap-2 px-3 py-2 rounded-md text-base font-bold text-rose-600 hover:bg-rose-50">
+                      <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse"></span> Live Classes
+                    </Link>
+                    <Link to="/admin" onClick={closeMobileMenu} className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-indigo-600 hover:bg-gray-50">Admin Dashboard</Link>
+                  </>
                 )}
                 <button onClick={handleLogout} className="w-full text-left px-3 py-2 rounded-md text-base font-medium text-red-600 hover:bg-red-50 mt-2">
                   Logout
@@ -135,6 +173,9 @@ const Navbar: React.FC = () => {
               </>
             ) : (
               <>
+                <Link to="/browse" onClick={closeMobileMenu} className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-indigo-600 hover:bg-gray-50">Courses</Link>
+                <Link to="/notes" onClick={closeMobileMenu} className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-indigo-600 hover:bg-gray-50">Notes Library</Link>
+                <Link to="/exam-intelligence" onClick={closeMobileMenu} className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-indigo-600 hover:bg-gray-50">Exam Prep</Link>
                 <Link to="/about" onClick={closeMobileMenu} className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-indigo-600 hover:bg-gray-50">About Us</Link>
                 <div className="pt-4 mt-2 border-t border-gray-100">
                   <Link to="/login" onClick={closeMobileMenu} className="block w-full text-center bg-[#0f172a] text-white px-4 py-3 rounded-lg text-base font-medium hover:bg-slate-800 shadow-sm">

@@ -41,11 +41,10 @@ router.post('/:id/end', requireAuth, endLiveClass);
 router.patch('/:id/recording', requireAuth, updateLiveClassRecording);
 router.delete('/:id', requireAuth, deleteLiveClass);
 
-// Student/General routes
 router.get('/info/:id', getLiveClassDetails);
 router.post('/:id/join', requireAuth, joinLiveClass);
 router.get('/my-schedule', requireAuth, getMyLiveClassSchedule);
-router.get('/course/:courseId', requireAuth, getLiveClassesForCourse);
+router.get('/course/:courseId', getLiveClassesForCourse);
 router.get('/:id/playback', requireAuth, getLiveClassPlayback);
 
 export default router;

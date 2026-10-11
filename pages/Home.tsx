@@ -232,6 +232,7 @@ const Home: React.FC = () => {
 
           {/* Quick feature pills */}
           <div className="flex flex-wrap justify-center gap-x-6 gap-y-2 mt-2 text-sm text-slate-400">
+            <span className="text-rose-400 font-semibold flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse"></span>🔴 Live Classes</span>
             <span>📚 Notes & PYQs</span>
             <span>🎥 Video Lectures</span>
             <span>🤖 AI Quiz Generator</span>
@@ -322,12 +323,12 @@ const Home: React.FC = () => {
           <h2 className="text-2xl sm:text-3xl font-extrabold text-brand-navy">Everything you need to ace your exams</h2>
         </div>
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+          <FeatureCard emoji="🔴" bg="bg-rose-50"    title="Live Interactive Classes" desc="Scheduled live classes with experienced engineering teachers. Real-time doubt resolution and exam guidance." />
           <FeatureCard emoji="🤖" bg="bg-indigo-50" title="AI Quiz Generator"    desc="Generate smart MCQs from any topic in seconds. Adaptive difficulty based on your performance." />
           <FeatureCard emoji="🎯" bg="bg-amber-50"  title="Important Questions"  desc="Curated PYQs and high-weightage questions for every subject — reviewed by toppers." />
           <FeatureCard emoji="📝" bg="bg-emerald-50" title="Concise Notes"       desc="Exam-focused notes crafted for SPPU syllabus. No fluff, straight to the point." />
           <FeatureCard emoji="🎥" bg="bg-sky-50"    title="Video Lectures"       desc="Topic-wise video courses from experienced educators. Watch at your own pace." />
-          <FeatureCard emoji="💬" bg="bg-violet-50" title="Viva Prep"            desc="Practice oral viva questions with AI-powered feedback before your practical exams." />
-          <FeatureCard emoji="🏆" bg="bg-rose-50"   title="BE Toolkit"          desc="Final year students get project resources, seminar topics, and placement prep tools." />
+          <FeatureCard emoji="🏆" bg="bg-violet-50" title="BE Toolkit & Viva"    desc="Comprehensive oral viva prep, final-year project guidance, seminar topics, and placement tools." />
         </div>
       </section>
 

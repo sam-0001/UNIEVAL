@@ -86,15 +86,6 @@ const AuthModalWrapper = () => {
 const AppContent = () => {
     const location = useLocation();
 
-    React.useEffect(() => {
-        const isLandingDomain = typeof window !== 'undefined' && (window.location.hostname === 'unieval.in' || window.location.hostname === 'www.unieval.in');
-        if (isLandingDomain) {
-            // Only allow / and /about on the landing domain. Redirect everything else to app.unieval.in.
-            if (location.pathname !== '/' && location.pathname !== '/about') {
-                window.location.href = `https://app.unieval.in${location.pathname}${location.search}`;
-            }
-        }
-    }, [location.pathname, location.search]);
 
     const isLiveClass = 
         (location.pathname.startsWith('/live-class') && !location.pathname.startsWith('/live-class/lobby')) ||

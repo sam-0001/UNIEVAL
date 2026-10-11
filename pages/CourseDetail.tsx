@@ -342,27 +342,37 @@ const CourseDetail: React.FC = () => {
 
         {/* Sidebar (Modules) */}
         <div className="mt-8 lg:mt-0 space-y-6">
-          {hasAccess && liveClasses.length > 0 && (
-            <div className="bg-white rounded-lg shadow overflow-hidden">
+          {liveClasses.length > 0 && (
+            <div className="bg-white rounded-lg shadow overflow-hidden border border-red-100">
               <div className="p-4 border-b border-gray-200 bg-red-50 flex items-center justify-between">
                 <h3 className="text-lg font-bold text-red-700 flex items-center gap-2">
                   <span className="w-2.5 h-2.5 rounded-full bg-red-600 animate-pulse"></span>
                   Live Classes
                 </h3>
+                <span className="text-xs font-semibold px-2 py-0.5 rounded bg-red-100 text-red-700">
+                  {hasAccess ? 'Enrolled' : 'Included with Course'}
+                </span>
               </div>
               <ul className="divide-y divide-gray-200">
                 {liveClasses.map(lc => {
-                  const isLive = new Date(lc.scheduledAt).getTime() <= Date.now() + 15 * 60000;
+                  const classTime = lc.scheduledStartTime || lc.scheduledAt || lc.createdAt;
+                  const isLive = new Date(classTime).getTime() <= Date.now() + 15 * 60000;
                   return (
                     <li key={lc.id} className="p-4 flex items-center justify-between">
                       <div>
                         <p className="font-bold text-sm text-gray-900">{lc.title}</p>
-                        <p className="text-xs text-gray-500">{new Date(lc.scheduledAt).toLocaleString()}</p>
+                        <p className="text-xs text-gray-500">{classTime ? new Date(classTime).toLocaleString() : 'Scheduled Session'}</p>
                       </div>
                       {isLive ? (
-                        <button onClick={() => navigate(`/live-class/${lc.id}`)} className="bg-red-600 text-white text-xs font-bold px-4 py-2 rounded-lg shadow-lg shadow-red-200 hover:bg-red-700 animate-pulse">
-                          Join Live
-                        </button>
+                        hasAccess ? (
+                          <button onClick={() => navigate(`/live-class/${lc.id}`)} className="bg-red-600 text-white text-xs font-bold px-4 py-2 rounded-lg shadow-lg shadow-red-200 hover:bg-red-700 animate-pulse">
+                            Join Live
+                          </button>
+                        ) : (
+                          <button onClick={handlePurchase} className="bg-red-600 text-white text-xs font-bold px-4 py-2 rounded-lg shadow-lg shadow-red-200 hover:bg-red-700">
+                            Enroll to Join
+                          </button>
+                        )
                       ) : (
                         <span className="text-xs font-bold text-gray-400 bg-gray-100 px-3 py-1.5 rounded">Upcoming</span>
                       )}

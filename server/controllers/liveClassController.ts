@@ -494,10 +494,17 @@ export const getMyLiveClassSchedule = async (req: Request, res: Response): Promi
       return;
     }
     
-    const validCourseIds = [...new Set([...(dbUser?.purchasedCourseIds || [])])];
+    const isAdminOrTeacher = dbUser?.role === 'admin' || dbUser?.role === 'teacher';
+    let filter: any = {};
+
+    if (!isAdminOrTeacher) {
+      const freeCourses = await Course.find({ price: 0 }).select('id');
+      const freeCourseIds = freeCourses.map(c => c.id);
+      const validCourseIds = [...new Set([...(dbUser?.purchasedCourseIds || []), ...freeCourseIds])];
+      filter.courseId = { $in: validCourseIds };
+    }
 
     const statusQuery = req.query.status as string | undefined;
-    const filter: any = { courseId: { $in: validCourseIds } };
     if (statusQuery === 'completed') {
       filter.status = 'completed';
     } else if (statusQuery === 'live') {

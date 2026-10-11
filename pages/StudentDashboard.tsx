@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth, useCredits } from '../context/AuthContext';
 import { api } from '../services/api';
 import { Course, Note, UserRole } from '../types';
-import { Link, Navigate, useNavigate } from 'react-router-dom';
+import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import { 
   LayoutDashboard, BookOpen, FileText, Video, VideoOff,
   Settings, CreditCard, Sparkles, GraduationCap, ChevronRight, CheckCircle, Clock, LogOut, Menu, X, Brain, Wrench, Search, Bell, ArrowRight, Play, Zap, Compass, Rocket, Calendar, Download, Bookmark, Star, Navigation, Radio, Eye, Users, MonitorPlay, AlertCircle, Database, Globe, ExternalLink, Loader2
@@ -14,11 +14,23 @@ type Tab = 'overview' | 'courses' | 'notes' | 'live' | 'billing' | 'settings';
 const StudentDashboard: React.FC = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { credits, freeLeft, freeQuizLimit, freeQuizUsed, isUnlimited, unlimitedPlan, refresh: refreshCredits } = useCredits();
 
   const [activeTab, setActiveTab] = useState<Tab>(() => {
+    const tabParam = searchParams.get('tab') as Tab;
+    if (tabParam && ['overview', 'courses', 'notes', 'live', 'billing', 'settings'].includes(tabParam)) {
+      return tabParam;
+    }
     return (localStorage.getItem('studentDashboardTab') as Tab) || 'overview';
   });
+
+  useEffect(() => {
+    const tabParam = searchParams.get('tab') as Tab;
+    if (tabParam && ['overview', 'courses', 'notes', 'live', 'billing', 'settings'].includes(tabParam)) {
+      setActiveTab(tabParam);
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     localStorage.setItem('studentDashboardTab', activeTab);
