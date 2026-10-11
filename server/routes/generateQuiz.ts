@@ -176,13 +176,19 @@ Respond ONLY with a valid JSON array. No markdown, no backticks, no explanation 
     } catch (err: any) {
       logger.error('[GenerateQuiz] All AI providers failed:', err.message);
       await refundOneCredit(userId, creditMethod);
-      res.status(502).json({ error: 'AI service unavailable. Your credit has been refunded. Please try again.' });
+      res.status(502).json({ error: `AI Error: ${err.message}. Your credit was refunded.` });
       return;
     }
 
     // ── Step 7: Parse & validate — refund on ANY invalid response ─────────
-    const jsonText = rawText
-      .replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/\s*```$/i, '').trim();
+    let jsonText = rawText.trim();
+    // Aggressively extract just the JSON array to handle chatty open-source models
+    const arrayMatch = jsonText.match(/\[[\s\S]*\]/);
+    if (arrayMatch) {
+      jsonText = arrayMatch[0];
+    } else {
+      jsonText = jsonText.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/\s*```$/i, '').trim();
+    }
 
     if (!jsonText) {
       logger.error('[GenerateQuiz] Empty content from AI');

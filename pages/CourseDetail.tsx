@@ -71,11 +71,7 @@ const CourseDetail: React.FC = () => {
   }, [user?.id]);
 
   const isPurchased = user?.purchasedCourseIds.includes(course?.id || '') || false;
-  const isCollegeFree = React.useMemo(() => {
-    if (!user || !course || !course.collegeConfig) return false;
-    return user.email.endsWith(course.collegeConfig.emailDomain.trim());
-  }, [user, course]);
-  const hasAccess = !!user && (isPurchased || isCollegeFree || (course?.price === 0));
+  const hasAccess = !!user && isPurchased;
   const displayPrice = appliedCoupon ? appliedCoupon.discountedPrice : (course?.price || 0);
 
   const handleApplyCoupon = async () => {
@@ -117,8 +113,7 @@ const CourseDetail: React.FC = () => {
     if (!course) return;
 
     const userIsPurchased = currentUser?.purchasedCourseIds.includes(course.id) || false;
-    const userIsCollegeFree = !!currentUser && !!course.collegeConfig && currentUser.email.endsWith(course.collegeConfig.emailDomain.trim());
-    const userHasAccess = !!currentUser && (userIsPurchased || userIsCollegeFree || (course.price === 0));
+    const userHasAccess = !!currentUser && userIsPurchased;
     if (userHasAccess) return;
 
     if (!currentUser) {

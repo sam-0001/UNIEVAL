@@ -121,8 +121,8 @@ export async function fetchResources(
 
   const [scholarly, arxivResults, ghResults] = await Promise.allSettled([
     isProject ? Promise.resolve([]) : fetchSemanticScholar(topic, 12),
-    fetchArXiv(topic, 10),
-    isProject ? fetchGitHub(topic, 10) : fetchGitHub(topic, 5),
+    isProject ? Promise.resolve([]) : fetchArXiv(topic, 10),
+    isProject ? fetchGitHub(topic, 15) : Promise.resolve([]),
   ]);
 
   const all: RawResource[] = [

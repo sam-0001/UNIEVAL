@@ -329,6 +329,13 @@ export async function purchaseNoteFree(req: express.Request, res: express.Respon
         ]);
         if (!note) { await session.abortTransaction(); res.status(404).json({ error: 'Note not found' }); return; }
         if (!user) { await session.abortTransaction(); res.status(404).json({ error: 'User not found' }); return; }
+        
+        // Security Check: Ensure note is free or user is from college
+        const isCollegeFree = !!note.collegeConfig && user.email.endsWith(note.collegeConfig.emailDomain.trim());
+        if (note.price > 0 && !isCollegeFree) {
+            await session.abortTransaction(); res.status(403).json({ error: 'This note requires payment' }); return;
+        }
+
         if (user.purchasedNoteIds.includes(noteId)) {
             await session.abortTransaction(); res.status(400).json({ error: 'Already purchased' }); return;
         }
@@ -492,6 +499,13 @@ export async function enrollCourseFree(req: express.Request, res: express.Respon
         ]);
         if (!course) { await session.abortTransaction(); res.status(404).json({ error: 'Course not found' }); return; }
         if (!user) { await session.abortTransaction(); res.status(404).json({ error: 'User not found' }); return; }
+
+        // Security Check: Ensure course is free or user is from college
+        const isCollegeFree = !!course.collegeConfig && user.email.endsWith(course.collegeConfig.emailDomain.trim());
+        if (course.price > 0 && !isCollegeFree) {
+            await session.abortTransaction(); res.status(403).json({ error: 'This course requires payment' }); return;
+        }
+
         if (user.purchasedCourseIds.includes(courseId)) {
             await session.abortTransaction(); res.status(400).json({ error: 'Already enrolled' }); return;
         }
