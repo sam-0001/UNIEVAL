@@ -319,37 +319,52 @@ export async function verifyNotePurchase(req: express.Request, res: express.Resp
 
 export async function purchaseNoteFree(req: express.Request, res: express.Response): Promise<void> {
     const noteId = req.params.id as string;
-    const userId = (req as any).currentUser.id as string;
-    const session = await mongoose.startSession();
-    session.startTransaction();
+    const userId = (req as any).currentUser?.id as string;
+    if (!userId) {
+        res.status(401).json({ error: 'Unauthorized' });
+        return;
+    }
+
     try {
         const [note, user] = await Promise.all([
-            Note.findOne({ id: noteId }).session(session),
-            User.findOne({ id: userId }).session(session)
+            Note.findOne({ id: noteId }).lean(),
+            User.findOne({ id: userId })
         ]);
-        if (!note) { await session.abortTransaction(); res.status(404).json({ error: 'Note not found' }); return; }
-        if (!user) { await session.abortTransaction(); res.status(404).json({ error: 'User not found' }); return; }
+        if (!note) { res.status(404).json({ error: 'Note not found' }); return; }
+        if (!user) { res.status(404).json({ error: 'User not found' }); return; }
         
         // Security Check: Ensure note is free or user is from college
         const isCollegeFree = !!note.collegeConfig?.emailDomain && user.email.endsWith(note.collegeConfig.emailDomain.trim());
         if ((note.price ?? 0) > 0 && !isCollegeFree) {
-            await session.abortTransaction(); res.status(403).json({ error: 'This note requires payment' }); return;
+            res.status(403).json({ error: 'This note requires payment' }); return;
+        }
+
+        if (!Array.isArray(user.purchasedNoteIds)) {
+            user.purchasedNoteIds = [];
         }
 
         if (user.purchasedNoteIds.includes(noteId)) {
-            await session.abortTransaction(); res.status(400).json({ error: 'Already purchased' }); return;
+            res.status(400).json({ error: 'Already purchased' }); return;
         }
         user.purchasedNoteIds.push(noteId);
-        await user.save({ session });
-        await Purchase.create({ id: randomUUID(), userId, productId: noteId, teacherId: (note as any).teacherId, productType: 'free', amountPaid: 0 });
-        await session.commitTransaction();
+        await user.save();
+
+        const teacherId = (note as any).teacherId || 'admin';
+        await Purchase.create({
+            id: randomUUID(),
+            userId,
+            productId: noteId,
+            teacherId,
+            productType: 'free',
+            amountPaid: 0
+        }).catch(err => {
+            logger.warn('[Notes] Purchase record creation non-fatal error:', err);
+        });
+
         res.json({ success: true, user: sanitizeUser(user), message: 'Purchase successful' });
     } catch (err) {
-        await session.abortTransaction();
         logger.error('[Notes] purchaseNoteFree:', err);
         res.status(500).json({ error: 'An internal error occurred' });
-    } finally {
-        session.endSession();
     }
 }
 
@@ -489,37 +504,53 @@ export async function verifyCoursePayment(req: express.Request, res: express.Res
 
 export async function enrollCourseFree(req: express.Request, res: express.Response): Promise<void> {
     const courseId = req.params.id as string;
-    const userId = (req as any).currentUser.id as string;
-    const session = await mongoose.startSession();
-    session.startTransaction();
+    const userId = (req as any).currentUser?.id as string;
+    if (!userId) {
+        res.status(401).json({ error: 'Unauthorized' });
+        return;
+    }
+
     try {
         const [course, user] = await Promise.all([
-            Course.findOne({ id: courseId }).session(session),
-            User.findOne({ id: userId }).session(session)
+            Course.findOne({ id: courseId }).lean(),
+            User.findOne({ id: userId })
         ]);
-        if (!course) { await session.abortTransaction(); res.status(404).json({ error: 'Course not found' }); return; }
-        if (!user) { await session.abortTransaction(); res.status(404).json({ error: 'User not found' }); return; }
+        if (!course) { res.status(404).json({ error: 'Course not found' }); return; }
+        if (!user) { res.status(404).json({ error: 'User not found' }); return; }
 
         // Security Check: Ensure course is free or user is from college
         const isCollegeFree = !!course.collegeConfig?.emailDomain && user.email.endsWith(course.collegeConfig.emailDomain.trim());
         if ((course.price ?? 0) > 0 && !isCollegeFree) {
-            await session.abortTransaction(); res.status(403).json({ error: 'This course requires payment' }); return;
+            res.status(403).json({ error: 'This course requires payment' }); return;
+        }
+
+        if (!Array.isArray(user.purchasedCourseIds)) {
+            user.purchasedCourseIds = [];
         }
 
         if (user.purchasedCourseIds.includes(courseId)) {
-            await session.abortTransaction(); res.status(400).json({ error: 'Already enrolled' }); return;
+            res.status(400).json({ error: 'Already enrolled' }); return;
         }
+
         user.purchasedCourseIds.push(courseId);
-        await user.save({ session });
-        await Purchase.create([{ id: randomUUID(), userId, productId: courseId, teacherId: (course as any).teacherId, productType: 'free', amountPaid: 0 }], { session });
-        await session.commitTransaction();
+        await user.save();
+
+        const teacherId = (course as any).teacherId || 'admin';
+        await Purchase.create({
+            id: randomUUID(),
+            userId,
+            productId: courseId,
+            teacherId,
+            productType: 'free',
+            amountPaid: 0
+        }).catch(err => {
+            logger.warn('[Courses] Purchase record creation non-fatal error:', err);
+        });
+
         res.json({ success: true, user: sanitizeUser(user), message: 'Enrolled successfully' });
     } catch (err) {
-        await session.abortTransaction();
         logger.error('[Courses] enrollCourseFree:', err);
         res.status(500).json({ error: 'An internal error occurred' });
-    } finally {
-        session.endSession();
     }
 }
 
