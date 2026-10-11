@@ -210,12 +210,11 @@ export const joinLiveClass = async (req: Request, res: Response): Promise<void> 
     
     if (!isAdmin) {
       const hasPurchased = dbUser?.purchasedCourseIds?.includes(liveClass.courseId);
-      const course = await Course.findOne({ id: liveClass.courseId });
-      const isFree = course?.pricing?.amount === 0;
       
-      if (!hasPurchased && !isFree) {
+      if (!hasPurchased) {
+        const course = await Course.findOne({ id: liveClass.courseId });
         res.status(403).json({ 
-          error: 'Access denied: You must purchase this course to join the live class',
+          error: 'Access denied: You must be enrolled in this course to join the live class',
           code: 'NOT_ENROLLED',
           courseId: liveClass.courseId,
           courseTitle: course?.title || 'UniEval Course'
@@ -340,10 +339,9 @@ export const getLiveClassPlayback = async (req: Request, res: Response): Promise
     // Verify course enrollment / purchase
     if (!isAdmin) {
       const hasPurchased = dbUser?.purchasedCourseIds?.includes(liveClass.courseId);
-      const course = await Course.findOne({ id: liveClass.courseId });
-      const isFree = course?.pricing?.amount === 0;
 
-      if (!hasPurchased && !isFree) {
+      if (!hasPurchased) {
+        const course = await Course.findOne({ id: liveClass.courseId });
         res.status(403).json({
           error: 'Access denied: You must be enrolled in this course to watch this recording',
           code: 'NOT_ENROLLED',
@@ -498,9 +496,7 @@ export const getMyLiveClassSchedule = async (req: Request, res: Response): Promi
     let filter: any = {};
 
     if (!isAdminOrTeacher) {
-      const freeCourses = await Course.find({ price: 0 }).select('id');
-      const freeCourseIds = freeCourses.map(c => c.id);
-      const validCourseIds = [...new Set([...(dbUser?.purchasedCourseIds || []), ...freeCourseIds])];
+      const validCourseIds = dbUser?.purchasedCourseIds || [];
       filter.courseId = { $in: validCourseIds };
     }
 

@@ -515,7 +515,7 @@ const CourseDetail: React.FC = () => {
                   onClick={() => handlePayment()}
                   className="flex-1 bg-gradient-main hover:opacity-90 text-white py-3 rounded-xl font-bold shadow-lg shadow-indigo-200 transition-all active:scale-95"
                 >
-                  {!user ? 'Login to Enroll' : (course.price === 0 ? 'Enroll Now' : 'Enroll Now')}
+                  {!user ? 'Login to Enroll' : (course.price === 0 ? 'Enroll for Free' : 'Enroll Now')}
                 </button>
               </div>
             </>

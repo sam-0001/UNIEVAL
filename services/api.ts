@@ -158,7 +158,7 @@ export const api = {
     return res.user;
   },
 
-  createNoteOrder: async (noteId: string, couponId?: string): Promise<{ orderId?: string; amount?: number; currency?: string; appId?: string; devMode?: boolean; user?: User; couponId?: string | null; discountAmount?: number }> => {
+  createNoteOrder: async (noteId: string, couponId?: string): Promise<{ orderId?: string; paymentSessionId?: string; amount?: number; currency?: string; appId?: string; devMode?: boolean; user?: User; couponId?: string | null; discountAmount?: number }> => {
     return fetchJson(`/notes/${noteId}/create-order`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...authHeaders() },
@@ -182,7 +182,7 @@ export const api = {
     });
   },
 
-  createCourseOrder: async (courseId: string, couponId?: string): Promise<{ orderId?: string; amount?: number; currency?: string; appId?: string; devMode?: boolean; user?: User; couponId?: string | null; discountAmount?: number }> => {
+  createCourseOrder: async (courseId: string, couponId?: string): Promise<{ orderId?: string; paymentSessionId?: string; amount?: number; currency?: string; appId?: string; devMode?: boolean; user?: User; couponId?: string | null; discountAmount?: number }> => {
     return fetchJson(`/courses/${courseId}/create-order`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...authHeaders() },
@@ -469,7 +469,7 @@ export const api = {
     });
   },
 
-  createCreditOrder: async (plan: string): Promise<{ orderId?: string; amount?: number; currency?: string; appId?: string; devMode?: boolean; ok?: boolean; credits?: number }> => {
+  createCreditOrder: async (plan: string): Promise<{ orderId?: string; paymentSessionId?: string; amount?: number; currency?: string; appId?: string; devMode?: boolean; ok?: boolean; credits?: number }> => {
     return fetchJson('/credits/create-order', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...authHeaders() },

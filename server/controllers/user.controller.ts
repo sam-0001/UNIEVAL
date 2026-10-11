@@ -331,8 +331,8 @@ export async function purchaseNoteFree(req: express.Request, res: express.Respon
         if (!user) { await session.abortTransaction(); res.status(404).json({ error: 'User not found' }); return; }
         
         // Security Check: Ensure note is free or user is from college
-        const isCollegeFree = !!note.collegeConfig && user.email.endsWith(note.collegeConfig.emailDomain.trim());
-        if (note.price > 0 && !isCollegeFree) {
+        const isCollegeFree = !!note.collegeConfig?.emailDomain && user.email.endsWith(note.collegeConfig.emailDomain.trim());
+        if ((note.price ?? 0) > 0 && !isCollegeFree) {
             await session.abortTransaction(); res.status(403).json({ error: 'This note requires payment' }); return;
         }
 
@@ -501,8 +501,8 @@ export async function enrollCourseFree(req: express.Request, res: express.Respon
         if (!user) { await session.abortTransaction(); res.status(404).json({ error: 'User not found' }); return; }
 
         // Security Check: Ensure course is free or user is from college
-        const isCollegeFree = !!course.collegeConfig && user.email.endsWith(course.collegeConfig.emailDomain.trim());
-        if (course.price > 0 && !isCollegeFree) {
+        const isCollegeFree = !!course.collegeConfig?.emailDomain && user.email.endsWith(course.collegeConfig.emailDomain.trim());
+        if ((course.price ?? 0) > 0 && !isCollegeFree) {
             await session.abortTransaction(); res.status(403).json({ error: 'This course requires payment' }); return;
         }
 
@@ -619,7 +619,12 @@ export async function createCreditOrder(req: express.Request, res: express.Respo
             { plan, userId },
             appId!, secretKey!
         );
-        res.json({ orderId: order.id, amount: order.amount, currency: order.currency, keyId });
+        res.json({
+            orderId: order.order_id,
+            paymentSessionId: order.payment_session_id,
+            amount: order.order_amount,
+            currency: order.order_currency,
+        });
     } catch (err) {
         logger.error('[Credits] createCreditOrder:', err);
         res.status(500).json({ error: 'An internal error occurred' });
@@ -665,15 +670,15 @@ export async function getVideoKey(req: express.Request, res: express.Response): 
         const course = await Course.findOne({ 'modules.videos.videoId': videoId }).lean();
         if (!course) { res.status(404).send('Video not found'); return; }
 
-        const isFree = !course.price || course.price === 0;
         const hasPurchased =
             (Array.isArray(user.purchasedCourseIds) && user.purchasedCourseIds.includes((course as any).id)) ||
             (Array.isArray(user.purchasedNoteIds) && user.purchasedNoteIds.includes((course as any).id));
         const isOwner = user.role === UserRole.TEACHER && (course as any).teacherId === user.id;
         const isAdmin = user.role === UserRole.ADMIN || user.role === UserRole.SUPER_ADMIN;
+        const isPreviewVideo = (course as any).modules?.[0]?.videos?.some((v: any) => v.videoId === videoId);
 
-        if (!isFree && !hasPurchased && !isOwner && !isAdmin) {
-            res.status(403).send('Forbidden: Purchase required'); return;
+        if (!hasPurchased && !isOwner && !isAdmin && !isPreviewVideo) {
+            res.status(403).send('Forbidden: Enrollment required'); return;
         }
 
         const record = await VideoKey.findOne({ videoId });

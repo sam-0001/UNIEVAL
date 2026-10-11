@@ -97,13 +97,9 @@ const StudentDashboard: React.FC = () => {
               api.getSubjects()
           ]);
           setAllCoursesState(allCourses);
-          setCourses(allCourses.filter(c => user.purchasedCourseIds?.includes(c.id) || c.price === 0));
+          setCourses(allCourses.filter(c => user.purchasedCourseIds?.includes(c.id)));
           setAllNotesState(allNotes);
-          setNotes(allNotes.filter(n =>
-            user.purchasedNoteIds?.includes(n.id) ||
-            n.price === 0 ||
-            (n.collegeConfig && user.email.endsWith(n.collegeConfig.emailDomain.trim()))
-          ));
+          setNotes(allNotes.filter(n => user.purchasedNoteIds?.includes(n.id)));
           setLiveClasses(scheduleRes.liveClasses || []);
           setSubjects(allSubjects || []);
         } catch (error) {
@@ -773,7 +769,7 @@ const StudentDashboard: React.FC = () => {
                                     </div>
                                     
                                     {(() => {
-                                        const recommendedCourses = allCoursesState.filter(c => !user.purchasedCourseIds?.includes(c.id) && c.price !== 0).slice(0, 4);
+                                        const recommendedCourses = allCoursesState.filter(c => !user.purchasedCourseIds?.includes(c.id)).slice(0, 4);
                                         if (recommendedCourses.length === 0) {
                                             return (
                                                 <div className="bg-slate-50 rounded-2xl border border-dashed border-slate-200 p-10 flex flex-col items-center justify-center text-center">
