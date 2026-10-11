@@ -42,6 +42,12 @@ export const BuyCreditsModal: React.FC<{
         return;
       }
       const plan = PLANS.find(p => p.id === selected)!;
+      if (!orderData.orderId || !orderData.paymentSessionId) {
+        setMsg('Could not initialize payment session. Please try again.');
+        setMsgType('error');
+        setBuying(false);
+        return;
+      }
       const cashfree = Cashfree({ mode: import.meta.env.PROD ? "production" : "sandbox" });
       cashfree.checkout({
         paymentSessionId: orderData.paymentSessionId,
@@ -52,8 +58,8 @@ export const BuyCreditsModal: React.FC<{
            setMsgType('error');
         } else {
            api.verifyCreditPayment({
-              cashfree_order_id: orderData.orderId,
-              cashfree_payment_session_id: orderData.paymentSessionId,
+              cashfree_order_id: orderData.orderId!,
+              cashfree_payment_session_id: orderData.paymentSessionId!,
               plan: selected,
            }).then(() => {
               refresh();

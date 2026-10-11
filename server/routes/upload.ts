@@ -48,7 +48,8 @@ router.use('/video/playlist', express.static(TEMP_DIR));
 // Dynamic fallback for playlist/chunks:
 router.get('/video/playlist/:videoId/:file', async (req: Request, res: Response, next: express.NextFunction): Promise<void> => {
     try {
-        const { videoId, file } = req.params;
+        const videoId = String(req.params.videoId);
+        const file = String(req.params.file);
         const videoKeyDoc = await VideoKey.findOne({ videoId });
         
         // If it's ready and has an R2 url, redirect to R2!

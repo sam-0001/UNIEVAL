@@ -159,6 +159,10 @@ const NoteDetail: React.FC = () => {
         return;
       }
       setPaymentLoading(false);
+      if (!orderData.orderId || !orderData.paymentSessionId) {
+        setPaymentError('Could not initialize payment session. Please try again.');
+        return;
+      }
       const cashfree = window.Cashfree({ mode: import.meta.env.PROD ? "production" : "sandbox" });
       cashfree.checkout({
         paymentSessionId: orderData.paymentSessionId,
@@ -168,8 +172,8 @@ const NoteDetail: React.FC = () => {
            setPaymentError(result.error.message || 'Payment failed');
         } else {
            api.verifyNotePurchase(note.id, {
-              cashfree_order_id: orderData.orderId,
-              cashfree_payment_session_id: orderData.paymentSessionId,
+              cashfree_order_id: orderData.orderId!,
+              cashfree_payment_session_id: orderData.paymentSessionId!,
               couponId: appliedCoupon?.couponId,
            }).then((res: any) => {
               if (res.success) { updateUser(res.user); navigate('/dashboard'); }

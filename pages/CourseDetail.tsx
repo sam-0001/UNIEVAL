@@ -145,6 +145,11 @@ const CourseDetail: React.FC = () => {
           return;
         }
 
+        if (!orderData.orderId || !orderData.paymentSessionId) {
+          setPaymentError('Could not initialize payment session. Please try again.');
+          return;
+        }
+
         const cashfree = window.Cashfree({ mode: import.meta.env.PROD ? "production" : "sandbox" }); // or production based on your need
         cashfree.checkout({
           paymentSessionId: orderData.paymentSessionId,
@@ -154,8 +159,8 @@ const CourseDetail: React.FC = () => {
              setPaymentError(result.error.message || 'Payment failed');
           } else {
              api.verifyCoursePayment(course.id, {
-                cashfree_order_id: orderData.orderId,
-                cashfree_payment_session_id: orderData.paymentSessionId,
+                cashfree_order_id: orderData.orderId!,
+                cashfree_payment_session_id: orderData.paymentSessionId!,
                 couponId: appliedCoupon?.couponId,
              }).then((res: any) => {
                 if (res.success) { updateUser(res.user); navigate('/dashboard'); }

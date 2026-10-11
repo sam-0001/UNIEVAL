@@ -36,10 +36,10 @@ async function clearR2() {
                 ContinuationToken: continuationToken,
             });
 
-            const listResult = await s3Client.send(listCommand);
+            const listResult: any = await s3Client.send(listCommand);
 
             if (listResult.Contents && listResult.Contents.length > 0) {
-                const objectsToDelete = listResult.Contents.map(obj => ({ Key: obj.Key }));
+                const objectsToDelete = listResult.Contents.map((obj: any) => ({ Key: obj.Key }));
                 
                 const deleteCommand = new DeleteObjectsCommand({
                     Bucket: R2_BUCKET_NAME,

@@ -223,27 +223,25 @@ export async function createNoteOrder(req: express.Request, res: express.Respons
         const { appId, secretKey } = getCashfreeKeys();
         if (!appId || !secretKey || couponPricing.discountedPrice <= 0) {
             // Dev mode, or a 100% coupon: grant access directly after server-side validation.
-            const session = await mongoose.startSession();
-            session.startTransaction();
             try {
-                const user = await User.findOne({ id: userId }).session(session);
-                if (!user) { await session.abortTransaction(); res.status(404).json({ error: 'User not found' }); return; }
+                const user = await User.findOne({ id: userId });
+                if (!user) { res.status(404).json({ error: 'User not found' }); return; }
+                if (!Array.isArray(user.purchasedNoteIds)) user.purchasedNoteIds = [];
                 if (!user.purchasedNoteIds.includes(noteId)) {
                     user.purchasedNoteIds.push(noteId);
-                    await user.save({ session });
-                    await Purchase.create([{
+                    await user.save();
+                    const teacherId = (note as any).teacherId || 'admin';
+                    await Purchase.create({
                         id: randomUUID(), userId, productId: noteId,
-                        teacherId: (note as any).teacherId, productType: couponPricing.discountedPrice <= 0 ? 'free' : 'note',
+                        teacherId, productType: couponPricing.discountedPrice <= 0 ? 'free' : 'note',
                         amountPaid: couponPricing.discountedPrice,
                         couponId: couponPricing.couponId,
                         discountAmount: couponPricing.discountAmount,
-                    }], { session });
+                    }).catch(err => { logger.warn('[Notes] Purchase record creation non-fatal error:', err); });
                     if (couponPricing.couponId) await incrementCouponUsage(couponPricing.couponId);
                 }
-                await session.commitTransaction();
                 res.json({ devMode: true, user: sanitizeUser(user) });
-            } catch (e) { await session.abortTransaction(); throw e; }
-            finally { session.endSession(); }
+            } catch (e) { throw e; }
             return;
         }
 
@@ -282,35 +280,33 @@ export async function verifyNotePurchase(req: express.Request, res: express.Resp
         const isValid = await verifyCashfreePayment(cashfree_order_id, appId!, secretKey!);
         if (!isValid) { res.status(400).json({ error: 'Invalid payment signature — possible fraud attempt' }); return; }
 
-        const session = await mongoose.startSession();
-        session.startTransaction();
         try {
             const [user, note] = await Promise.all([
-                User.findOne({ id: userId }).session(session),
+                User.findOne({ id: userId }),
                 Note.findOne({ id: noteId }).lean()
             ]);
-            if (!user) { await session.abortTransaction(); res.status(404).json({ error: 'User not found' }); return; }
-            if (!note) { await session.abortTransaction(); res.status(404).json({ error: 'Note not found' }); return; }
+            if (!user) { res.status(404).json({ error: 'User not found' }); return; }
+            if (!note) { res.status(404).json({ error: 'Note not found' }); return; }
             const couponPricing = await resolveNoteCoupon(noteId, couponId);
 
+            if (!Array.isArray(user.purchasedNoteIds)) user.purchasedNoteIds = [];
             if (!user.purchasedNoteIds.includes(noteId)) {
                 user.purchasedNoteIds.push(noteId);
-                await user.save({ session });
-                await Purchase.create([{
+                await user.save();
+                const teacherId = (note as any).teacherId || 'admin';
+                await Purchase.create({
                     id: randomUUID(), userId, productId: noteId,
-                    teacherId: (note as any).teacherId, productType: 'note',
+                    teacherId, productType: 'note',
                     amountPaid: couponPricing.discountedPrice,
                     couponId: couponPricing.couponId,
                     discountAmount: couponPricing.discountAmount,
                     cashfreeOrderId: cashfree_order_id,
                     cashfreePaymentId: cashfree_payment_session_id,
-                }], { session });
+                }).catch(err => { logger.warn('[Notes] Purchase record creation non-fatal error:', err); });
                 if (couponPricing.couponId) await incrementCouponUsage(couponPricing.couponId);
             }
-            await session.commitTransaction();
             res.json({ success: true, user: sanitizeUser(user) });
-        } catch (e) { await session.abortTransaction(); throw e; }
-        finally { session.endSession(); }
+        } catch (e) { throw e; }
     } catch (err) {
         logger.error('[Notes] verifyNotePurchase:', err);
         res.status(500).json({ error: 'An internal error occurred' });
@@ -408,27 +404,25 @@ export async function createCourseOrder(req: express.Request, res: express.Respo
         const { appId, secretKey } = getCashfreeKeys();
         if (!appId || !secretKey || couponPricing.discountedPrice <= 0) {
             // Dev mode, or a 100% coupon: grant access directly.
-            const session = await mongoose.startSession();
-            session.startTransaction();
             try {
-                const user = await User.findOne({ id: userId }).session(session);
-                if (!user) { await session.abortTransaction(); res.status(404).json({ error: 'User not found' }); return; }
+                const user = await User.findOne({ id: userId });
+                if (!user) { res.status(404).json({ error: 'User not found' }); return; }
+                if (!Array.isArray(user.purchasedCourseIds)) user.purchasedCourseIds = [];
                 if (!user.purchasedCourseIds.includes(courseId)) {
                     user.purchasedCourseIds.push(courseId);
-                    await user.save({ session });
-                    await Purchase.create([{
+                    await user.save();
+                    const teacherId = (course as any).teacherId || 'admin';
+                    await Purchase.create({
                         id: randomUUID(), userId, productId: courseId,
-                        teacherId: (course as any).teacherId, productType: couponPricing.discountedPrice <= 0 ? 'free' : 'course',
+                        teacherId, productType: couponPricing.discountedPrice <= 0 ? 'free' : 'course',
                         amountPaid: couponPricing.discountedPrice,
                         couponId: couponPricing.couponId,
                         discountAmount: couponPricing.discountAmount,
-                    }], { session });
+                    }).catch(err => { logger.warn('[Courses] Purchase record creation non-fatal error:', err); });
                     if (couponPricing.couponId) await incrementCouponUsage(couponPricing.couponId);
                 }
-                await session.commitTransaction();
                 res.json({ devMode: true, user: sanitizeUser(user) });
-            } catch (e) { await session.abortTransaction(); throw e; }
-            finally { session.endSession(); }
+            } catch (e) { throw e; }
             return;
         }
 
@@ -467,35 +461,33 @@ export async function verifyCoursePayment(req: express.Request, res: express.Res
         const isValid = await verifyCashfreePayment(cashfree_order_id, appId!, secretKey!);
         if (!isValid) { res.status(400).json({ error: 'Invalid payment signature — possible fraud attempt' }); return; }
 
-        const session = await mongoose.startSession();
-        session.startTransaction();
         try {
             const [user, course] = await Promise.all([
-                User.findOne({ id: userId }).session(session),
+                User.findOne({ id: userId }),
                 Course.findOne({ id: courseId }).lean()
             ]);
-            if (!user) { await session.abortTransaction(); res.status(404).json({ error: 'User not found' }); return; }
-            if (!course) { await session.abortTransaction(); res.status(404).json({ error: 'Course not found' }); return; }
+            if (!user) { res.status(404).json({ error: 'User not found' }); return; }
+            if (!course) { res.status(404).json({ error: 'Course not found' }); return; }
             const couponPricing = await resolveCourseCoupon(courseId, couponId);
 
+            if (!Array.isArray(user.purchasedCourseIds)) user.purchasedCourseIds = [];
             if (!user.purchasedCourseIds.includes(courseId)) {
                 user.purchasedCourseIds.push(courseId);
-                await user.save({ session });
-                await Purchase.create([{
+                await user.save();
+                const teacherId = (course as any).teacherId || 'admin';
+                await Purchase.create({
                     id: randomUUID(), userId, productId: courseId,
-                    teacherId: (course as any).teacherId, productType: 'course',
+                    teacherId, productType: 'course',
                     amountPaid: couponPricing.discountedPrice,
                     couponId: couponPricing.couponId,
                     discountAmount: couponPricing.discountAmount,
                     cashfreeOrderId: cashfree_order_id,
                     cashfreePaymentId: cashfree_payment_session_id,
-                }], { session });
+                }).catch(err => { logger.warn('[Courses] Purchase record creation non-fatal error:', err); });
                 if (couponPricing.couponId) await incrementCouponUsage(couponPricing.couponId);
             }
-            await session.commitTransaction();
             res.json({ success: true, user: sanitizeUser(user) });
-        } catch (e) { await session.abortTransaction(); throw e; }
-        finally { session.endSession(); }
+        } catch (e) { throw e; }
     } catch (err) {
         logger.error('[Courses] verifyCoursePayment:', err);
         res.status(500).json({ error: 'An internal error occurred' });

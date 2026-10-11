@@ -1,7 +1,7 @@
 import express from 'express';
 import mongoose from 'mongoose';
 import { randomUUID } from 'crypto';
-import { User, Course, Purchase } from '../models/index.js';
+import { User, Course, Note, Purchase } from '../models/index.js';
 import logger from '../logger.js';
 import { incrementCouponUsage } from '../controllers/coupon.controller.js';
 
@@ -65,106 +65,78 @@ router.post('/cashfree', async (req, res) => {
 
         // Handle Course Purchase
         if (courseId) {
-            const session = await mongoose.startSession();
-            session.startTransaction();
-            try {
-                const user = await User.findOne({ id: userId }).session(session);
-                if (!user) throw new Error('User not found');
+            const user = await User.findOne({ id: userId });
+            if (!user) throw new Error('User not found');
+            
+            if (!Array.isArray(user.purchasedCourseIds)) user.purchasedCourseIds = [];
+            if (!user.purchasedCourseIds.includes(courseId)) {
+                user.purchasedCourseIds.push(courseId);
+                await user.save();
                 
-                if (!user.purchasedCourseIds.includes(courseId)) {
-                    user.purchasedCourseIds.push(courseId);
-                    await user.save({ session });
-                    
-                    const course = await Course.findOne({ id: courseId }).lean();
-                    await Purchase.create([{
-                        id: randomUUID(),
-                        userId,
-                        productId: courseId,
-                        teacherId: (course as any)?.teacherId,
-                        productType: 'course',
-                        amountPaid: data.order_amount,
-                        cashfreeOrderId: orderId,
-                        couponId: couponId || undefined,
-                        discountAmount: discountAmount ? Number(discountAmount) : 0,
-                    }], { session });
+                const course = await Course.findOne({ id: courseId }).lean();
+                const teacherId = (course as any)?.teacherId || 'admin';
+                await Purchase.create({
+                    id: randomUUID(),
+                    userId,
+                    productId: courseId,
+                    teacherId,
+                    productType: 'course',
+                    amountPaid: data.order_amount,
+                    cashfreeOrderId: orderId,
+                    couponId: couponId || undefined,
+                    discountAmount: discountAmount ? Number(discountAmount) : 0,
+                }).catch(err => { logger.warn('[Webhook] Purchase record creation non-fatal error:', err); });
 
-                    if (couponId) await incrementCouponUsage(couponId);
-                }
-                await session.commitTransaction();
-            } catch (err) {
-                await session.abortTransaction();
-                throw err;
-            } finally {
-                session.endSession();
+                if (couponId) await incrementCouponUsage(couponId);
             }
         } 
         // Handle Note Purchase
         else if (noteId) {
-            const session = await mongoose.startSession();
-            session.startTransaction();
-            try {
-                const user = await User.findOne({ id: userId }).session(session);
-                if (!user) throw new Error('User not found');
+            const user = await User.findOne({ id: userId });
+            if (!user) throw new Error('User not found');
+            
+            if (!Array.isArray(user.purchasedNoteIds)) user.purchasedNoteIds = [];
+            if (!user.purchasedNoteIds.includes(noteId)) {
+                user.purchasedNoteIds.push(noteId);
+                await user.save();
                 
-                if (!user.purchasedNoteIds.includes(noteId)) {
-                    user.purchasedNoteIds.push(noteId);
-                    await user.save({ session });
-                    
-                    await Purchase.create([{
-                        id: randomUUID(),
-                        userId,
-                        productId: noteId,
-                        teacherId: 'unieval',
-                        productType: 'note',
-                        amountPaid: data.order_amount,
-                        cashfreeOrderId: orderId,
-                        couponId: couponId || undefined,
-                        discountAmount: discountAmount ? Number(discountAmount) : 0,
-                    }], { session });
+                const note = await Note.findOne({ id: noteId }).lean();
+                const teacherId = (note as any)?.teacherId || 'admin';
+                await Purchase.create({
+                    id: randomUUID(),
+                    userId,
+                    productId: noteId,
+                    teacherId,
+                    productType: 'note',
+                    amountPaid: data.order_amount,
+                    cashfreeOrderId: orderId,
+                    couponId: couponId || undefined,
+                    discountAmount: discountAmount ? Number(discountAmount) : 0,
+                }).catch(err => { logger.warn('[Webhook] Purchase record creation non-fatal error:', err); });
 
-                    if (couponId) await incrementCouponUsage(couponId);
-                }
-                await session.commitTransaction();
-            } catch (err) {
-                await session.abortTransaction();
-                throw err;
-            } finally {
-                session.endSession();
+                if (couponId) await incrementCouponUsage(couponId);
             }
         }
         // Handle Credits Purchase
         else if (plan) {
-            const session = await mongoose.startSession();
-            session.startTransaction();
-            try {
-                const user = await User.findOne({ id: userId }).session(session);
-                if (!user) throw new Error('User not found');
+            const user = await User.findOne({ id: userId });
+            if (!user) throw new Error('User not found');
+            
+            const existingPurchase = await Purchase.findOne({ cashfreeOrderId: orderId });
+            if (!existingPurchase) {
+                const creditsToAdd = plan === '25' ? 25 : plan === '100' ? 100 : plan === '250' ? 250 : plan === '1000' ? 1000 : 0;
+                user.credits = (user.credits || 0) + creditsToAdd;
+                await user.save();
                 
-                // Add credits logic (Simplified, ideally share logic with controller)
-                // For simplicity, we only add if it's not already processed.
-                // We check if this orderId is already in Purchase table.
-                const existingPurchase = await Purchase.findOne({ cashfreeOrderId: orderId }).session(session);
-                if (!existingPurchase) {
-                    const creditsToAdd = plan === '25' ? 25 : plan === '100' ? 100 : plan === '250' ? 250 : plan === '1000' ? 1000 : 0;
-                    user.credits += creditsToAdd;
-                    await user.save({ session });
-                    
-                    await Purchase.create([{
-                        id: randomUUID(),
-                        userId,
-                        productId: `plan_${plan}`,
-                        teacherId: 'unieval',
-                        productType: 'credits',
-                        amountPaid: data.order_amount,
-                        cashfreeOrderId: orderId,
-                    }], { session });
-                }
-                await session.commitTransaction();
-            } catch (err) {
-                await session.abortTransaction();
-                throw err;
-            } finally {
-                session.endSession();
+                await Purchase.create({
+                    id: randomUUID(),
+                    userId,
+                    productId: `plan_${plan}`,
+                    teacherId: 'admin',
+                    productType: 'credits',
+                    amountPaid: data.order_amount,
+                    cashfreeOrderId: orderId,
+                }).catch(err => { logger.warn('[Webhook] Purchase record creation non-fatal error:', err); });
             }
         }
 
