@@ -466,7 +466,7 @@ const TeacherUpload: React.FC = () => {
       setNoteThumbnailPreview('');
       setNoteThumbnailUrl('');
     } catch (err: any) {
-      setError(err.message || 'Failed to publish note');
+      setMessage(err.message || 'Failed to publish note');
       setLoading(false);
     }
   };

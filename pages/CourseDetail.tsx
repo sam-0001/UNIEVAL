@@ -71,6 +71,10 @@ const CourseDetail: React.FC = () => {
   }, [user?.id]);
 
   const isPurchased = user?.purchasedCourseIds.includes(course?.id || '') || false;
+  const isCollegeFree = React.useMemo(() => {
+    if (!user || !course || !course.collegeConfig?.emailDomain) return false;
+    return user.email.endsWith(course.collegeConfig.emailDomain.trim());
+  }, [user, course]);
   const hasAccess = !!user && isPurchased;
   const displayPrice = appliedCoupon ? appliedCoupon.discountedPrice : (course?.price || 0);
 
@@ -163,6 +167,8 @@ const CourseDetail: React.FC = () => {
       })
       .catch(e => setPaymentError(e.message || 'Could not initiate payment.'));
   };
+
+  const handlePurchase = () => handlePayment();
 
   // Navigation Logic
   const getFlatVideos = () => {
