@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../services/api';
 import { Course, Note, Quiz, Viva, UserRole, Question } from '../types';
@@ -414,18 +414,7 @@ const AdminDashboard: React.FC = () => {
   if (!user) return <TeacherLogin />;
 
   if (user.role === 'STUDENT') {
-      return (
-          <div className="min-h-screen flex items-center justify-center bg-slate-50">
-              <div className="bg-white p-8 rounded-xl shadow-md text-center border border-red-100">
-                  <span className="text-4xl block mb-4">🛑</span>
-                  <h2 className="text-2xl font-bold text-slate-900 mb-2">Access Denied</h2>
-                  <p className="text-slate-500 mb-6">You must be a registered teacher to view this dashboard.</p>
-                  <a href="/" className="bg-indigo-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-indigo-700 transition">
-                      Return to Home
-                  </a>
-              </div>
-          </div>
-      );
+      return <Navigate to="/dashboard" replace />;
   }
 
   const handleCreateCourse = () => { setEditingCourse(null); setShowCourseModal(true); };

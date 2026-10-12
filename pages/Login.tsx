@@ -325,18 +325,22 @@ const Login: React.FC = () => {
   React.useEffect(() => {
     if (user && !showWhatsApp) {
       const redirectUrl = sessionStorage.getItem('redirect_after_login') || (location.state as any)?.from;
-      if (redirectUrl) {
+      if (redirectUrl && redirectUrl !== '/') {
         sessionStorage.removeItem('redirect_after_login');
         navigate(redirectUrl, { replace: true });
         return;
       }
-      if (user.role === UserRole.SUPER_ADMIN) navigate('/super-admin');
-      else if (user.role === UserRole.ADMIN || user.role === UserRole.TEACHER) navigate('/admin');
-      else navigate('/dashboard');
+      sessionStorage.removeItem('redirect_after_login');
+      if (user.role === UserRole.SUPER_ADMIN) navigate('/super-admin', { replace: true });
+      else if (user.role === UserRole.ADMIN || user.role === UserRole.TEACHER) navigate('/admin', { replace: true });
+      else navigate('/dashboard', { replace: true });
     }
   }, [user, navigate, showWhatsApp, location.state]);
 
   const anyLoading = actionLoading || isLoading;
+  const dashboardTarget = user
+    ? (user.role === UserRole.SUPER_ADMIN ? '/super-admin' : (user.role === UserRole.ADMIN || user.role === UserRole.TEACHER ? '/admin' : '/dashboard'))
+    : '/';
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm overflow-hidden font-sans">
@@ -344,7 +348,7 @@ const Login: React.FC = () => {
       <div className="bg-white w-full max-w-[480px] rounded-2xl shadow-2xl relative flex flex-col max-h-[90vh] overflow-y-auto overflow-x-hidden no-scrollbar animate-in zoom-in-95 duration-200">
 
         {/* Close Button */}
-        <button onClick={() => navigate('/')}
+        <button onClick={() => navigate(dashboardTarget)}
           className="absolute top-5 right-5 text-gray-400 hover:text-gray-600 transition-colors p-1 rounded-full hover:bg-gray-100 z-10">
           <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />

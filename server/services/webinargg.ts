@@ -116,3 +116,58 @@ export const deleteWebinar = async (webinarId: string) => {
     throw err;
   }
 };
+
+export interface WebinarRecordingResult {
+  status: 'ready' | 'processing' | 'not_found' | 'error';
+  playbackUrl?: string;
+  duration?: number;
+  title?: string;
+  message?: string;
+}
+
+/**
+ * Fetches the recording playback details from Webinar.gg.
+ * When the recording is processing, Webinar.gg returns 404 with a processing message.
+ * When ready, it returns the MP4/HLS direct video URL and duration.
+ */
+export const getWebinarRecording = async (webinarId: string): Promise<WebinarRecordingResult> => {
+  try {
+    if (!webinarId) {
+      return { status: 'not_found' };
+    }
+
+    const res = await fetch(`https://webinar-api.webinar.gg/api/webinar-recording/${encodeURIComponent(webinarId)}/playback`);
+    if (res.ok) {
+      const data = await res.json();
+      const playbackUrl = (Array.isArray(data.mp4Url) && data.mp4Url[0]?.path) 
+        ? data.mp4Url[0].path 
+        : data.mainUrl || data.m3u8Url || data.backupUrl;
+
+      if (playbackUrl) {
+        return {
+          status: 'ready',
+          playbackUrl,
+          duration: data.duration,
+          title: data.title
+        };
+      }
+    }
+
+    if (res.status === 404) {
+      const errData = await res.json().catch(() => null);
+      const errMsg = errData?.error || 'Recording not available yet. It may still be processing.';
+      return {
+        status: 'processing',
+        message: errMsg
+      };
+    }
+
+    return {
+      status: 'processing',
+      message: 'The live stream just ended and the recording is currently being processed. It will be available in a few minutes.'
+    };
+  } catch (err: any) {
+    logger.warn('Error fetching Webinar.gg recording status', { error: err.message, webinarId });
+    return { status: 'error', message: err.message };
+  }
+};

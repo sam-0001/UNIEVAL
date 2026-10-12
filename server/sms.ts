@@ -59,7 +59,8 @@ export async function sendSmsOtp(phoneNumber: string, otp: string): Promise<void
         if (data.status === 'error' || data.error) {
             logger.error(`[SMS] APITxT Gateway Error for ${mobile}:`, data);
         } else {
-            logger.info(`[SMS] Successfully dispatched to ${mobile}. ID: ${data.message_id || 'unknown'}`);
+            const reqId = data.data?.request_id || data.request_id || data.message_id || 'ok';
+            logger.info(`[SMS] Successfully dispatched to ${mobile}. ID: ${reqId}`);
         }
     } catch (err) {
         // SMS failure should never block signup — just log it

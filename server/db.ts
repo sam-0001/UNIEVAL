@@ -5,7 +5,7 @@ import logger from './logger.js';
 const DATABASE_URL = process.env.DATABASE_URL || 'mongodb://localhost:27017/unieval';
 const DB_POOL_SIZE = parseInt(process.env.DB_POOL_SIZE || '10', 10);
 const DB_SOCKET_TIMEOUT = parseInt(process.env.DB_SOCKET_TIMEOUT || '45000', 10);
-const DB_CONNECT_TIMEOUT = parseInt(process.env.DB_CONNECT_TIMEOUT || '10000', 10);
+const DB_CONNECT_TIMEOUT = parseInt(process.env.DB_CONNECT_TIMEOUT || '30000', 10);
 
 const connectDB = async () => {
   try {

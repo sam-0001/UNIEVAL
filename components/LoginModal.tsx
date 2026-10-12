@@ -219,10 +219,12 @@ const LoginModal: React.FC = () => {
   const handleSuccess = (user?: User) => {
     setShowLoginModal(false);
     const redirectUrl = sessionStorage.getItem('redirect_after_login');
-    if (redirectUrl) {
+    if (redirectUrl && redirectUrl !== '/') {
       sessionStorage.removeItem('redirect_after_login');
       navigate(redirectUrl);
+      return;
     }
+    sessionStorage.removeItem('redirect_after_login');
     if (onLoginSuccess) {
       if (user) {
         onLoginSuccess(user);
@@ -231,7 +233,12 @@ const LoginModal: React.FC = () => {
         if (storedUser) onLoginSuccess(JSON.parse(storedUser));
       }
       setOnLoginSuccess(null);
+      return;
     }
+    const targetUser = user || JSON.parse(localStorage.getItem('user') || '{}');
+    if (targetUser.role === UserRole.SUPER_ADMIN) navigate('/super-admin');
+    else if (targetUser.role === UserRole.ADMIN || targetUser.role === UserRole.TEACHER) navigate('/admin');
+    else navigate('/dashboard');
   };
 
   // ── Login ──────────────────────────────────────────────────────────────────

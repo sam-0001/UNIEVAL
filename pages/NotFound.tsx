@@ -1,7 +1,14 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+import { UserRole } from '../types';
 
 const NotFound: React.FC = () => {
+  const { user } = useAuth();
+  const homeTarget = user
+    ? (user.role === UserRole.SUPER_ADMIN ? '/super-admin' : (user.role === UserRole.ADMIN || user.role === UserRole.TEACHER ? '/admin' : '/dashboard'))
+    : '/';
+
   return (
     <div className="min-h-screen bg-slate-50 flex items-center justify-center px-4">
       <div className="text-center max-w-lg mx-auto">
@@ -29,11 +36,11 @@ const NotFound: React.FC = () => {
         <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
           {/* Primary — bg-gradient-main */}
           <Link
-            to="/"
+            to={homeTarget}
             className="inline-block px-8 py-3 rounded-lg font-bold text-white transition-opacity hover:opacity-90"
             style={{ background: 'linear-gradient(135deg, #1F81FC 0%, #7F26FE 100%)' }}
           >
-            Go to Homepage
+            {user ? 'Go to Dashboard' : 'Go to Homepage'}
           </Link>
 
           {/* Secondary — outlined */}

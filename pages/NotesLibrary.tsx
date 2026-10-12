@@ -67,19 +67,22 @@ const NotesLibrary: React.FC = () => {
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
-      
-      // 1. Get Subjects based on filters
-      const fetchedSubjects = await api.getSubjects(
-        selectedBranch as Branch || undefined,
-        selectedYear ? Number(selectedYear) : undefined
-      );
+      try {
+        // 1. Get Subjects based on filters
+        const fetchedSubjects = await api.getSubjects(
+          selectedBranch as Branch || undefined,
+          selectedYear ? Number(selectedYear) : undefined
+        ).catch(() => []);
 
-      // 2. Fetch all notes and filter by the subjects we found
-      const allNotes = await api.getNotes();
-      const subjectIds = new Set(fetchedSubjects.map(s => s.id));
-      setNotes(allNotes.filter(n => subjectIds.has(n.subjectId)));
-
-      setLoading(false);
+        // 2. Fetch all notes and filter by the subjects we found
+        const allNotes = await api.getNotes().catch(() => []);
+        const subjectIds = new Set(fetchedSubjects.map(s => s.id));
+        setNotes(allNotes.filter(n => subjectIds.has(n.subjectId)));
+      } catch (err) {
+        console.error('Failed to load notes data:', err);
+      } finally {
+        setLoading(false);
+      }
     };
     fetchData();
   }, [selectedBranch, selectedYear]);

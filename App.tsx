@@ -78,12 +78,21 @@ class ErrorBoundary extends React.Component<
     }
 }
 
+import { UserRole } from './types';
+
+export const getDashboardRoute = (role?: UserRole): string => {
+    if (role === UserRole.SUPER_ADMIN) return '/super-admin';
+    if (role === UserRole.ADMIN || role === UserRole.TEACHER) return '/admin';
+    return '/dashboard';
+};
+
 const AuthModalWrapper = () => {
     const { showLoginModal } = useAuth();
     return showLoginModal ? <LoginModal /> : null;
 };
 
 const AppContent = () => {
+    const { user, isLoading } = useAuth();
     const location = useLocation();
 
     React.useEffect(() => {
@@ -103,6 +112,7 @@ const AppContent = () => {
         location.pathname.startsWith('/teacher/live-classes');
 
     const hideNavbar = isLiveClass || location.pathname.startsWith('/dashboard');
+    const dashboardTarget = user ? getDashboardRoute(user.role) : '/dashboard';
 
     return (
         <div className={`min-h-screen ${isLiveClass ? 'bg-[#0a0a0a]' : 'bg-slate-50'}`}>
@@ -111,8 +121,8 @@ const AppContent = () => {
             <ErrorBoundary>
                 <Suspense fallback={<PageLoader />}>
                     <Routes>
-                        <Route path="/"                 element={<Home />} />
-                        <Route path="/login"            element={<Login />} />
+                        <Route path="/"                 element={!isLoading && user ? <Navigate to={dashboardTarget} replace /> : <Home />} />
+                        <Route path="/login"            element={!isLoading && user ? <Navigate to={dashboardTarget} replace /> : <Login />} />
                         <Route path="/about"            element={<About />} />
                         <Route path="/browse"           element={<BrowseCourses />} />
                         <Route path="/course/:id"       element={<CourseDetail />} />
@@ -131,7 +141,7 @@ const AppContent = () => {
                         <Route path="/be-toolkit"       element={<BEToolkit />} />
                         <Route path="/live-class/lobby/:id" element={<LiveClassLobby />} />
                         <Route path="/live-class/:id"   element={<LiveClassRoom />} />
-                        <Route path="*"                 element={<Navigate to="/" replace />} />
+                        <Route path="*"                 element={<Navigate to={user ? dashboardTarget : "/"} replace />} />
                     </Routes>
                 </Suspense>
             </ErrorBoundary>

@@ -22,11 +22,7 @@ import {
     AlertCircle,
     Maximize,
     Minimize,
-    LayoutGrid,
     MonitorPlay,
-    Mic,
-    MicOff,
-    Volume2,
     Users,
     Play,
     ExternalLink,
@@ -51,11 +47,11 @@ export const LiveClassRoom: React.FC = () => {
     // Player presentation & immersion states
     const [isFullscreen, setIsFullscreen] = useState(false);
     const [controlsVisible, setControlsVisible] = useState(true);
-    // Default to 'grid' (Meet Grid) so students are never greeted by an annoying black stage box!
-    const [viewMode, setViewMode] = useState<'stage' | 'grid'>('grid');
     const [watchingRecording, setWatchingRecording] = useState(false);
     const [recordingPlaybackUrl, setRecordingPlaybackUrl] = useState<string | null>(null);
     const [playbackLoading, setPlaybackLoading] = useState(false);
+    const [isProcessingRecording, setIsProcessingRecording] = useState(false);
+    const [processingMessage, setProcessingMessage] = useState('');
     const [playbackError, setPlaybackError] = useState('');
     const hideControlsTimerRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -74,14 +70,6 @@ export const LiveClassRoom: React.FC = () => {
     const [statusNotice, setStatusNotice] = useState<{ type: 'scheduled' | 'completed'; message: string; scheduledTime?: string } | null>(null);
 
     const isTeacher = user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN' || user?.role === 'TEACHER';
-
-    // Instructors need Stage view immediately to control camera/mic & start broadcast.
-    // Students remain in Meet Grid until instructor goes live or shares screen.
-    useEffect(() => {
-        if (isTeacher) {
-            setViewMode('stage');
-        }
-    }, [isTeacher]);
 
     const initCall = useCallback(async () => {
         if (!id) {
@@ -245,11 +233,9 @@ export const LiveClassRoom: React.FC = () => {
         socket.on('screen-share-changed', ({ isSharing, userName: presenterName }: { isSharing: boolean; userName: string }) => {
             setIsScreenSharing(isSharing);
             if (isSharing) {
-                setViewMode('stage');
-                showAutoPinNotice(`${presenterName || 'Instructor'} shared screen — Auto-pinned to stage`);
+                showAutoPinNotice(`${presenterName || 'Instructor'} started sharing screen`);
             } else {
-                setViewMode('grid');
-                showAutoPinNotice('Screen share ended — Returned to Meet Grid');
+                showAutoPinNotice('Screen share stopped');
             }
         });
 
@@ -257,11 +243,7 @@ export const LiveClassRoom: React.FC = () => {
         socket.on('video-state-changed', ({ isVideoOn, userName: presenterName }: { isVideoOn: boolean; userName: string }) => {
             setIsHostVideoActive(isVideoOn);
             if (isVideoOn) {
-                setViewMode('stage');
-                showAutoPinNotice(`${presenterName || 'Instructor'} camera active — Auto-pinned to stage`);
-            } else if (!isScreenSharing) {
-                setViewMode('grid');
-                showAutoPinNotice('Camera off — Returned to Meet Grid');
+                showAutoPinNotice(`${presenterName || 'Instructor'} turned on camera`);
             }
         });
 
@@ -320,17 +302,16 @@ export const LiveClassRoom: React.FC = () => {
                 /camera.*(start|on|active|enabled|true)/i.test(msgType);
 
             if (isScreenShareStart || isVideoStart) {
-                setViewMode('stage');
                 if (isScreenShareStart) {
                     setIsScreenSharing(true);
-                    showAutoPinNotice('Screen share active — Auto-pinned to stage');
+                    showAutoPinNotice('Screen share active');
                     if (isTeacher) {
                         socketRef.current?.emit('screen-share-changed', { isSharing: true });
                     }
                 }
                 if (isVideoStart) {
                     setIsHostVideoActive(true);
-                    showAutoPinNotice('Host camera active — Auto-pinned to stage');
+                    showAutoPinNotice('Host camera active');
                     if (isTeacher) {
                         socketRef.current?.emit('video-state-changed', { isVideoOn: true });
                     }
@@ -361,8 +342,6 @@ export const LiveClassRoom: React.FC = () => {
                         socketRef.current?.emit('video-state-changed', { isVideoOn: false });
                     }
                 }
-                setViewMode('grid');
-                showAutoPinNotice('Broadcast stopped — Switched to Meet Grid');
             }
         };
 
@@ -435,73 +414,6 @@ export const LiveClassRoom: React.FC = () => {
     }, [resetControlsTimer]);
 
     // Google Meet style participant roster (Real participants only, zero mock users)
-    const participants = useMemo(() => {
-        const teacherName = classDetails?.teacherName || 'Instructor';
-        const myName = user?.name || (isTeacher ? 'Instructor' : 'You');
-
-        const list: Array<{
-            id: string;
-            name: string;
-            role: string;
-            isHost: boolean;
-            isMe: boolean;
-            gradient: string;
-            isSpeaking: boolean;
-        }> = [];
-
-        // 1. Host / Instructor card
-        list.push({
-            id: 'teacher',
-            name: isTeacher ? `${myName} (Host)` : teacherName,
-            role: 'Host / Instructor',
-            isHost: true,
-            isMe: isTeacher,
-            gradient: 'from-blue-600 to-indigo-700',
-            isSpeaking: isScreenSharing || isHostVideoActive,
-        });
-
-        // 2. Student (Current user, if not teacher)
-        if (!isTeacher) {
-            const currentUserId = user?.id || (user as any)?._id || 'me';
-            list.push({
-                id: currentUserId,
-                name: `${myName} (You)`,
-                role: 'Student',
-                isHost: false,
-                isMe: true,
-                gradient: 'from-purple-600 to-pink-600',
-                isSpeaking: false,
-            });
-        }
-
-        // 3. Any REAL joined peers currently in room (NO mock names!)
-        const gradients = [
-            'from-emerald-600 to-teal-700',
-            'from-rose-600 to-red-700',
-            'from-amber-600 to-orange-700',
-            'from-cyan-600 to-blue-700',
-            'from-violet-600 to-purple-800',
-        ];
-
-        realAttendees.forEach((attendee, idx) => {
-            const currentUserId = user?.id || (user as any)?._id;
-            if (attendee.id === currentUserId || attendee.name === teacherName || attendee.name === myName) {
-                return;
-            }
-            list.push({
-                id: attendee.id || `peer-${idx}`,
-                name: attendee.name,
-                role: 'Student',
-                isHost: false,
-                isMe: false,
-                gradient: gradients[idx % gradients.length],
-                isSpeaking: false,
-            });
-        });
-
-        return list;
-    }, [classDetails, user, isTeacher, realAttendees, isScreenSharing, isHostVideoActive]);
-
     const handleEndClass = async () => {
         if (window.confirm("End live class for everyone?")) {
             try {
@@ -717,19 +629,21 @@ export const LiveClassRoom: React.FC = () => {
     if (statusNotice) {
         const isScheduled = statusNotice.type === 'scheduled';
         const hasRealRecording = !isScheduled && Boolean(
-            classDetails?.recordingUrl &&
+            (classDetails?.recordingUrl &&
             classDetails.recordingUrl.trim().length > 0 &&
             classDetails.recordingUrl !== classDetails.dailyRoomUrl &&
-            !classDetails.recordingUrl.endsWith(classDetails.dailyRoomName || '')
+            !classDetails.recordingUrl.endsWith(classDetails.dailyRoomName || '')) ||
+            classDetails?.recordingStatus === 'ready'
         );
 
         const handleStartWatchingRecording = async () => {
             setWatchingRecording(true);
             setPlaybackLoading(true);
             setPlaybackError('');
+            setIsProcessingRecording(false);
             setRecordingPlaybackUrl(null);
 
-            if (classDetails?.recordingUrl && !classDetails.recordingUrl.includes('webinar.gg')) {
+            if (classDetails?.recordingUrl && !classDetails.recordingUrl.includes('webinar.gg') && !classDetails.recordingUrl.endsWith(classDetails.dailyRoomName || '')) {
                 setRecordingPlaybackUrl(classDetails.recordingUrl);
                 setPlaybackLoading(false);
                 return;
@@ -737,15 +651,19 @@ export const LiveClassRoom: React.FC = () => {
 
             try {
                 const res = await api.getLiveClassPlayback(id!);
-                if (res.playbackUrl) {
+                if (res.status === 'processing') {
+                    setIsProcessingRecording(true);
+                    setProcessingMessage(res.message || 'The live session has ended and the recording is currently being processed. It will be available here in a few minutes — please check back shortly.');
+                    setWatchingRecording(false);
+                } else if (res.playbackUrl) {
                     setRecordingPlaybackUrl(res.playbackUrl);
                 } else {
-                    throw new Error('Playback URL unavailable');
+                    throw new Error(res.message || 'Playback URL unavailable');
                 }
             } catch (err: any) {
                 console.error("Playback load error:", err);
                 const fallback = classDetails?.recordingUrl;
-                if (fallback && fallback !== classDetails?.dailyRoomUrl) {
+                if (fallback && fallback !== classDetails?.dailyRoomUrl && !fallback.endsWith(classDetails?.dailyRoomName || '')) {
                     setRecordingPlaybackUrl(fallback);
                 } else {
                     setPlaybackError(err.message || 'Failed to initialize secure recording playback');
@@ -756,7 +674,7 @@ export const LiveClassRoom: React.FC = () => {
         };
 
         // If student clicked to watch recording, play it in-app directly
-        if (watchingRecording && hasRealRecording) {
+        if (watchingRecording && (hasRealRecording || recordingPlaybackUrl || playbackLoading)) {
             return (
                 <main 
                     ref={containerRef}
@@ -895,14 +813,46 @@ export const LiveClassRoom: React.FC = () => {
                             </button>
                         ) : (
                             <>
-                                <button
-                                    disabled
-                                    className="w-full py-3 px-4 rounded-xl text-sm font-semibold text-slate-500 bg-slate-900/60 border border-slate-800 flex items-center justify-center gap-2 cursor-not-allowed select-none"
-                                    title="Recording is currently unavailable"
-                                >
-                                    <VideoOff className="w-4 h-4 text-slate-500" />
-                                    <span>Recording Unavailable</span>
-                                </button>
+                                {(hasRealRecording || classDetails?.recordingStatus === 'ready' || recordingPlaybackUrl) ? (
+                                    <button
+                                        onClick={handleStartWatchingRecording}
+                                        disabled={playbackLoading}
+                                        className="w-full py-3 px-4 rounded-xl text-sm font-bold text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 shadow-lg shadow-blue-500/20 flex items-center justify-center gap-2 transition-all disabled:opacity-50"
+                                    >
+                                        <Play className="w-4 h-4 fill-white text-white" />
+                                        <span>{playbackLoading ? 'Preparing Replay...' : 'Watch Session Recording'}</span>
+                                    </button>
+                                ) : (classDetails?.recordingStatus === 'processing' || isProcessingRecording || (!hasRealRecording && !isScheduled)) ? (
+                                    <div className="w-full p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-200 text-left space-y-3">
+                                        <div className="flex items-center gap-2">
+                                            <span className="relative flex h-3 w-3">
+                                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                                                <span className="relative inline-flex rounded-full h-3 w-3 bg-amber-500"></span>
+                                            </span>
+                                            <span className="text-xs font-bold uppercase tracking-wider text-amber-400">Processing Recording</span>
+                                        </div>
+                                        <p className="text-xs text-amber-100/90 leading-relaxed">
+                                            {processingMessage || 'The live session has ended and the recording is currently being processed. It will be available here in a few minutes — please check back shortly.'}
+                                        </p>
+                                        <button
+                                            onClick={handleStartWatchingRecording}
+                                            disabled={playbackLoading}
+                                            className="w-full py-2.5 px-3 rounded-lg text-xs font-bold text-amber-300 bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 flex items-center justify-center gap-2 transition-all disabled:opacity-50"
+                                        >
+                                            <RefreshCw className={`w-3.5 h-3.5 ${playbackLoading ? 'animate-spin' : ''}`} />
+                                            <span>{playbackLoading ? 'Checking Recording Status...' : 'Check If Ready'}</span>
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <button
+                                        disabled
+                                        className="w-full py-3 px-4 rounded-xl text-sm font-semibold text-slate-500 bg-slate-900/60 border border-slate-800 flex items-center justify-center gap-2 cursor-not-allowed select-none"
+                                        title="Recording is currently unavailable"
+                                    >
+                                        <VideoOff className="w-4 h-4 text-slate-500" />
+                                        <span>Recording Unavailable</span>
+                                    </button>
+                                )}
                                 <button
                                     onClick={handleEnrollRedirect}
                                     className="w-full py-3 px-4 rounded-xl text-sm font-bold text-white bg-slate-800 hover:bg-slate-700 border border-slate-700 transition-all flex items-center justify-center gap-2"
@@ -990,60 +940,27 @@ export const LiveClassRoom: React.FC = () => {
                                     Screen Share Active
                                 </span>
                             )}
+                            <span className="hidden md:inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-800 text-slate-300 border border-slate-700 shrink-0">
+                                <Users className="w-3 h-3 text-blue-400" />
+                                {realAttendees.length + 1} Connected
+                            </span>
                         </div>
                     </div>
                 </div>
 
                 <div className="flex items-center gap-2 shrink-0">
-                    {/* Teacher Direct Stage Pin Broadcast Toggle */}
-                    {isTeacher && (
-                        <button
-                            onClick={() => {
-                                const next = !isScreenSharing;
-                                setIsScreenSharing(next);
-                                socketRef.current?.emit('screen-share-changed', { isSharing: next });
-                                if (next) {
-                                    setViewMode('stage');
-                                    showAutoPinNotice('Screen share active — Auto-pinned to stage');
-                                } else {
-                                    setViewMode('grid');
-                                    showAutoPinNotice('Screen share ended — Returned to Meet Grid');
-                                }
-                            }}
-                            className={`hidden md:inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold transition-all border ${
-                                isScreenSharing 
-                                    ? 'bg-emerald-600 text-white border-emerald-500 shadow-sm'
-                                    : 'bg-slate-800/90 text-slate-300 border-slate-700 hover:bg-slate-700'
-                            }`}
-                            title="Broadcast screen share stage pin to all enrolled students"
+                    {streamUrl && (
+                        <a
+                            href={streamUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="hidden md:inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800/90 text-slate-200 hover:text-white hover:bg-slate-700 border border-slate-700 transition-all"
+                            title="Open classroom in separate window"
                         >
-                            <MonitorPlay className="w-3.5 h-3.5" />
-                            <span>{isScreenSharing ? 'Sharing Screen' : 'Pin Stage to Students'}</span>
-                        </button>
+                            <ExternalLink className="w-3.5 h-3.5" />
+                            <span className="hidden sm:inline">Pop-out</span>
+                        </a>
                     )}
-
-                    {/* View Mode Toggle Button */}
-                    <button
-                        onClick={() => setViewMode(prev => prev === 'stage' ? 'grid' : 'stage')}
-                        className={`inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold transition-all border ${
-                            viewMode === 'grid'
-                                ? 'bg-indigo-600 text-white border-indigo-500 shadow-sm'
-                                : 'bg-slate-800/90 text-slate-200 border-slate-700 hover:bg-slate-700'
-                        }`}
-                        title={viewMode === 'stage' ? 'Switch to Google Meet style Participant Grid' : 'Switch to Live Video Stage'}
-                    >
-                        {viewMode === 'stage' ? (
-                            <>
-                                <LayoutGrid className="w-3.5 h-3.5 text-blue-400" />
-                                <span className="hidden sm:inline">Meet Grid</span>
-                            </>
-                        ) : (
-                            <>
-                                <MonitorPlay className="w-3.5 h-3.5 text-emerald-400" />
-                                <span className="hidden sm:inline">Stage View</span>
-                            </>
-                        )}
-                    </button>
 
                     {/* YouTube Fullscreen Toggle Button */}
                     <button
@@ -1109,146 +1026,55 @@ export const LiveClassRoom: React.FC = () => {
                             </div>
                         </div>
                     ) : (
-                        <div className="bg-slate-900/90 border-b border-slate-800 px-4 py-2 text-xs text-slate-300 flex items-center justify-between shrink-0">
+                        <div className="bg-slate-900/90 border-b border-slate-800 px-4 py-2 text-xs text-slate-300 flex flex-wrap items-center justify-between gap-2 shrink-0">
                             <div className="flex items-center gap-2">
                                 <Sparkles className="w-4 h-4 text-emerald-400 shrink-0" />
                                 <span>
-                                    <strong>UniEval Classroom:</strong> Welcome, {user?.name || 'Student'}! Click the blue <strong>"Join Webinar"</strong> button below to enter the live session.
+                                    <strong>UniEval Classroom:</strong> Welcome, {user?.name || 'Student'}! Live audio & chat are connected.
                                 </span>
                             </div>
+                            <span className="text-[11px] text-blue-300/90 bg-blue-950/50 px-2.5 py-0.5 rounded-full border border-blue-800/50">
+                                ✋ <strong>To share your screen or speak:</strong> Click "Raise Hand" in the toolbar below.
+                            </span>
                         </div>
                     )}
                 </div>
             )}
 
             {/* Embedded Live Classroom Surface */}
-            <div className="flex-1 relative w-full bg-black overflow-hidden flex flex-col">
-                {/* 1. Webinar.gg Iframe (Preserved in DOM so audio stream never drops) */}
-                <div className={`w-full h-full transition-opacity duration-300 ${
-                    viewMode === 'grid' ? 'absolute inset-0 pointer-events-none opacity-0 z-0' : 'relative z-10 block'
-                }`}>
-                    <iframe 
-                        ref={iframeRef}
-                        src={iframeSrc}
-                        allow="camera; microphone; fullscreen; display-capture; autoplay; clipboard-write; speaker-selection; encrypted-media"
-                        className="w-full h-full border-none"
-                        title="UniEval Live Classroom"
-                    />
-                </div>
+            <div className="flex-1 relative w-full bg-black overflow-hidden">
+                <iframe 
+                    ref={iframeRef}
+                    src={iframeSrc}
+                    allow="camera; microphone; fullscreen; display-capture; autoplay; clipboard-write; speaker-selection; encrypted-media"
+                    className="w-full h-full border-none"
+                    title="UniEval Live Classroom"
+                />
 
-                {/* 2. Google Meet-Style Participant Grid (Active when cameras/screen are off) */}
-                {viewMode === 'grid' && (
-                    <div className="relative z-10 w-full h-full bg-[#121622] p-4 sm:p-6 flex flex-col justify-between overflow-y-auto">
-                        {/* Audio Status Header inside Grid */}
-                        <div className="flex items-center justify-between mb-4 bg-[#181E2E]/80 backdrop-blur-md px-4 py-2.5 rounded-xl border border-slate-800 shrink-0">
-                            <div className="flex items-center gap-2.5">
-                                <span className="relative flex h-3 w-3">
-                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                                    <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
-                                </span>
-                                <span className="text-xs font-bold text-white tracking-wide">
-                                    Audio Mode Active
-                                </span>
-                                <span className="text-xs text-slate-400 hidden sm:inline">•</span>
-                                <span className="text-xs text-slate-400 hidden sm:inline flex items-center gap-1">
-                                    <Users className="w-3.5 h-3.5 text-blue-400" />
-                                    {participants.length} Active Participants
-                                </span>
-                            </div>
-
-                            <button
-                                onClick={() => setViewMode('stage')}
-                                className="flex items-center gap-2 bg-[#1F81FC] hover:bg-blue-600 text-white px-3 py-1.5 rounded-lg text-xs font-semibold shadow-md transition-all active:scale-95"
-                            >
-                                <MonitorPlay className="w-3.5 h-3.5" />
-                                <span>Switch to Screen / Video</span>
-                            </button>
+                {/* Ambient Status Pill when screen share & camera are idle */}
+                {!isScreenSharing && !isHostVideoActive && (
+                    <div className="absolute top-4 left-4 z-20 pointer-events-none bg-[#131A3F]/90 backdrop-blur-md border border-slate-700/80 rounded-xl px-3.5 py-2.5 shadow-2xl flex items-center gap-3 max-w-sm">
+                        <div className="w-8 h-8 rounded-lg bg-blue-500/20 text-blue-400 flex items-center justify-center shrink-0">
+                            <Radio className="w-4 h-4 animate-pulse" />
                         </div>
-
-                        {/* Google Meet Cards Grid */}
-                        <div className={`grid gap-4 flex-1 items-center justify-center my-auto ${
-                            participants.length <= 2 
-                                ? 'grid-cols-1 sm:grid-cols-2 max-w-3xl mx-auto w-full' 
-                                : participants.length <= 4 
-                                ? 'grid-cols-2 max-w-4xl mx-auto w-full' 
-                                : 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 max-w-5xl mx-auto w-full'
-                        }`}>
-                            {participants.map((p) => {
-                                const initial = p.name.trim().charAt(0).toUpperCase();
-                                return (
-                                    <div 
-                                        key={p.id}
-                                        className="bg-[#1C2233] border border-slate-700/60 rounded-2xl p-5 aspect-[4/3] flex flex-col items-center justify-center relative shadow-lg group hover:border-blue-500/50 transition-all overflow-hidden"
-                                    >
-                                        {/* Speaking ring */}
-                                        {p.isSpeaking && (
-                                            <div className="absolute inset-0 border-2 border-emerald-500/60 rounded-2xl pointer-events-none animate-pulse" />
-                                        )}
-
-                                        {/* Centered Avatar with Name's First Letter */}
-                                        <div className="relative">
-                                            <div className={`w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-gradient-to-tr ${p.gradient} flex items-center justify-center text-white text-3xl sm:text-4xl font-extrabold shadow-xl shadow-black/40`}>
-                                                {initial}
-                                            </div>
-                                            {p.isSpeaking && (
-                                                <div className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full bg-emerald-500 border-2 border-[#1C2233] flex items-center justify-center shadow-md animate-bounce">
-                                                    <Volume2 className="w-3.5 h-3.5 text-white" />
-                                                </div>
-                                            )}
-                                        </div>
-
-                                        {/* Top Badge */}
-                                        <div className="absolute top-3 left-3">
-                                            {p.isHost ? (
-                                                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
-                                                    HOST
-                                                </span>
-                                            ) : p.isMe ? (
-                                                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-500/20 text-blue-300 border border-blue-500/30">
-                                                    YOU
-                                                </span>
-                                            ) : (
-                                                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-700/60 text-slate-300 border border-slate-600/50">
-                                                    STUDENT
-                                                </span>
-                                            )}
-                                        </div>
-
-                                        {/* Bottom Name Pill */}
-                                        <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-xl border border-slate-700/50">
-                                            <span className="text-xs font-semibold text-white truncate max-w-[140px]">
-                                                {p.name}
-                                            </span>
-                                            <div className="flex items-center gap-1">
-                                                {p.isSpeaking ? (
-                                                    <Mic className="w-3.5 h-3.5 text-emerald-400" />
-                                                ) : (
-                                                    <MicOff className="w-3.5 h-3.5 text-slate-400" />
-                                                )}
-                                            </div>
-                                        </div>
-                                    </div>
-                                );
-                            })}
+                        <div>
+                            <div className="flex items-center gap-1.5">
+                                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+                                <span className="text-xs font-bold text-white">Live Audio & Chat Active</span>
+                            </div>
+                            <p className="text-[11px] text-slate-300 mt-0.5 leading-snug">
+                                {isTeacher 
+                                    ? 'Camera & screen share are currently off. Turn on camera or share screen below.' 
+                                    : 'Screen & camera are currently idle. You can hear live audio & chat.'}
+                            </p>
                         </div>
                     </div>
                 )}
 
-                {/* Floating Quick Action Button Overlay (Fades out when mouse is idle) */}
+                {/* Floating Fullscreen Button (Fades out when mouse is idle) */}
                 <div className={`absolute bottom-5 right-5 z-20 flex items-center gap-2 transition-all duration-300 ${
                     controlsVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'
                 }`}>
-                    {viewMode === 'stage' && (
-                        <button
-                            onClick={() => setViewMode('grid')}
-                            className="bg-slate-900/90 hover:bg-slate-800 text-slate-200 hover:text-white px-3.5 py-2 rounded-xl text-xs font-semibold border border-slate-700/80 shadow-xl backdrop-blur-md flex items-center gap-2 transition-all"
-                            title="Cameras off? Switch to Google Meet style participant grid"
-                        >
-                            <LayoutGrid className="w-4 h-4 text-blue-400" />
-                            <span className="hidden sm:inline">Cameras off? Meet Grid</span>
-                        </button>
-                    )}
-
                     <button
                         onClick={toggleFullscreen}
                         className="bg-slate-900/90 hover:bg-slate-800 text-white p-2.5 rounded-xl border border-slate-700/80 shadow-xl backdrop-blur-md transition-all active:scale-95"

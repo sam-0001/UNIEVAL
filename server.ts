@@ -100,7 +100,15 @@ async function startServer() {
     // being rejected by CORS when CORS_ORIGINS is set to a specific domain.
     if (NODE_ENV === 'production') {
         const distPath = path.resolve(__dirname, 'dist');
-        app.use(express.static(distPath));
+        app.use(express.static(distPath, {
+            maxAge: '1y',
+            immutable: true,
+            setHeaders: (res, filePath) => {
+                if (filePath.endsWith('.html')) {
+                    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+                }
+            }
+        }));
     }
 
     // ── CORS ─────────────────────────────────────────────────────────────────
@@ -229,8 +237,10 @@ async function startServer() {
         app.use(vite.middlewares);
     } else {
         const distPath = path.resolve(__dirname, 'dist');
-        app.use(express.static(distPath));
-        app.get(/.*/, (_req, res) => res.sendFile(path.join(distPath, 'index.html')));
+        app.get(/.*/, (_req, res) => {
+            res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+            res.sendFile(path.join(distPath, 'index.html'));
+        });
     }
 
     const server = app.listen(PORT, '0.0.0.0', () => {
@@ -260,6 +270,21 @@ async function startServer() {
     process.on('SIGTERM', () => shutdown('SIGTERM'));
     process.on('SIGINT',  () => shutdown('SIGINT'));
 }
+
+// ── Global process crash protection ──────────────────────────────────────────
+process.on('unhandledRejection', (reason: any) => {
+    logger.error('[Process] Unhandled Rejection:', {
+        error: reason?.message || String(reason),
+        stack: reason?.stack,
+    });
+});
+
+process.on('uncaughtException', (err: Error) => {
+    logger.error('[Process] Uncaught Exception:', {
+        error: err.message,
+        stack: err.stack,
+    });
+});
 
 startServer().catch((err) => {
     logger.error('Fatal startup error', { error: err.message, stack: err.stack });

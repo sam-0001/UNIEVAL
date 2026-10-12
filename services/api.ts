@@ -11,46 +11,112 @@ function authHeaders(): Record<string, string> {
   return {};
 }
 
-async function fetchJson<T>(url: string, options?: RequestInit, timeoutMs = 15000): Promise<T> {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    const response = await fetch(`${API_BASE}${url}`, { ...options, signal: controller.signal });
-    if (!response.ok) {
-      // Try to parse JSON error body; fall back to status-based messages
-      let errorMessage: string;
-      let errorBody: any = null;
-      try {
-        const body = await response.json();
-        errorBody = body;
-        errorMessage = body.error || body.message || `Request failed with status ${response.status}`;
-      } catch {
-        // Response was not JSON (e.g. Nginx HTML error page)
-        if (response.status === 429) {
-          errorMessage = 'Too many login attempts. Please wait a few minutes and try again.';
-        } else if (response.status === 401) {
-          errorMessage = 'Invalid email or password.';
-        } else if (response.status === 404) {
-          errorMessage = 'Account not found.';
-        } else if (response.status >= 500) {
-          errorMessage = 'Server error. Please try again shortly.';
-        } else {
-          errorMessage = `Request failed (${response.status}). Please try again.`;
-        }
-      }
-      const customErr: any = new Error(errorMessage);
-      customErr.status = response.status;
-      customErr.code = errorBody?.code;
-      customErr.data = errorBody;
-      throw customErr;
-    }
-    return response.json();
-  } catch (err: any) {
-    if (err.name === 'AbortError') throw new Error('Request timed out. Please try again.');
-    throw err;
-  } finally {
-    clearTimeout(timer);
+interface CacheEntry<T> {
+  data: T;
+  expiry: number;
+}
+
+const clientCache = new Map<string, CacheEntry<any>>();
+const inFlightRequests = new Map<string, Promise<any>>();
+
+export function clearClientCache(pattern?: string) {
+  if (!pattern) {
+    clientCache.clear();
+    return;
   }
+  for (const key of clientCache.keys()) {
+    if (key.includes(pattern)) {
+      clientCache.delete(key);
+    }
+  }
+}
+
+function getCacheTTL(url: string, method?: string): number {
+  if (method && method.toUpperCase() !== 'GET') return 0;
+  if (url.startsWith('/subjects')) return 300_000; // 5 mins
+  if (url.startsWith('/courses') || url.startsWith('/notes') || url.startsWith('/quizzes') || url.startsWith('/vivas')) return 120_000; // 2 mins
+  if (url.startsWith('/users/teachers')) return 300_000; // 5 mins
+  return 0; // Don't cache auth, credits, session check, payments
+}
+
+async function fetchJson<T>(url: string, options?: RequestInit, timeoutMs = 15000): Promise<T> {
+  const method = options?.method ? options.method.toUpperCase() : 'GET';
+  const ttl = getCacheTTL(url, method);
+  const cacheKey = `${url}`;
+
+  // Serve from memory cache if valid
+  if (ttl > 0) {
+    const cached = clientCache.get(cacheKey);
+    if (cached && cached.expiry > Date.now()) {
+      return cached.data as T;
+    }
+  }
+
+  // If a mutation occurs, invalidate relevant cache keys
+  if (method !== 'GET') {
+    if (url.includes('course')) clearClientCache('course');
+    if (url.includes('note')) clearClientCache('note');
+    if (url.includes('quiz')) clearClientCache('quiz');
+    if (url.includes('viva')) clearClientCache('viva');
+    if (url.includes('subject')) clearClientCache('subject');
+  }
+
+  // Deduplicate identical in-flight GET requests
+  if (method === 'GET') {
+    const existing = inFlightRequests.get(cacheKey);
+    if (existing) return existing as Promise<T>;
+  }
+
+  const execRequest = async (): Promise<T> => {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const response = await fetch(`${API_BASE}${url}`, { ...options, signal: controller.signal });
+      if (!response.ok) {
+        // Try to parse JSON error body; fall back to status-based messages
+        let errorMessage: string;
+        let errorBody: any = null;
+        try {
+          const body = await response.json();
+          errorBody = body;
+          errorMessage = body.error || body.message || `Request failed with status ${response.status}`;
+        } catch {
+          // Response was not JSON (e.g. Nginx HTML error page)
+          if (response.status === 429) {
+            errorMessage = 'Too many login attempts. Please wait a few minutes and try again.';
+          } else if (response.status === 401) {
+            errorMessage = 'Invalid email or password.';
+          } else if (response.status === 404) {
+            errorMessage = 'Account not found.';
+          } else if (response.status >= 500) {
+            errorMessage = 'Server error. Please try again shortly.';
+          } else {
+            errorMessage = `Request failed (${response.status}). Please try again.`;
+          }
+        }
+        const customErr: any = new Error(errorMessage);
+        customErr.status = response.status;
+        customErr.code = errorBody?.code;
+        customErr.data = errorBody;
+        throw customErr;
+      }
+      const data = await response.json();
+      if (ttl > 0) {
+        clientCache.set(cacheKey, { data, expiry: Date.now() + ttl });
+      }
+      return data;
+    } catch (err: any) {
+      if (err.name === 'AbortError') throw new Error('Request timed out. Please try again.');
+      throw err;
+    } finally {
+      clearTimeout(timer);
+      if (method === 'GET') inFlightRequests.delete(cacheKey);
+    }
+  };
+
+  const promise = execRequest();
+  if (method === 'GET') inFlightRequests.set(cacheKey, promise);
+  return promise;
 }
 
 export const api = {
@@ -83,7 +149,7 @@ export const api = {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name, email, role, password, phoneNumber })
-    });
+    }, 25000);
   },
 
   // FIX: Dedicated super admin OTP-based login — does NOT require a password.
@@ -380,7 +446,7 @@ export const api = {
         phoneNumber: options?.phoneNumber,
         mode: options?.mode,
       })
-    });
+    }, 30000);
   },
 
   verifyOTP: async (email: string, otp: string): Promise<boolean> => {
@@ -414,7 +480,7 @@ export const api = {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ phoneNumber })
-    });
+    }, 30000);
   },
 
   resetPasswordByPhone: async (phoneNumber: string, otp: string, newPassword: string): Promise<void> => {
@@ -618,7 +684,16 @@ export const api = {
     });
   },
 
-  getLiveClassPlayback: async (classId: string): Promise<{ playbackUrl: string; sessionKey?: string; token?: string; type?: string; title?: string }> => {
+  getLiveClassPlayback: async (classId: string): Promise<{
+    status?: 'ready' | 'processing' | 'error';
+    playbackUrl?: string;
+    sessionKey?: string;
+    token?: string;
+    type?: string;
+    title?: string;
+    message?: string;
+    duration?: number;
+  }> => {
     return fetchJson(`/live-classes/${classId}/playback`, {
       headers: authHeaders()
     });
@@ -631,4 +706,6 @@ export const api = {
       body: JSON.stringify({ recordingUrl })
     });
   },
+
+  clearCache: (pattern?: string) => clearClientCache(pattern),
 };

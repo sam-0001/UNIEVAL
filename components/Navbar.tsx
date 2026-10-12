@@ -14,6 +14,9 @@ const Navbar: React.FC = () => {
   const closeMobileMenu = () => setIsMobileMenuOpen(false);
 
   const isStudent = user?.role === UserRole.STUDENT;
+  const dashboardPath = user
+    ? (user.role === UserRole.SUPER_ADMIN ? '/super-admin' : (user.role === UserRole.ADMIN || user.role === UserRole.TEACHER ? '/admin' : '/dashboard'))
+    : '/';
 
   return (
     <nav className="bg-white border-b border-gray-100 sticky top-0 z-50">
@@ -22,7 +25,7 @@ const Navbar: React.FC = () => {
 
           {/* Logo */}
           <div className="flex items-center">
-            <Link to="/" className="flex items-center gap-3" onClick={closeMobileMenu}>
+            <Link to={dashboardPath} className="flex items-center gap-3" onClick={closeMobileMenu}>
               <img src="/img/logo.jpeg" alt="UNIEVAL" className="w-9 h-9 rounded-lg object-cover shadow-md" />
               <span className="text-xl font-bold text-slate-900 tracking-tight">UNIEVAL</span>
             </Link>
@@ -98,7 +101,7 @@ const Navbar: React.FC = () => {
                     </Link>
                   </>
                 )}
-                <Link to="/dashboard" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
+                <Link to={dashboardPath} className="flex items-center gap-2 hover:opacity-80 transition-opacity">
                   <div className="h-8 w-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold text-sm">
                     {user.name[0]}
                   </div>
@@ -123,7 +126,7 @@ const Navbar: React.FC = () => {
           <div className="px-4 pt-2 pb-6 space-y-2">
             {user ? (
               <>
-                <Link to="/dashboard" onClick={closeMobileMenu} className="flex items-center gap-3 px-3 py-3 border-b border-gray-100 mb-2 hover:bg-gray-50 transition-colors">
+                <Link to={dashboardPath} onClick={closeMobileMenu} className="flex items-center gap-3 px-3 py-3 border-b border-gray-100 mb-2 hover:bg-gray-50 transition-colors">
                   <div className="h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold">
                     {user.name[0]}
                   </div>

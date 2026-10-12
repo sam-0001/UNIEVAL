@@ -35,7 +35,7 @@ const Profile: React.FC = () => {
     }
   }, [user]);
 
-  if (!user) return <Navigate to="/" replace />;
+  if (!user) return <Navigate to="/login" replace />;
 
   const isStudent = user.role === UserRole.STUDENT;
   const freeUsedCount = freeQuizUsed;

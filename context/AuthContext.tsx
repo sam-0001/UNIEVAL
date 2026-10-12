@@ -209,8 +209,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   // ─── Session helpers ───────────────────────────────────────────────────────
+  const lastActivityUpdateRef = useRef(0);
   const updateLastActivity = useCallback(() => {
-    if (localStorage.getItem('user')) localStorage.setItem('lastActivity', Date.now().toString());
+    const now = Date.now();
+    // Throttle: write to localStorage at most once every 60 seconds
+    if (now - lastActivityUpdateRef.current < 60_000) return;
+    lastActivityUpdateRef.current = now;
+    if (localStorage.getItem('user')) localStorage.setItem('lastActivity', now.toString());
   }, []);
 
   const logout = useCallback(() => {

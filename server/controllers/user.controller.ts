@@ -5,6 +5,7 @@ import { User, Course, Note, Subject, Purchase, VideoKey, Coupon } from '../mode
 import { UserRole } from '../../types.js';
 import { sanitizeUser, generateId, findUserByEmail } from './auth.controller.js';
 import { applyDiscount, incrementCouponUsage } from './coupon.controller.js';
+import { cache } from '../services/cache.service.js';
 import logger from '../logger.js';
 
 // ─── Users ────────────────────────────────────────────────────────────────────
@@ -100,7 +101,9 @@ export async function getSubjects(req: express.Request, res: express.Response): 
     if (req.query.year) query.year = Number(req.query.year as string);
     if (req.query.branch) query.branch = String(req.query.branch);
     try {
-        res.json(await Subject.find(query).lean());
+        const cacheKey = `subjects:${query.branch || 'all'}:${query.year || 'all'}`;
+        const subjects = await cache.getOrSet(cacheKey, () => Subject.find(query).lean(), 1800);
+        res.json(subjects);
     } catch (err) {
         logger.error('[Subjects] getSubjects:', err);
         res.status(500).json({ error: 'An internal error occurred' });
@@ -122,6 +125,7 @@ export async function createSubject(req: express.Request, res: express.Response)
             code: code || name.substring(0, 3).toUpperCase(),
             branch, year
         });
+        await cache.invalidate('subjects:*');
         res.json(newSubject);
     } catch (err) {
         logger.error('[Subjects] createSubject:', err);

@@ -67,35 +67,36 @@ const BrowseCourses: React.FC = () => {
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
-      
-      // 1. Get Subjects based on filters
-      const fetchedSubjects = await api.getSubjects(
-        selectedBranch as Branch || undefined,
-        selectedYear ? Number(selectedYear) : undefined
-      );
-      setSubjects(fetchedSubjects);
+      try {
+        // 1. Get Subjects based on filters
+        const fetchedSubjects = await api.getSubjects(
+          selectedBranch as Branch || undefined,
+          selectedYear ? Number(selectedYear) : undefined
+        ).catch(() => []);
+        setSubjects(fetchedSubjects);
 
-      // 2. Fetch all content (In real app, we would filter by subject IDs from fetchedSubjects)
-      // Since mock API is simple, we fetch all and filter in render or here.
-      // For this demo, let's just fetch all and filter by the subjects we found.
-      const subjectIds = new Set(fetchedSubjects.map(s => s.id));
-      
-      const [allCourses, allNotes, allQuizzes, allViva] = await Promise.all([
-          api.getCourses(),
-          api.getNotes(),
-          api.getQuizzes(),
-          api.getViva()
-      ]);
+        // 2. Fetch all content
+        const subjectIds = new Set(fetchedSubjects.map(s => s.id));
+        
+        const [allCourses, allNotes, allQuizzes, allViva] = await Promise.all([
+            api.getCourses().catch(() => []),
+            api.getNotes().catch(() => []),
+            api.getQuizzes().catch(() => []),
+            api.getViva().catch(() => [])
+        ]);
 
-      const dedup = <T extends { id: string }>(arr: T[]) =>
-        arr.filter((item, idx, self) => self.findIndex(x => x.id === item.id) === idx);
+        const dedup = <T extends { id: string }>(arr: T[]) =>
+          arr.filter((item, idx, self) => self.findIndex(x => x.id === item.id) === idx);
 
-      setCourses(dedup(allCourses.filter(c => subjectIds.has(c.subjectId))));
-      setNotes(dedup(allNotes.filter(n => subjectIds.has(n.subjectId))));
-      setQuizzes(dedup(allQuizzes.filter(q => subjectIds.has(q.subjectId))));
-      setViva(dedup(allViva.filter(v => subjectIds.has(v.subjectId))));
-
-      setLoading(false);
+        setCourses(dedup(allCourses.filter(c => subjectIds.has(c.subjectId))));
+        setNotes(dedup(allNotes.filter(n => subjectIds.has(n.subjectId))));
+        setQuizzes(dedup(allQuizzes.filter(q => subjectIds.has(q.subjectId))));
+        setViva(dedup(allViva.filter(v => subjectIds.has(v.subjectId))));
+      } catch (err) {
+        console.error('Failed to load courses data:', err);
+      } finally {
+        setLoading(false);
+      }
     };
     fetchData();
   }, [selectedBranch, selectedYear]);

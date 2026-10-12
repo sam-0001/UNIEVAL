@@ -15,84 +15,74 @@ async function addIndexes() {
     const db = mongoose.connection.db!;
     console.log('Connected. Creating indexes...\n');
 
+    async function ensureIndex(col: string, spec: any, opts: any = {}) {
+        try {
+            await db.collection(col).createIndex(spec, opts);
+        } catch (err: any) {
+            if (err.message && err.message.includes('already exists')) {
+                // Index already exists under default or different name, safe to continue
+                return;
+            }
+            console.warn(`  ⚠️ [${col}]`, err.message);
+        }
+    }
+
     // ─── Users ────────────────────────────────────────────────────────────────
-    await db.collection('users').createIndexes([
-        { key: { id: 1 },          name: 'user_id',       unique: true },
-        { key: { email: 1 },       name: 'user_email',    unique: true },
-        { key: { role: 1, id: 1 }, name: 'user_role_id' },
-    ]);
+    await ensureIndex('users', { id: 1 }, { unique: true });
+    await ensureIndex('users', { email: 1 }, { unique: true });
+    await ensureIndex('users', { phoneNumber: 1 });
+    await ensureIndex('users', { role: 1, id: 1 });
     console.log('✅ users');
 
     // ─── Purchases ────────────────────────────────────────────────────────────
-    // Most queried collection at scale — teacher stats, purchase checks
-    await db.collection('purchases').createIndexes([
-        { key: { teacherId: 1, createdAt: -1 }, name: 'purchase_teacher_date' },
-        { key: { userId: 1, productId: 1 },     name: 'purchase_user_product' },
-        { key: { productId: 1 },                name: 'purchase_product' },
-    ]);
+    await ensureIndex('purchases', { teacherId: 1, createdAt: -1 });
+    await ensureIndex('purchases', { userId: 1, productId: 1 });
+    await ensureIndex('purchases', { productId: 1 });
     console.log('✅ purchases');
 
     // ─── Courses ──────────────────────────────────────────────────────────────
-    await db.collection('courses').createIndexes([
-        { key: { id: 1 },                          name: 'course_id',           unique: true },
-        { key: { subjectId: 1, teacherId: 1 },     name: 'course_subject_teacher' },
-        { key: { 'modules.videos.videoId': 1 },    name: 'course_video_id' },
-    ]);
+    await ensureIndex('courses', { id: 1 }, { unique: true });
+    await ensureIndex('courses', { subjectId: 1, teacherId: 1 });
+    await ensureIndex('courses', { 'modules.videos.videoId': 1 });
     console.log('✅ courses');
 
     // ─── Notes ────────────────────────────────────────────────────────────────
-    await db.collection('notes').createIndexes([
-        { key: { id: 1 },                      name: 'note_id',             unique: true },
-        { key: { subjectId: 1, teacherId: 1 }, name: 'note_subject_teacher' },
-    ]);
+    await ensureIndex('notes', { id: 1 }, { unique: true });
+    await ensureIndex('notes', { subjectId: 1, teacherId: 1 });
     console.log('✅ notes');
 
     // ─── Quizzes & Vivas ──────────────────────────────────────────────────────
-    await db.collection('quizzes').createIndexes([
-        { key: { id: 1 },                      name: 'quiz_id',             unique: true },
-        { key: { subjectId: 1, teacherId: 1 }, name: 'quiz_subject_teacher' },
-    ]);
-    await db.collection('vivas').createIndexes([
-        { key: { id: 1 },                      name: 'viva_id',             unique: true },
-        { key: { subjectId: 1, teacherId: 1 }, name: 'viva_subject_teacher' },
-    ]);
+    await ensureIndex('quizzes', { id: 1 }, { unique: true });
+    await ensureIndex('quizzes', { subjectId: 1, teacherId: 1 });
+    await ensureIndex('vivas', { id: 1 }, { unique: true });
+    await ensureIndex('vivas', { subjectId: 1, teacherId: 1 });
     console.log('✅ quizzes, vivas');
 
     // ─── Subjects ─────────────────────────────────────────────────────────────
-    await db.collection('subjects').createIndexes([
-        { key: { id: 1 },             name: 'subject_id',          unique: true },
-        { key: { branch: 1, year: 1 }, name: 'subject_branch_year' },
-    ]);
+    await ensureIndex('subjects', { id: 1 }, { unique: true });
+    await ensureIndex('subjects', { branch: 1, year: 1 });
     console.log('✅ subjects');
 
     // ─── Quiz Pool (hot path — AI quiz generation) ────────────────────────────
-    await db.collection('quizpools').createIndexes([
-        { key: { id: 1 },                                              name: 'pool_id',        unique: true },
-        { key: { branch: 1, subject: 1, semester: 1, unit: 1 },       name: 'pool_lookup',    unique: true },
-    ]);
+    await ensureIndex('quizpools', { id: 1 }, { unique: true });
+    await ensureIndex('quizpools', { branch: 1, subject: 1, semester: 1, unit: 1 }, { unique: true });
     console.log('✅ quizpools');
 
     // ─── Exam Intelligence ────────────────────────────────────────────────────
-    await db.collection('examintelligences').createIndexes([
-        { key: { id: 1 },                              name: 'exam_id',         unique: true },
-        { key: { branch: 1, subject: 1, semester: 1 }, name: 'exam_lookup',     unique: true },
-    ]);
+    await ensureIndex('examintelligences', { id: 1 }, { unique: true });
+    await ensureIndex('examintelligences', { branch: 1, subject: 1, semester: 1 }, { unique: true });
     console.log('✅ examintelligences');
 
     // ─── Payouts ──────────────────────────────────────────────────────────────
-    await db.collection('payouts').createIndexes([
-        { key: { id: 1 },                           name: 'payout_id',          unique: true },
-        { key: { teacherId: 1, status: 1, createdAt: -1 }, name: 'payout_teacher_status' },
-    ]);
+    await ensureIndex('payouts', { id: 1 }, { unique: true });
+    await ensureIndex('payouts', { teacherId: 1, status: 1, createdAt: -1 });
     console.log('✅ payouts');
 
     // ─── OTPs ─────────────────────────────────────────────────────────────────
-    await db.collection('otps').createIndexes([
-        { key: { email: 1 }, name: 'otp_email' },
-    ]);
+    await ensureIndex('otps', { email: 1 });
     console.log('✅ otps');
 
-    console.log('\n✅ All indexes created successfully');
+    console.log('\n✅ All indexes ensured successfully!');
     await mongoose.disconnect();
 }
 

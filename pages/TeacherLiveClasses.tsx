@@ -32,8 +32,12 @@ const TeacherLiveClasses: React.FC = () => {
 
     useEffect(() => {
         if (isLoading) return;
-        if (!user || (user.role !== 'ADMIN' && user.role !== 'SUPER_ADMIN' && user.role !== 'TEACHER')) {
-            navigate('/');
+        if (!user) {
+            navigate('/login', { replace: true });
+            return;
+        }
+        if (user.role === 'STUDENT') {
+            navigate('/dashboard', { replace: true });
             return;
         }
         
@@ -346,13 +350,31 @@ const TeacherLiveClasses: React.FC = () => {
                                                     </span>
                                                 </div>
                                                 <div className="flex items-center gap-2">
-                                                    <button
-                                                        disabled
-                                                        className="flex-1 bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/60 text-slate-400 dark:text-slate-500 py-2 px-3 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 cursor-not-allowed select-none"
-                                                        title="Recordings are currently unavailable"
-                                                    >
-                                                        <VideoOff className="w-3.5 h-3.5" /> Recording Unavailable
-                                                    </button>
+                                                    {(lc.recordingStatus === 'ready' || (lc.recordingUrl && !lc.recordingUrl.endsWith(lc.dailyRoomName || ''))) ? (
+                                                        <button
+                                                            onClick={() => navigate(`/live-class/${lc.id}`)}
+                                                            className="flex-1 bg-indigo-600 hover:bg-indigo-700 dark:bg-blue-600 dark:hover:bg-blue-700 text-white py-2 px-3 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 shadow-sm transition-all"
+                                                            title="Watch recording replay"
+                                                        >
+                                                            <Play className="w-3.5 h-3.5 fill-current" /> Watch Recording
+                                                        </button>
+                                                    ) : lc.recordingStatus === 'processing' ? (
+                                                        <button
+                                                            onClick={() => navigate(`/live-class/${lc.id}`)}
+                                                            className="flex-1 bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-300 dark:border-amber-700/60 py-2 px-3 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-all"
+                                                            title="Recording is currently being processed by Webinar.gg"
+                                                        >
+                                                            <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-500" /> Processing Recording
+                                                        </button>
+                                                    ) : (
+                                                        <button
+                                                            onClick={() => navigate(`/live-class/${lc.id}`)}
+                                                            className="flex-1 bg-slate-100 dark:bg-slate-800/80 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700/60 text-slate-600 dark:text-slate-300 py-2 px-3 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-all"
+                                                            title="Check or view session recording"
+                                                        >
+                                                            <Play className="w-3.5 h-3.5" /> View Session
+                                                        </button>
+                                                    )}
                                                     <button 
                                                         onClick={() => handleDelete(lc.id)}
                                                         className="p-2 bg-red-50 hover:bg-red-100 dark:bg-red-950/30 dark:hover:bg-red-900/40 border border-red-100 dark:border-red-900/50 text-red-600 dark:text-red-400 rounded-lg transition-colors"

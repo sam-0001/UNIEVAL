@@ -24,6 +24,7 @@ vi.mock('../server/services/daily.js', () => ({
 vi.mock('../server/services/webinargg.js', () => ({
   createWebinar: vi.fn().mockResolvedValue({ id: 'test-room', url: 'https://webinar.gg/webinar-page/test-room' }),
   getWebinarToken: vi.fn().mockResolvedValue('test-token'),
+  getWebinarRecording: vi.fn().mockResolvedValue({ status: 'ready', playbackUrl: 'https://mock.webinar.gg/rec.mp4' }),
   deleteWebinar: vi.fn().mockResolvedValue(true)
 }));
 
@@ -121,7 +122,8 @@ describe('Live Class Endpoints', () => {
       status: 'completed',
       courseId: 'course1',
       dailyRoomName: 'test-room',
-      dailyRoomUrl: 'https://webinar.gg/webinar-page/test-room'
+      dailyRoomUrl: 'https://webinar.gg/webinar-page/test-room',
+      save: vi.fn().mockResolvedValue(true)
     } as any);
 
     vi.spyOn(User, 'findOne').mockResolvedValue({
@@ -140,7 +142,43 @@ describe('Live Class Endpoints', () => {
       .get('/api/live-classes/class1/playback');
 
     expect(res.status).toBe(200);
-    expect(res.body.playbackUrl).toContain('token=');
-    expect(res.body.token).toBe('dummy-token');
+    expect(res.body.playbackUrl).toBe('https://mock.webinar.gg/rec.mp4');
+    expect(res.body.status).toBe('ready');
+  });
+
+  it('should return processing status when recording is not yet ready', async () => {
+    const webinargg = await import('../server/services/webinargg.js');
+    vi.mocked(webinargg.getWebinarRecording).mockResolvedValueOnce({
+      status: 'processing',
+      message: 'Recording not available yet. It may still be processing.'
+    });
+
+    vi.spyOn(LiveClass, 'findOne').mockResolvedValue({
+      id: 'class2',
+      title: 'Just Ended Class',
+      status: 'completed',
+      courseId: 'course1',
+      dailyRoomName: 'processing-room',
+      dailyRoomUrl: 'https://webinar.gg/webinar-page/processing-room'
+    } as any);
+
+    vi.spyOn(User, 'findOne').mockResolvedValue({
+      id: 'teacher1',
+      name: 'Test Student',
+      role: 'STUDENT',
+      purchasedCourseIds: ['course1']
+    } as any);
+
+    vi.spyOn(Course, 'findOne').mockResolvedValue({
+      id: 'course1',
+      pricing: { amount: 0 }
+    } as any);
+
+    const res = await request(app)
+      .get('/api/live-classes/class2/playback');
+
+    expect(res.status).toBe(200);
+    expect(res.body.status).toBe('processing');
+    expect(res.body.message).toContain('processed');
   });
 });

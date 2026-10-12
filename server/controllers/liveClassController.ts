@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { LiveClass, Course, User } from '../models.js';
-import { createWebinar, deleteWebinar, getWebinarToken } from '../services/webinargg.js';
+import { createWebinar, deleteWebinar, getWebinarToken, getWebinarRecording } from '../services/webinargg.js';
 import logger from '../logger.js';
 import crypto from 'crypto';
 import { redis } from '../redis.js';
@@ -120,43 +120,35 @@ export const startLiveClass = async (req: Request, res: Response): Promise<void>
 
     let token = 'dummy-token';
     if (process.env.WEBINAR_GG_API_KEY) {
-      const cacheKey = `webinar:token:${liveClass.id}:${teacherId}`;
-      const cachedToken = await redis.get(cacheKey).catch(() => null);
-      if (cachedToken && cachedToken !== 'dummy-token') {
-        token = cachedToken;
-      } else {
-        try {
-          token = await getWebinarToken(liveClass.dailyRoomName, 'host', userName, userEmail, liveClass.passcode || '');
-          await redis.setex(cacheKey, 14400, token).catch(() => null); // Cache for 4 hours
-        } catch (e: any) {
-          logger.error('Failed to get Webinar.gg host token', { error: e.message });
-          // If webinar was not found on Webinar.gg (legacy, deleted, or expired), self-heal by provisioning a new room
-          if (e.message?.includes('Webinar not found')) {
-            try {
-              logger.info(`Webinar not found for class ${liveClass.id}, creating a fresh Webinar.gg room...`);
-              const webinarRes = await createWebinar(
-                liveClass.title || 'UniEval Live Class',
-                new Date().toISOString(),
-                360,
-                'Asia/Kolkata',
-                liveClass.passcode || ''
-              );
-              if (webinarRes?.id) {
-                liveClass.dailyRoomName = webinarRes.id;
-                liveClass.dailyRoomUrl = webinarRes.url || `https://webinar.gg/webinar-page/${webinarRes.id}`;
-                await liveClass.save();
-                token = await getWebinarToken(liveClass.dailyRoomName, 'host', userName, userEmail, liveClass.passcode || '');
-                await redis.setex(cacheKey, 14400, token).catch(() => null);
-              }
-            } catch (reErr: any) {
-              logger.error('Failed to auto-heal webinar room', { error: reErr.message });
-              if (process.env.NODE_ENV !== 'test') {
-                throw new Error(`Failed to generate live session host token: ${reErr.message}`);
-              }
+      try {
+        token = await getWebinarToken(liveClass.dailyRoomName, 'host', userName, userEmail, liveClass.passcode || '');
+      } catch (e: any) {
+        logger.error('Failed to get Webinar.gg host token', { error: e.message });
+        // If webinar was not found on Webinar.gg (legacy, deleted, or expired), self-heal by provisioning a new room
+        if (e.message?.includes('Webinar not found')) {
+          try {
+            logger.info(`Webinar not found for class ${liveClass.id}, creating a fresh Webinar.gg room...`);
+            const webinarRes = await createWebinar(
+              liveClass.title || 'UniEval Live Class',
+              new Date().toISOString(),
+              360,
+              'Asia/Kolkata',
+              liveClass.passcode || ''
+            );
+            if (webinarRes?.id) {
+              liveClass.dailyRoomName = webinarRes.id;
+              liveClass.dailyRoomUrl = webinarRes.url || `https://webinar.gg/webinar-page/${webinarRes.id}`;
+              await liveClass.save();
+              token = await getWebinarToken(liveClass.dailyRoomName, 'host', userName, userEmail, liveClass.passcode || '');
             }
-          } else if (process.env.NODE_ENV !== 'test') {
-            throw new Error(`Failed to generate live session host token: ${e.message}`);
+          } catch (reErr: any) {
+            logger.error('Failed to auto-heal webinar room', { error: reErr.message });
+            if (process.env.NODE_ENV !== 'test') {
+              throw new Error(`Failed to generate live session host token: ${reErr.message}`);
+            }
           }
+        } else if (process.env.NODE_ENV !== 'test') {
+          throw new Error(`Failed to generate live session host token: ${e.message}`);
         }
       }
     }
@@ -225,42 +217,34 @@ export const joinLiveClass = async (req: Request, res: Response): Promise<void> 
 
     let token = 'dummy-token';
     if (process.env.WEBINAR_GG_API_KEY) {
-      const cacheKey = `webinar:token:${liveClass.id}:${userId}`;
-      const cachedToken = await redis.get(cacheKey).catch(() => null);
-      if (cachedToken && cachedToken !== 'dummy-token') {
-        token = cachedToken;
-      } else {
-        try {
-          token = await getWebinarToken(liveClass.dailyRoomName, 'attendee', userName, userEmail, liveClass.passcode || '');
-          await redis.setex(cacheKey, 14400, token).catch(() => null); // Cache for 4 hours to allow rejoining long classes
-        } catch (e: any) {
-          logger.error('Failed to get Webinar.gg attendee token', { error: e.message });
-          if (e.message?.includes('Webinar not found')) {
-            try {
-              logger.info(`Webinar not found for attendee join ${liveClass.id}, healing room...`);
-              const webinarRes = await createWebinar(
-                liveClass.title || 'UniEval Live Class',
-                new Date().toISOString(),
-                360,
-                'Asia/Kolkata',
-                liveClass.passcode || ''
-              );
-              if (webinarRes?.id) {
-                liveClass.dailyRoomName = webinarRes.id;
-                liveClass.dailyRoomUrl = webinarRes.url || `https://webinar.gg/webinar-page/${webinarRes.id}`;
-                await liveClass.save();
-                token = await getWebinarToken(liveClass.dailyRoomName, 'attendee', userName, userEmail, liveClass.passcode || '');
-                await redis.setex(cacheKey, 14400, token).catch(() => null);
-              }
-            } catch (reErr: any) {
-              logger.error('Failed to auto-heal webinar room for attendee', { error: reErr.message });
-              if (process.env.NODE_ENV !== 'test') {
-                throw new Error(`Failed to generate live session attendee token: ${reErr.message}`);
-              }
+      try {
+        token = await getWebinarToken(liveClass.dailyRoomName, 'attendee', userName, userEmail, liveClass.passcode || '');
+      } catch (e: any) {
+        logger.error('Failed to get Webinar.gg attendee token', { error: e.message });
+        if (e.message?.includes('Webinar not found')) {
+          try {
+            logger.info(`Webinar not found for attendee join ${liveClass.id}, healing room...`);
+            const webinarRes = await createWebinar(
+              liveClass.title || 'UniEval Live Class',
+              new Date().toISOString(),
+              360,
+              'Asia/Kolkata',
+              liveClass.passcode || ''
+            );
+            if (webinarRes?.id) {
+              liveClass.dailyRoomName = webinarRes.id;
+              liveClass.dailyRoomUrl = webinarRes.url || `https://webinar.gg/webinar-page/${webinarRes.id}`;
+              await liveClass.save();
+              token = await getWebinarToken(liveClass.dailyRoomName, 'attendee', userName, userEmail, liveClass.passcode || '');
             }
-          } else if (process.env.NODE_ENV !== 'test') {
-            throw new Error(`Failed to generate live session attendee token: ${e.message}`);
+          } catch (reErr: any) {
+            logger.error('Failed to auto-heal webinar room for attendee', { error: reErr.message });
+            if (process.env.NODE_ENV !== 'test') {
+              throw new Error(`Failed to generate live session attendee token: ${reErr.message}`);
+            }
           }
+        } else if (process.env.NODE_ENV !== 'test') {
+          throw new Error(`Failed to generate live session attendee token: ${e.message}`);
         }
       }
     }
@@ -352,9 +336,16 @@ export const getLiveClassPlayback = async (req: Request, res: Response): Promise
       }
     }
 
-    // Direct MP4 / CDN video recording
-    if (liveClass.recordingUrl && !liveClass.recordingUrl.includes('webinar.gg')) {
+    // Direct MP4 / CDN video recording already cached
+    const hasCachedVideo = Boolean(
+      liveClass.recordingUrl && 
+      !liveClass.recordingUrl.includes('webinar.gg') && 
+      !liveClass.recordingUrl.endsWith(liveClass.dailyRoomName || '')
+    );
+
+    if (hasCachedVideo) {
       res.status(200).json({
+        status: 'ready',
         playbackUrl: liveClass.recordingUrl,
         type: 'video',
         title: liveClass.title
@@ -362,9 +353,38 @@ export const getLiveClassPlayback = async (req: Request, res: Response): Promise
       return;
     }
 
-    // Webinar.gg room session replay: mint valid token for this user
+    // Query Webinar.gg recording status if room name is present
+    if (liveClass.dailyRoomName && !liveClass.dailyRoomName.startsWith('webinar-')) {
+      try {
+        const rec = await getWebinarRecording(liveClass.dailyRoomName);
+        if (rec.status === 'ready' && rec.playbackUrl) {
+          liveClass.recordingUrl = rec.playbackUrl;
+          await liveClass.save();
+
+          res.status(200).json({
+            status: 'ready',
+            playbackUrl: rec.playbackUrl,
+            type: 'video',
+            title: liveClass.title,
+            duration: rec.duration
+          });
+          return;
+        } else if (rec.status === 'processing') {
+          res.status(200).json({
+            status: 'processing',
+            title: liveClass.title,
+            message: 'The live session has ended and the recording is currently being processed. It will be available here in a few minutes — please wait and check back shortly.'
+          });
+          return;
+        }
+      } catch (recErr: any) {
+        logger.warn('Error checking Webinar.gg recording status', { error: recErr.message, id });
+      }
+    }
+
+    // Webinar.gg room session replay: mint valid token for this user (test or room replay fallback)
     let token = 'dummy-token';
-    if (process.env.WEBINAR_GG_API_KEY) {
+    if (process.env.WEBINAR_GG_API_KEY && liveClass.dailyRoomName && !liveClass.dailyRoomName.startsWith('webinar-')) {
       const cacheKey = `webinar:token:${liveClass.id}:${userId}`;
       const cachedToken = await redis.get(cacheKey).catch(() => null);
       if (cachedToken && cachedToken !== 'dummy-token') {
@@ -394,6 +414,7 @@ export const getLiveClassPlayback = async (req: Request, res: Response): Promise
     setTimeout(() => streamSessions.delete(sessionKey), 600000); // 10 min
 
     res.status(200).json({
+      status: 'ready',
       playbackUrl: targetUrl,
       sessionKey,
       token,
@@ -409,7 +430,19 @@ export const getLiveClassPlayback = async (req: Request, res: Response): Promise
 export const getLiveClassesForCourse = async (req: Request, res: Response): Promise<void> => {
   try {
     const { courseId } = req.params;
-    const liveClasses = await LiveClass.find({ courseId, ...(req.query.status === 'completed' ? { status: 'completed' } : req.query.status === 'all' ? {} : { status: { $ne: 'completed' } }) }).sort({ scheduledStartTime: 1 });
+    const rawClasses = await LiveClass.find({ courseId, ...(req.query.status === 'completed' ? { status: 'completed' } : req.query.status === 'all' ? {} : { status: { $ne: 'completed' } }) }).sort({ scheduledStartTime: 1 });
+    const liveClasses = rawClasses.map(lc => {
+      const hasRealRecording = Boolean(
+        lc.recordingUrl &&
+        lc.recordingUrl.trim().length > 0 &&
+        lc.recordingUrl !== lc.dailyRoomUrl &&
+        !lc.recordingUrl.endsWith(lc.dailyRoomName || '')
+      );
+      return {
+        ...lc.toObject(),
+        recordingStatus: hasRealRecording ? 'ready' : lc.status === 'completed' ? 'processing' : 'none'
+      };
+    });
     res.status(200).json({ liveClasses });
   } catch (error: any) {
     logger.error('Error fetching live classes', { error: error.message });
@@ -457,6 +490,13 @@ export const getLiveClassDetails = async (req: Request, res: Response): Promise<
     const course = await Course.findOne({ id: liveClass.courseId });
     const teacher = await User.findOne({ id: liveClass.teacherId });
 
+    const hasRealRecording = Boolean(
+      liveClass.recordingUrl &&
+      liveClass.recordingUrl.trim().length > 0 &&
+      liveClass.recordingUrl !== liveClass.dailyRoomUrl &&
+      !liveClass.recordingUrl.endsWith(liveClass.dailyRoomName || '')
+    );
+
     const sanitizedClass = {
       id: liveClass.id,
       title: liveClass.title,
@@ -468,7 +508,9 @@ export const getLiveClassDetails = async (req: Request, res: Response): Promise<
       teacherName: teacher?.name || 'Instructor',
       scheduledStartTime: liveClass.scheduledStartTime,
       scheduledEndTime: liveClass.scheduledEndTime,
-      status: liveClass.status
+      status: liveClass.status,
+      recordingUrl: liveClass.recordingUrl || null,
+      recordingStatus: hasRealRecording ? 'ready' : liveClass.status === 'completed' ? 'processing' : 'none'
     };
 
     res.status(200).json({ liveClass: sanitizedClass });
@@ -525,6 +567,13 @@ export const getMyLiveClassSchedule = async (req: Request, res: Response): Promi
 
     const liveClasses = rawClasses.map(lc => {
       const c = courseMap.get(lc.courseId);
+      const hasRealRecording = Boolean(
+        lc.recordingUrl &&
+        lc.recordingUrl.trim().length > 0 &&
+        lc.recordingUrl !== lc.dailyRoomUrl &&
+        !lc.recordingUrl.endsWith(lc.dailyRoomName || '')
+      );
+
       return {
         id: lc.id,
         courseId: lc.courseId,
@@ -540,6 +589,7 @@ export const getMyLiveClassSchedule = async (req: Request, res: Response): Promi
         scheduledEndTime: lc.scheduledEndTime,
         status: lc.status,
         recordingUrl: lc.recordingUrl || null,
+        recordingStatus: hasRealRecording ? 'ready' : lc.status === 'completed' ? 'processing' : 'none',
         dailyRoomUrl: lc.dailyRoomUrl
       };
     });
@@ -559,10 +609,23 @@ export const getTeacherLiveClassSchedule = async (req: Request, res: Response): 
       return;
     }
 
-    const liveClasses = await LiveClass.find({
+    const rawClasses = await LiveClass.find({
       teacherId,
       ...(req.query.status === 'completed' ? { status: 'completed' } : req.query.status === 'all' ? {} : { status: { $in: ['scheduled', 'live'] } })
     }).sort({ scheduledStartTime: 1 });
+
+    const liveClasses = rawClasses.map(lc => {
+      const hasRealRecording = Boolean(
+        lc.recordingUrl &&
+        lc.recordingUrl.trim().length > 0 &&
+        lc.recordingUrl !== lc.dailyRoomUrl &&
+        !lc.recordingUrl.endsWith(lc.dailyRoomName || '')
+      );
+      return {
+        ...lc.toObject(),
+        recordingStatus: hasRealRecording ? 'ready' : lc.status === 'completed' ? 'processing' : 'none'
+      };
+    });
 
     res.status(200).json({ liveClasses });
   } catch (error: any) {
@@ -575,28 +638,29 @@ export const getTeacherLiveClassSchedule = async (req: Request, res: Response): 
 export const webinarWebhook = async (req: Request, res: Response): Promise<void> => {
   try {
     const event = req.body;
-    // Assuming Webinar.gg sends event.type == 'recording.ready' or similar
-    if (event.type === 'recording.ready' || event.type === 'webinar.recording_ready' || event.type === 'webinar.recording.created') {
-      const roomName = event.payload?.webinar_id || event.payload?.room_name;
-      const rawMp4Url = event.payload?.download_link || event.payload?.recording_url;
+    const eventName = event?.event || event?.type;
+    logger.info('Webinar webhook received', { eventName });
+
+    // Handle recording events
+    if (
+      eventName === 'webinar.recording.created' || 
+      eventName === 'recording.ready' || 
+      eventName === 'webinar.recording_ready'
+    ) {
+      const payload = event.data || event.payload || {};
+      const roomName = payload.webinarId || payload.webinar_id || payload.room_name;
+      const rawMp4Url = (Array.isArray(payload.mp4Url) && payload.mp4Url[0]?.path)
+        ? payload.mp4Url[0].path
+        : payload.mp4Url || payload.download_link || payload.recording_url || payload.mainUrl || payload.m3u8Url;
+      const status = payload.status;
       
-      if (!roomName || !rawMp4Url) {
-        res.status(400).send('Missing webhook payload data');
-        return;
-      }
-      
-      const liveClass = await LiveClass.findOne({ dailyRoomName: roomName });
-      if (liveClass) {
-        await import('../models.js').then(({ PendingRecording }) => {
-          PendingRecording.create({
-            id: crypto.randomUUID(),
-            courseId: liveClass.courseId,
-            moduleId: liveClass.moduleId,
-            title: liveClass.title,
-            rawMp4Url,
-            status: 'pending'
-          });
-        });
+      if (roomName && rawMp4Url && (status === 'completed' || status === 'ready' || !status)) {
+        const liveClass = await LiveClass.findOne({ dailyRoomName: roomName });
+        if (liveClass) {
+          liveClass.recordingUrl = rawMp4Url;
+          await liveClass.save();
+          logger.info(`LiveClass ${liveClass.id} recordingUrl attached via webhook: ${rawMp4Url}`);
+        }
       }
     }
     res.status(200).send('OK');

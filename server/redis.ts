@@ -31,17 +31,22 @@ export const queueConnection = new IORedis(REDIS_URL, {
 let redisAvailable = false;
 let connectCalled = false;
 
+// Attach error handlers immediately to prevent unhandled EventEmitter crashes
+redis.on('error', (err) => {
+    if (redisAvailable) logger.warn('[Redis] Connection error:', err.message);
+    redisAvailable = false;
+});
+redis.on('connect', () => {
+    redisAvailable = true;
+});
+
+queueConnection.on('error', (err) => {
+    logger.warn('[Redis:Queue] Connection error:', err.message);
+});
+
 export async function connectRedis(): Promise<void> {
     if (connectCalled) return;
     connectCalled = true;
-
-    redis.on('error', (err) => {
-        if (redisAvailable) logger.warn('[Redis] Connection error:', err.message);
-        redisAvailable = false;
-    });
-    redis.on('connect', () => {
-        redisAvailable = true;
-    });
 
     try {
         if (redis.status === 'wait') await redis.connect();

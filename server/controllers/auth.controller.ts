@@ -75,7 +75,7 @@ async function verifyAndConsumeOtp(email: string, otp: string): Promise<{ ok: bo
         return { ok: false, error: 'OTP has expired. Please request a new one.', status: 400 };
     }
 
-    if (record.otp !== otp) {
+    if (record.otp !== otp && (record as any).phoneOtp !== otp) {
         const attempts = ((record as any).attempts || 0) + 1;
         if (attempts >= 5) {
             await OTP.findOneAndUpdate({ _id: record._id }, { attempts, locked: true });
@@ -85,9 +85,9 @@ async function verifyAndConsumeOtp(email: string, otp: string): Promise<{ ok: bo
         return { ok: false, error: `Invalid OTP. ${5 - attempts} attempt(s) remaining.`, status: 400 };
     }
 
-    // If a phoneNumber is stored, this is signup — generate + send the SMS OTP now
+    // If a phoneNumber is stored and phoneOtp is null, this is step 1 of signup — generate + send the SMS OTP now
     // that email is confirmed, then keep the record alive for step 3.
-    if ((record as any).phoneNumber) {
+    if ((record as any).phoneNumber && (record as any).phoneOtp === null) {
         const newPhoneOtp = Math.floor(100000 + Math.random() * 900000).toString();
         await OTP.findOneAndUpdate(
             { _id: record._id },
@@ -249,12 +249,15 @@ export async function sendOtp(req: express.Request, res: express.Response): Prom
                 res.status(404).json({ error: 'No account found with this mobile number' }); return;
             }
             email = user.email;
+            smsPhone = user.phoneNumber || normalizePhone(rawPhone);
+        } else if (rawPhone) {
+            smsPhone = normalizePhone(rawPhone);
         }
     }
 
     if (!email) { res.status(400).json({ error: 'Email or mobile number is required' }); return; }
 
-    // ── Resend cooldown: 45 seconds ──────────────────────────────────────────
+    // ── Resend cooldown: 30 seconds ──────────────────────────────────────────
     const existing = await OTP.findOne({ email: email.toLowerCase().trim() });
     if (existing) {
         const age = Date.now() - new Date((existing as any).createdAt).getTime();
@@ -269,17 +272,17 @@ export async function sendOtp(req: express.Request, res: express.Response): Prom
         }
     }
 
-    // ── Generate OTP(s) ──────────────────────────────────────────────────────
+    // ── Generate OTP ──────────────────────────────────────────────────────────
     const emailOtp = Math.floor(100000 + Math.random() * 900000).toString();
-    // phoneOtp is NOT generated here — it will be generated and sent after email is verified
-
+    // phoneOtp is NOT generated here — it is only generated and sent via SMS for signup step 3.
+    // For password reset and other flows, OTP is strictly sent via EMAIL only (no costly SMS).
     try {
         await OTP.findOneAndUpdate(
             { email: email.toLowerCase().trim() },
             {
                 otp: emailOtp,
-                phoneOtp: null,               // will be populated after email verification
-                phoneNumber: smsPhone ?? null, // store phone so we know where to send SMS later
+                phoneOtp: null,
+                phoneNumber: mode === 'signup' ? (smsPhone ?? null) : null, // only preserve phone for signup step 3
                 createdAt: new Date(),
                 attempts: 0,
                 phoneAttempts: 0,
@@ -289,24 +292,22 @@ export async function sendOtp(req: express.Request, res: express.Response): Prom
             { upsert: true }
         );
 
-        // ── Send email OTP only ──────────────────────────────────────────────
-        await sendEmail(email, 'Your Email Verification Code - UNIEVAL',
+        // ── Send email OTP ───────────────────────────────────────────────────
+        await sendEmail(email, 'Your Verification Code - UNIEVAL',
             `<div style="font-family:sans-serif;padding:20px;max-width:480px;margin:0 auto;">
-                <h2 style="color:#4f46e5;margin-bottom:8px;">Email Verification Code</h2>
-                <p style="color:#374151;margin-bottom:16px;">Use the code below to verify your <strong>email address</strong>. It expires in <strong>10 minutes</strong>.</p>
+                <h2 style="color:#4f46e5;margin-bottom:8px;">Verification Code</h2>
+                <p style="color:#374151;margin-bottom:16px;">Use the code below to complete your verification. It expires in <strong>10 minutes</strong>.</p>
                 <div style="background:#f3f4f6;border-radius:12px;padding:24px;text-align:center;margin-bottom:16px;">
                     <span style="font-size:36px;font-weight:800;letter-spacing:10px;color:#111827;font-family:monospace;">${emailOtp}</span>
                 </div>
                 <p style="color:#9ca3af;font-size:12px;">If you did not request this, please ignore this email.</p>
             </div>`
         );
-        // SMS will be sent automatically once email OTP is verified (see verifyAndConsumeOtp)
 
         const masked = email.replace(/(.)(.*)(@.*)/, (_, a, b, c) => a + '*'.repeat(Math.max(b.length - 2, 2)) + b.slice(-1) + c);
         res.json({
-            message: 'OTP sent successfully',
+            message: 'OTP sent successfully to email',
             sentTo: masked,
-            smsOtpSent: false, // SMS not sent yet — triggered after email verification
         });
     } catch (err) {
         logger.error('[Auth] sendOtp:', err);

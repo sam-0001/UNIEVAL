@@ -20,6 +20,21 @@ async function main() {
     logger.info('[Worker] Ready — listening for jobs');
 }
 
+// ── Global process crash protection ──────────────────────────────────────────
+process.on('unhandledRejection', (reason: any) => {
+    logger.error('[Worker] Unhandled Rejection:', {
+        error: reason?.message || String(reason),
+        stack: reason?.stack,
+    });
+});
+
+process.on('uncaughtException', (err: Error) => {
+    logger.error('[Worker] Uncaught Exception:', {
+        error: err.message,
+        stack: err.stack,
+    });
+});
+
 main().catch((err) => {
     logger.error('[Worker] Fatal startup error:', err);
     process.exit(1);

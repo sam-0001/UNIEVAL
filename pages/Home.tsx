@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useSEO } from '../hooks/useSEO';
+import { UserRole } from '../types';
 
 // ─── Dataset ──────────────────────────────────────────────────────────────────
 
@@ -134,6 +135,12 @@ const FeatureCard: React.FC<{ emoji: string; title: string; desc: string; bg: st
 const Home: React.FC = () => {
   const { user, setShowLoginModal, setOnLoginSuccess } = useAuth();
   const navigate = useNavigate();
+
+  if (user) {
+    const target = user.role === UserRole.SUPER_ADMIN ? '/super-admin' :
+      (user.role === UserRole.ADMIN || user.role === UserRole.TEACHER ? '/admin' : '/dashboard');
+    return <Navigate to={target} replace />;
+  }
 
   useSEO({
     title: 'SPPU Notes, SPPU Exam Prep & Study Materials',
