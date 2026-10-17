@@ -56,6 +56,11 @@ This file serves as the permanent memory and architectural guide for the UniEval
     - Floating action buttons in live classrooms are positioned with bottom safety margins (`bottom-20 sm:bottom-6`) to avoid blocking Webinar.gg studio media controls.
     - Dashboard drawers and navigation dialogs feature semi-transparent backdrop overlays (`bg-slate-900/60 backdrop-blur-sm z-40`) to ensure reliable tap-to-dismiss behavior on small touchscreens.
     - Test accounts (`sam000123456789001@gmail.com` / `7350484629`) are allowed to re-register and receive testing OTPs without being blocked by duplicate conflict checks.
+  - **Live Classroom Fullscreen & Automatic Horizontal Orientation**:
+    - Fullscreen mode automatically requests horizontal landscape lock via `screen.orientation.lock('landscape')` across both `LiveClassRoom.tsx` and `CustomVideoPlayer.tsx`.
+    - In fullscreen mode, all buttons (header, banners, floating controls) are hidden to provide an unobstructed 100% video stream.
+    - A discreet minimal pill `[Exit Fullscreen]` appears only when the user taps or moves the mouse, auto-disappearing after 2.5s.
+    - Upon exiting fullscreen, orientation is automatically unlocked via `screen.orientation.unlock()`.
 
 ---
 *(Note: As an agent, I will update this file whenever major architectural decisions, new features, or critical rules are established.)*
