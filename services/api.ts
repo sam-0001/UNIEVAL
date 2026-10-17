@@ -363,6 +363,12 @@ export const api = {
     });
   },
 
+  getCourseStudents: async (courseId: string): Promise<Array<{ id: string; name: string; email: string; phoneNumber?: string; createdAt?: string }>> => {
+    return fetchJson<Array<{ id: string; name: string; email: string; phoneNumber?: string; createdAt?: string }>>(`/courses/${courseId}/students`, {
+      headers: authHeaders()
+    });
+  },
+
   createNote: async (note: Omit<Note, 'id' | 'uploadedAt'>): Promise<Note> => {
     return fetchJson<Note>('/notes', {
       method: 'POST',

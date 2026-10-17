@@ -25,6 +25,8 @@ vi.mock('../server/services/webinargg.js', () => ({
   createWebinar: vi.fn().mockResolvedValue({ id: 'test-room', url: 'https://webinar.gg/webinar-page/test-room' }),
   getWebinarToken: vi.fn().mockResolvedValue('test-token'),
   getWebinarRecording: vi.fn().mockResolvedValue({ status: 'ready', playbackUrl: 'https://mock.webinar.gg/rec.mp4' }),
+  getWebinarStatus: vi.fn().mockResolvedValue('live'),
+  isWebinarCompleted: vi.fn().mockResolvedValue(false),
   deleteWebinar: vi.fn().mockResolvedValue(true)
 }));
 

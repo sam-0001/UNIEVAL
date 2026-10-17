@@ -1,9 +1,34 @@
 import { Request, Response } from 'express';
 import { LiveClass, Course, User } from '../models.js';
-import { createWebinar, deleteWebinar, getWebinarToken, getWebinarRecording } from '../services/webinargg.js';
+import { createWebinar, deleteWebinar, getWebinarToken, getWebinarRecording, getWebinarStatus, isWebinarCompleted } from '../services/webinargg.js';
+import { broadcastClassEnded } from '../socket.js';
 import logger from '../logger.js';
 import crypto from 'crypto';
 import { redis } from '../redis.js';
+
+/**
+ * Synchronizes a live class document's status with Webinar.gg.
+ * If Webinar.gg reports the session is completed or recording is processing/ready,
+ * updates the database and broadcasts 'class-ended' to all participants.
+ */
+export const syncLiveClassStatus = async (liveClass: any): Promise<boolean> => {
+  if (!liveClass || liveClass.status !== 'live') return false;
+  if (!liveClass.dailyRoomName || liveClass.dailyRoomName.startsWith('webinar-')) return false;
+
+  try {
+    const completed = await isWebinarCompleted(liveClass.dailyRoomName);
+    if (completed) {
+      liveClass.status = 'completed';
+      await liveClass.save();
+      broadcastClassEnded(liveClass.id);
+      logger.info(`[Sync] LiveClass ${liveClass.id} status synced to 'completed' via Webinar.gg`);
+      return true;
+    }
+  } catch (err: any) {
+    logger.warn(`[Sync] Failed to sync LiveClass ${liveClass.id} status`, { error: err.message });
+  }
+  return false;
+};
 
 export const scheduleLiveClass = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -17,8 +42,13 @@ export const scheduleLiveClass = async (req: Request, res: Response): Promise<vo
       return;
     }
 
-    // Verify course ownership
-    const course = await Course.findOne({ id: courseId, teacherId });
+    const userRole = (req as any).currentUser?.role || (req as any).user?.role;
+    const isAdmin = userRole === 'ADMIN' || userRole === 'SUPER_ADMIN';
+
+    // Verify course ownership or admin authorization
+    const course = isAdmin 
+      ? await Course.findOne({ id: courseId }) 
+      : await Course.findOne({ id: courseId, teacherId });
     if (!course) {
       res.status(403).json({ error: 'Not authorized to schedule class for this course' });
       return;
@@ -103,11 +133,14 @@ const ensureWebinarRoom = async (liveClass: any): Promise<void> => {
 export const startLiveClass = async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
-    const teacherId = (req as any).currentUser?.id;
-    const userName = (req as any).currentUser?.name || 'Teacher';
-    const userEmail = (req as any).currentUser?.email || 'teacher@unieval.in';
+    const teacherId = (req as any).currentUser?.id || (req as any).user?.id;
+    const userRole = (req as any).currentUser?.role || (req as any).user?.role;
+    const isAdmin = userRole === 'ADMIN' || userRole === 'SUPER_ADMIN';
+    const userName = (req as any).currentUser?.name || (req as any).user?.name || 'Teacher';
+    const userEmail = (req as any).currentUser?.email || (req as any).user?.email || 'teacher@unieval.in';
 
-    const liveClass = await LiveClass.findOne({ id, teacherId });
+    const query = isAdmin ? { id } : { id, teacherId };
+    const liveClass = await LiveClass.findOne(query);
     if (!liveClass) {
       res.status(404).json({ error: 'Live class not found or unauthorized' });
       return;
@@ -174,9 +207,18 @@ export const joinLiveClass = async (req: Request, res: Response): Promise<void> 
     const userEmail = (req as any).currentUser?.email || (req as any).user?.email || 'student@unieval.in';
 
     const liveClass = await LiveClass.findOne({ id });
-    if (!liveClass || liveClass.status !== 'live') {
-      const isScheduled = liveClass?.status === 'scheduled';
-      const isCompleted = liveClass?.status === 'completed';
+    if (!liveClass) {
+      res.status(404).json({ error: 'Live class not found' });
+      return;
+    }
+
+    if (liveClass.status === 'live') {
+      await syncLiveClassStatus(liveClass);
+    }
+
+    if (liveClass.status !== 'live') {
+      const isScheduled = liveClass.status === 'scheduled';
+      const isCompleted = liveClass.status === 'completed';
       res.status(404).json({ 
         error: isScheduled 
           ? 'Class has not started yet. The instructor will begin shortly.' 
@@ -184,8 +226,8 @@ export const joinLiveClass = async (req: Request, res: Response): Promise<void> 
           ? 'This live class has ended.' 
           : 'Live class not active',
         code: isScheduled ? 'CLASS_SCHEDULED' : isCompleted ? 'CLASS_COMPLETED' : 'NOT_ACTIVE',
-        scheduledStartTime: liveClass?.scheduledStartTime,
-        courseId: liveClass?.courseId
+        scheduledStartTime: liveClass.scheduledStartTime,
+        courseId: liveClass.courseId
       });
       return;
     }
@@ -289,8 +331,23 @@ export const endLiveClass = async (req: Request, res: Response): Promise<void> =
     }
 
     liveClass.status = 'completed';
-    // Do not set fake recordingUrl from dailyRoomUrl; real recording is attached when uploaded/ready
     await liveClass.save();
+
+    broadcastClassEnded(liveClass.id);
+    logger.info(`LiveClass ${liveClass.id} status marked completed and broadcasted.`);
+
+    // If room is Webinar.gg room, attempt background early recording check
+    if (liveClass.dailyRoomName && !liveClass.dailyRoomName.startsWith('webinar-')) {
+      getWebinarRecording(liveClass.dailyRoomName)
+        .then(async (rec) => {
+          if (rec.status === 'ready' && rec.playbackUrl) {
+            liveClass.recordingUrl = rec.playbackUrl;
+            await liveClass.save();
+            logger.info(`LiveClass ${liveClass.id} recording immediately cached upon end.`);
+          }
+        })
+        .catch(() => {});
+    }
 
     res.status(200).json({ message: 'Live class ended successfully' });
   } catch (error: any) {
@@ -431,6 +488,12 @@ export const getLiveClassesForCourse = async (req: Request, res: Response): Prom
   try {
     const { courseId } = req.params;
     const rawClasses = await LiveClass.find({ courseId, ...(req.query.status === 'completed' ? { status: 'completed' } : req.query.status === 'all' ? {} : { status: { $ne: 'completed' } }) }).sort({ scheduledStartTime: 1 });
+
+    const liveToSync = rawClasses.filter(c => c.status === 'live');
+    if (liveToSync.length > 0) {
+      await Promise.all(liveToSync.map(lc => syncLiveClassStatus(lc)));
+    }
+
     const liveClasses = rawClasses.map(lc => {
       const hasRealRecording = Boolean(
         lc.recordingUrl &&
@@ -485,6 +548,10 @@ export const getLiveClassDetails = async (req: Request, res: Response): Promise<
     if (!liveClass) {
       res.status(404).json({ error: 'Live class not found' });
       return;
+    }
+
+    if (liveClass.status === 'live') {
+      await syncLiveClassStatus(liveClass);
     }
 
     const course = await Course.findOne({ id: liveClass.courseId });
@@ -555,6 +622,11 @@ export const getMyLiveClassSchedule = async (req: Request, res: Response): Promi
 
     const rawClasses = await LiveClass.find(filter).sort({ scheduledStartTime: -1 });
 
+    const liveClassesToSync = rawClasses.filter(c => c.status === 'live');
+    if (liveClassesToSync.length > 0) {
+      await Promise.all(liveClassesToSync.map(lc => syncLiveClassStatus(lc)));
+    }
+
     const courseIds = [...new Set(rawClasses.map(c => c.courseId))];
     const teacherIds = [...new Set(rawClasses.map(c => c.teacherId))];
     const [courses, teachers] = await Promise.all([
@@ -614,6 +686,11 @@ export const getTeacherLiveClassSchedule = async (req: Request, res: Response): 
       ...(req.query.status === 'completed' ? { status: 'completed' } : req.query.status === 'all' ? {} : { status: { $in: ['scheduled', 'live'] } })
     }).sort({ scheduledStartTime: 1 });
 
+    const teacherLive = rawClasses.filter(c => c.status === 'live');
+    if (teacherLive.length > 0) {
+      await Promise.all(teacherLive.map(lc => syncLiveClassStatus(lc)));
+    }
+
     const liveClasses = rawClasses.map(lc => {
       const hasRealRecording = Boolean(
         lc.recordingUrl &&
@@ -641,6 +718,25 @@ export const webinarWebhook = async (req: Request, res: Response): Promise<void>
     const eventName = event?.event || event?.type;
     logger.info('Webinar webhook received', { eventName });
 
+    // Handle webinar ended events
+    if (
+      eventName === 'webinar.ended' ||
+      eventName === 'webinar_ended' ||
+      eventName === 'webinar.stopped'
+    ) {
+      const payload = event.data || event.payload || {};
+      const roomName = payload.webinarId || payload.webinar_id || payload.room_name;
+      if (roomName) {
+        const liveClass = await LiveClass.findOne({ dailyRoomName: roomName });
+        if (liveClass && liveClass.status === 'live') {
+          liveClass.status = 'completed';
+          await liveClass.save();
+          broadcastClassEnded(liveClass.id);
+          logger.info(`LiveClass ${liveClass.id} marked completed via webhook event ${eventName}`);
+        }
+      }
+    }
+
     // Handle recording events
     if (
       eventName === 'webinar.recording.created' || 
@@ -654,12 +750,18 @@ export const webinarWebhook = async (req: Request, res: Response): Promise<void>
         : payload.mp4Url || payload.download_link || payload.recording_url || payload.mainUrl || payload.m3u8Url;
       const status = payload.status;
       
-      if (roomName && rawMp4Url && (status === 'completed' || status === 'ready' || !status)) {
+      if (roomName) {
         const liveClass = await LiveClass.findOne({ dailyRoomName: roomName });
         if (liveClass) {
-          liveClass.recordingUrl = rawMp4Url;
+          if (liveClass.status === 'live') {
+            liveClass.status = 'completed';
+            broadcastClassEnded(liveClass.id);
+          }
+          if (rawMp4Url && (status === 'completed' || status === 'ready' || !status)) {
+            liveClass.recordingUrl = rawMp4Url;
+            logger.info(`LiveClass ${liveClass.id} recordingUrl attached via webhook: ${rawMp4Url}`);
+          }
           await liveClass.save();
-          logger.info(`LiveClass ${liveClass.id} recordingUrl attached via webhook: ${rawMp4Url}`);
         }
       }
     }

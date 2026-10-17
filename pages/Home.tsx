@@ -143,8 +143,8 @@ const Home: React.FC = () => {
   }
 
   useSEO({
-    title: 'SPPU Notes, SPPU Exam Prep & Study Materials',
-    description: 'UniEval is the best study platform for SPPU (Pune University) students. Get top-quality SPPU notes, SPPU exam intelligence, SPPU PYQs, and high-weightage topics.',
+    title: 'SPPU Notes & Engineering Study Material | Pune University (SPPU) Exam Prep',
+    description: 'Top-ranked SPPU Engineering notes, previous year question papers (PYQs), insem & endsem syllabus, and high-weightage topics for Computer, IT, Mechanical, Civil, ENTC & AIDS (FE, SE, TE, BE).',
     canonical: 'https://unieval.in/',
   });
 

@@ -3,12 +3,11 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { io } from 'socket.io-client';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../services/api';
+import CustomVideoPlayer from '../components/CustomVideoPlayer';
 import { 
     Radio, 
     LogOut, 
-    PhoneOff, 
     Shield, 
-    Sparkles, 
     LogIn, 
     UserPlus, 
     Lock, 
@@ -25,8 +24,8 @@ import {
     MonitorPlay,
     Users,
     Play,
-    ExternalLink,
     Loader2,
+    Video,
     VideoOff
 } from 'lucide-react';
 
@@ -54,6 +53,8 @@ export const LiveClassRoom: React.FC = () => {
     const [processingMessage, setProcessingMessage] = useState('');
     const [playbackError, setPlaybackError] = useState('');
     const hideControlsTimerRef = useRef<NodeJS.Timeout | null>(null);
+    const [showEscHint, setShowEscHint] = useState(false);
+    const escHintTimerRef = useRef<NodeJS.Timeout | null>(null);
 
     // Real-time broadcast and participant states (No fake mock users!)
     const [realAttendees, setRealAttendees] = useState<Array<{ id: string; name: string }>>([]);
@@ -184,7 +185,10 @@ export const LiveClassRoom: React.FC = () => {
     useEffect(() => {
         if (!id || !user) return;
 
-        const socketBase = import.meta.env.VITE_API_BASE_URL?.replace(/\/api\/?$/, '') || window.location.origin;
+        const isLocal = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+        const socketBase = isLocal 
+            ? window.location.origin 
+            : (import.meta.env.VITE_API_BASE_URL?.replace(/\/api\/?$/, '') || window.location.origin);
         const socket = io(socketBase, {
             transports: ['websocket', 'polling'],
             autoConnect: true,
@@ -280,11 +284,11 @@ export const LiveClassRoom: React.FC = () => {
                 if (isTeacher) {
                     api.endLiveClass(id!).catch(console.error);
                     socketRef.current?.emit('end-live-class');
-                    navigate('/teacher/upload');
+                    navigate('/teacher/live-classes');
                 } else {
                     setStatusNotice({
                         type: 'completed',
-                        message: 'This live class has concluded.'
+                        message: 'This live class has been ended by the teacher.'
                     });
                 }
                 return;
@@ -366,7 +370,7 @@ export const LiveClassRoom: React.FC = () => {
             } catch (e) {
                 // Ignore transient network errors
             }
-        }, 4000);
+        }, 2000);
 
         return () => clearInterval(interval);
     }, [id, statusNotice]);
@@ -383,10 +387,27 @@ export const LiveClassRoom: React.FC = () => {
 
     useEffect(() => {
         const handleFullscreenChange = () => {
-            setIsFullscreen(!!document.fullscreenElement);
+            const inFs = !!document.fullscreenElement;
+            setIsFullscreen(inFs);
+            if (inFs) {
+                // Instantly hide navbar so it doesn't linger over the video
+                setControlsVisible(false);
+                // Trigger smooth slide-in hint from right
+                setShowEscHint(true);
+                if (escHintTimerRef.current) clearTimeout(escHintTimerRef.current);
+                escHintTimerRef.current = setTimeout(() => {
+                    setShowEscHint(false);
+                }, 3500);
+            } else {
+                setControlsVisible(true);
+                setShowEscHint(false);
+            }
         };
         document.addEventListener('fullscreenchange', handleFullscreenChange);
-        return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+        return () => {
+            document.removeEventListener('fullscreenchange', handleFullscreenChange);
+            if (escHintTimerRef.current) clearTimeout(escHintTimerRef.current);
+        };
     }, []);
 
     // YouTube-style auto-hiding controls on inactivity
@@ -395,10 +416,11 @@ export const LiveClassRoom: React.FC = () => {
         if (hideControlsTimerRef.current) {
             clearTimeout(hideControlsTimerRef.current);
         }
+        // In fullscreen: auto-hide swiftly (1.5s) so the stream is fully unobstructed
         hideControlsTimerRef.current = setTimeout(() => {
             setControlsVisible(false);
-        }, 3500);
-    }, []);
+        }, isFullscreen ? 1500 : 3500);
+    }, [isFullscreen]);
 
     const handleMouseMove = () => {
         resetControlsTimer();
@@ -413,23 +435,26 @@ export const LiveClassRoom: React.FC = () => {
         };
     }, [resetControlsTimer]);
 
-    // Google Meet style participant roster (Real participants only, zero mock users)
-    const handleEndClass = async () => {
-        if (window.confirm("End live class for everyone?")) {
-            try {
-                await api.endLiveClass(id!);
-                socketRef.current?.emit('end-live-class');
-                iframeRef.current?.contentWindow?.postMessage({ type: 'webinar.end' }, '*');
-                navigate('/teacher/upload');
-            } catch (err) {
-                console.error("Failed to end class:", err);
+    const handleLeave = async () => {
+        if (isTeacher) {
+            const shouldEnd = window.confirm(
+                "Do you want to end this live class for all students?\n\n- Click OK to End Class for everyone and trigger recording generation.\n- Click Cancel to leave without ending the session."
+            );
+            if (shouldEnd) {
+                try {
+                    await api.endLiveClass(id!);
+                    socketRef.current?.emit('end-live-class');
+                } catch (e) {
+                    console.error("Error ending class:", e);
+                }
+                navigate('/teacher/live-classes');
+                return;
             }
-        }
-    };
-
-    const handleLeave = () => {
-        if (window.confirm("Leave classroom? You can rejoin anytime while the class is live.")) {
-            navigate(isTeacher ? '/teacher/upload' : '/profile');
+            navigate('/teacher/live-classes');
+        } else {
+            if (window.confirm("Leave classroom? You can rejoin anytime while the class is live.")) {
+                navigate('/dashboard');
+            }
         }
     };
 
@@ -700,18 +725,6 @@ export const LiveClassRoom: React.FC = () => {
                         </div>
 
                         <div className="flex items-center gap-2">
-                            {recordingPlaybackUrl && (
-                                <a
-                                    href={recordingPlaybackUrl}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800/90 text-slate-200 hover:text-white hover:bg-slate-700 border border-slate-700 transition-all"
-                                    title="Open recording in separate tab"
-                                >
-                                    <ExternalLink className="w-3.5 h-3.5" />
-                                    <span className="hidden sm:inline">Pop-out</span>
-                                </a>
-                            )}
                             <button
                                 onClick={toggleFullscreen}
                                 className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800/90 text-slate-200 hover:text-white hover:bg-slate-700 border border-slate-700 transition-all"
@@ -757,13 +770,17 @@ export const LiveClassRoom: React.FC = () => {
                                 </button>
                             </div>
                         ) : recordingPlaybackUrl ? (
-                            recordingPlaybackUrl.match(/\.(mp4|webm|ogg|m4v)(\?.*)?$/i) ? (
-                                <video 
-                                    src={recordingPlaybackUrl}
-                                    controls
-                                    autoPlay
-                                    className="w-full h-full max-h-[85vh] object-contain bg-black"
-                                />
+                            recordingPlaybackUrl.match(/\.(mp4|webm|ogg|m4v|m3u8)(\?.*)?$/i) || !recordingPlaybackUrl.includes('webinar.gg') ? (
+                                <div className="w-full h-full max-h-[85vh] flex items-center justify-center p-2 sm:p-4">
+                                    <CustomVideoPlayer 
+                                        src={recordingPlaybackUrl}
+                                        title={classDetails?.title || 'Class Recording'}
+                                        poster={classDetails?.thumbnail}
+                                        autoPlay={true}
+                                        watermarkText={user ? `${user.phoneNumber || user.email} | ${user.id.slice(-6).toUpperCase()}` : undefined}
+                                        className="w-full max-w-6xl aspect-video rounded-2xl shadow-2xl"
+                                    />
+                                </div>
                             ) : (
                                 <iframe 
                                     src={recordingPlaybackUrl}
@@ -864,10 +881,10 @@ export const LiveClassRoom: React.FC = () => {
                         )}
 
                         <button
-                            onClick={() => navigate('/dashboard')}
+                            onClick={() => navigate(isTeacher ? '/teacher/live-classes' : '/dashboard')}
                             className="w-full py-2 text-xs font-semibold text-slate-400 hover:text-white transition-colors"
                         >
-                            Return to Student Dashboard
+                            {isTeacher ? 'Return to Teacher Live Classes' : 'Return to Student Dashboard'}
                         </button>
                     </div>
                 </div>
@@ -949,19 +966,6 @@ export const LiveClassRoom: React.FC = () => {
                 </div>
 
                 <div className="flex items-center gap-2 shrink-0">
-                    {streamUrl && (
-                        <a
-                            href={streamUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="hidden md:inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800/90 text-slate-200 hover:text-white hover:bg-slate-700 border border-slate-700 transition-all"
-                            title="Open classroom in separate window"
-                        >
-                            <ExternalLink className="w-3.5 h-3.5" />
-                            <span className="hidden sm:inline">Pop-out</span>
-                        </a>
-                    )}
-
                     {/* YouTube Fullscreen Toggle Button */}
                     <button
                         onClick={toggleFullscreen}
@@ -989,24 +993,26 @@ export const LiveClassRoom: React.FC = () => {
                         <LogOut className="w-3.5 h-3.5" />
                         <span className="hidden sm:inline">Leave</span>
                     </button>
-
-                    {isTeacher && (
-                        <button 
-                            onClick={handleEndClass}
-                            className="inline-flex items-center gap-1.5 bg-red-600/90 hover:bg-red-600 text-white px-3 sm:px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all shadow-sm active:scale-95"
-                            title="End class for all participants"
-                        >
-                            <PhoneOff className="w-3.5 h-3.5" />
-                            <span>End Class</span>
-                        </button>
-                    )}
                 </div>
             </header>
+
+            {/* Floating ESC Hint Toast (Smooth slide-in from right side on fullscreen) */}
+            <div className={`fixed top-5 right-5 z-50 transition-all duration-300 ease-out pointer-events-none ${
+                showEscHint && isFullscreen
+                    ? 'opacity-100 translate-x-0'
+                    : 'opacity-0 translate-x-12'
+            }`}>
+                <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[#131A3F]/95 backdrop-blur-md text-white text-xs font-medium border border-white/10 shadow-2xl">
+                    <span className="text-slate-300">Press</span>
+                    <kbd className="px-2 py-0.5 text-[10px] font-mono font-bold bg-white/10 text-white rounded border border-white/20 shadow-sm">ESC</kbd>
+                    <span className="text-slate-300">to exit full screen</span>
+                </div>
+            </div>
 
             {/* Floating Auto-Pin Notification Banner */}
             {autoPinNotice && (
                 <div className="absolute top-16 left-1/2 -translate-x-1/2 z-40 bg-[#131A3F]/95 backdrop-blur-md text-white text-xs font-semibold px-4 py-2 rounded-full shadow-2xl border border-indigo-500/40 flex items-center gap-2 animate-bounce">
-                    <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                    <MonitorPlay className="w-3.5 h-3.5 text-blue-400" />
                     <span>{autoPinNotice}</span>
                 </div>
             )}
@@ -1017,24 +1023,28 @@ export const LiveClassRoom: React.FC = () => {
                     controlsVisible ? 'opacity-100 max-h-12' : 'opacity-0 max-h-0 overflow-hidden'
                 }`}>
                     {isTeacher ? (
-                        <div className="bg-blue-950/40 border-b border-blue-900/30 px-4 py-2 text-xs text-blue-200 flex items-center justify-between shrink-0 shadow-inner">
+                        <div className="bg-[#131A3F]/90 backdrop-blur-sm border-b border-white/5 px-4 py-2 text-xs text-slate-300 flex flex-wrap items-center justify-between gap-2 shrink-0">
                             <div className="flex items-center gap-2">
-                                <Sparkles className="w-4 h-4 text-blue-400 shrink-0" />
-                                <span>
-                                    <strong>Instructor Studio:</strong> Check camera & mic below, then click <strong>"Start Webinar"</strong> in the studio dialog to broadcast live to enrolled students.
+                                <Video className="w-4 h-4 text-blue-400 shrink-0" />
+                                <span className="font-medium text-slate-200">
+                                    Instructor Studio Active • Manage camera, mic & presentation in the bottom toolbar.
                                 </span>
                             </div>
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold bg-rose-500/10 text-rose-300 border border-rose-500/30">
+                                <span className="w-1.5 h-1.5 rounded-full bg-rose-400 animate-pulse" />
+                                When finished, click <strong>End Webinar</strong> in toolbar to auto-generate recording
+                            </span>
                         </div>
                     ) : (
-                        <div className="bg-slate-900/90 border-b border-slate-800 px-4 py-2 text-xs text-slate-300 flex flex-wrap items-center justify-between gap-2 shrink-0">
+                        <div className="bg-[#131A3F]/90 backdrop-blur-sm border-b border-white/5 px-4 py-2 text-xs text-slate-300 flex flex-wrap items-center justify-between gap-2 shrink-0">
                             <div className="flex items-center gap-2">
-                                <Sparkles className="w-4 h-4 text-emerald-400 shrink-0" />
-                                <span>
-                                    <strong>UniEval Classroom:</strong> Welcome, {user?.name || 'Student'}! Live audio & chat are connected.
+                                <Radio className="w-4 h-4 text-emerald-400 shrink-0" />
+                                <span className="font-medium text-slate-200">
+                                    Connected to live classroom • Welcome, {user?.name?.split(' ')[0] || 'Student'}!
                                 </span>
                             </div>
-                            <span className="text-[11px] text-blue-300/90 bg-blue-950/50 px-2.5 py-0.5 rounded-full border border-blue-800/50">
-                                ✋ <strong>To share your screen or speak:</strong> Click "Raise Hand" in the toolbar below.
+                            <span className="inline-flex items-center gap-1.5 text-[11px] font-medium bg-blue-500/10 text-blue-300 px-3 py-1 rounded-full border border-blue-500/20">
+                                ✋ To speak or present: click <strong>Raise Hand</strong> in toolbar
                             </span>
                         </div>
                     )}
@@ -1046,30 +1056,10 @@ export const LiveClassRoom: React.FC = () => {
                 <iframe 
                     ref={iframeRef}
                     src={iframeSrc}
-                    allow="camera; microphone; fullscreen; display-capture; autoplay; clipboard-write; speaker-selection; encrypted-media"
+                    allow="camera *; microphone *; fullscreen *; display-capture *; autoplay *; clipboard-write *; speaker-selection *; encrypted-media *"
                     className="w-full h-full border-none"
                     title="UniEval Live Classroom"
                 />
-
-                {/* Ambient Status Pill when screen share & camera are idle */}
-                {!isScreenSharing && !isHostVideoActive && (
-                    <div className="absolute top-4 left-4 z-20 pointer-events-none bg-[#131A3F]/90 backdrop-blur-md border border-slate-700/80 rounded-xl px-3.5 py-2.5 shadow-2xl flex items-center gap-3 max-w-sm">
-                        <div className="w-8 h-8 rounded-lg bg-blue-500/20 text-blue-400 flex items-center justify-center shrink-0">
-                            <Radio className="w-4 h-4 animate-pulse" />
-                        </div>
-                        <div>
-                            <div className="flex items-center gap-1.5">
-                                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
-                                <span className="text-xs font-bold text-white">Live Audio & Chat Active</span>
-                            </div>
-                            <p className="text-[11px] text-slate-300 mt-0.5 leading-snug">
-                                {isTeacher 
-                                    ? 'Camera & screen share are currently off. Turn on camera or share screen below.' 
-                                    : 'Screen & camera are currently idle. You can hear live audio & chat.'}
-                            </p>
-                        </div>
-                    </div>
-                )}
 
                 {/* Floating Fullscreen Button (Fades out when mouse is idle) */}
                 <div className={`absolute bottom-5 right-5 z-20 flex items-center gap-2 transition-all duration-300 ${

@@ -40,6 +40,7 @@ export const createWebinar = async (title: string, startTime: string, durationMi
       recordingEnabled: true,
       authentication: false,
       requireLogin: false,
+      showLiveUsersCount: true,
     };
     if (passcode) {
       requestBody.passcode = passcode;
@@ -114,6 +115,41 @@ export const deleteWebinar = async (webinarId: string) => {
   } catch (err: any) {
     logger.error('Error deleting Webinar.gg room', { error: err.message });
     throw err;
+  }
+};
+
+export const getWebinarStatus = async (webinarId: string): Promise<string | null> => {
+  try {
+    if (!webinarId || webinarId.startsWith('webinar-')) return null;
+    const res = await fetch(`${WEBINAR_GG_API_URL}/webinar/${encodeURIComponent(webinarId)}`, {
+      headers: getHeaders(),
+    });
+    if (res.status === 404) {
+      return 'completed';
+    }
+    if (!res.ok) return null;
+    const json = await res.json();
+    return json?.data?.status || null;
+  } catch (err: any) {
+    logger.warn('Error fetching Webinar.gg status', { error: err.message, webinarId });
+    return null;
+  }
+};
+
+export const isWebinarCompleted = async (webinarId: string): Promise<boolean> => {
+  if (!webinarId || webinarId.startsWith('webinar-')) return false;
+  try {
+    const status = await getWebinarStatus(webinarId);
+    if (status === 'completed' || status === 'ended') return true;
+
+    // Only if recording is actually ready with a video URL has the class concluded
+    const rec = await getWebinarRecording(webinarId);
+    if (rec.status === 'ready' && rec.playbackUrl) {
+      return true;
+    }
+    return false;
+  } catch {
+    return false;
   }
 };
 

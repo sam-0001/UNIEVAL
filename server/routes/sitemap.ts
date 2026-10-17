@@ -25,12 +25,12 @@ const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
 
 // ── Static pages config ───────────────────────────────────────────────────────
 const STATIC_PAGES = [
-  { url: '/',                 changefreq: 'daily',   priority: '1.0', lastmod: new Date().toISOString().split('T')[0] },
-  { url: '/about',            changefreq: 'monthly', priority: '0.7' },
-  { url: '/browse',           changefreq: 'weekly',  priority: '0.9' },
-  { url: '/notes',            changefreq: 'weekly',  priority: '0.9' },
-  { url: '/exam-intelligence', changefreq: 'weekly', priority: '0.9' },
-  { url: '/be-toolkit',       changefreq: 'monthly', priority: '0.7' },
+  { url: '/',                  changefreq: 'daily',   priority: '1.0', lastmod: new Date().toISOString().split('T')[0] },
+  { url: '/notes',             changefreq: 'daily',   priority: '1.0', lastmod: new Date().toISOString().split('T')[0] },
+  { url: '/exam-intelligence', changefreq: 'daily',   priority: '0.95', lastmod: new Date().toISOString().split('T')[0] },
+  { url: '/browse',            changefreq: 'daily',   priority: '0.9', lastmod: new Date().toISOString().split('T')[0] },
+  { url: '/be-toolkit',        changefreq: 'weekly',  priority: '0.8' },
+  { url: '/about',             changefreq: 'monthly', priority: '0.7' },
 ];
 
 // ── Helper: build an XML <url> block ──────────────────────────────────────────
@@ -68,23 +68,22 @@ router.get('/sitemap.xml', async (_req, res) => {
       }));
     }
 
-    // 2. Dynamic course pages — fetch from MongoDB if connected
+    // 2. Dynamic course pages & note pages — fetch from MongoDB if connected
     if (mongoose.connection.readyState === 1) {
       try {
-        // Use the native collection to avoid importing the model
-        // (avoids circular dependency issues with the model layer)
         const db = mongoose.connection.db;
         if (db) {
+          // Fetch Courses
           const courses = await db
             .collection('courses')
             .find(
               {},
-              { projection: { _id: 1, updatedAt: 1 }, limit: 1000 }
+              { projection: { id: 1, _id: 1, updatedAt: 1 }, limit: 1000 }
             )
             .toArray();
 
           for (const course of courses) {
-            const id = course._id.toString();
+            const id = (course.id || course._id).toString();
             const lastmod = course.updatedAt
               ? new Date(course.updatedAt).toISOString().split('T')[0]
               : undefined;
@@ -95,10 +94,33 @@ router.get('/sitemap.xml', async (_req, res) => {
               lastmod,
             }));
           }
+
+          // Fetch Notes (High Priority for SPPU Notes searches)
+          const notes = await db
+            .collection('notes')
+            .find(
+              {},
+              { projection: { id: 1, _id: 1, updatedAt: 1, uploadedAt: 1 }, limit: 1000 }
+            )
+            .toArray();
+
+          for (const note of notes) {
+            const id = (note.id || note._id).toString();
+            const modDate = note.updatedAt || note.uploadedAt;
+            const lastmod = modDate
+              ? new Date(modDate).toISOString().split('T')[0]
+              : undefined;
+
+            urlBlocks.push(urlEntry(`${BASE_URL}/note/${id}`, {
+              changefreq: 'weekly',
+              priority:   '0.85',
+              lastmod,
+            }));
+          }
         }
       } catch (dbErr) {
         // DB error — skip dynamic entries, still serve static sitemap
-        console.error('[sitemap] Failed to fetch courses:', dbErr);
+        console.error('[sitemap] Failed to fetch courses/notes:', dbErr);
       }
     }
 

@@ -84,4 +84,25 @@ router.get('/be-toolkit', async (req, res) => {
   }
 });
 
+// DELETE /api/be-toolkit/:id
+// Admin/Teacher only — delete a toolkit item
+router.delete(
+  '/be-toolkit/:id',
+  requireRole(UserRole.ADMIN, UserRole.SUPER_ADMIN, UserRole.TEACHER),
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+      const deleted = await BEToolkitItem.findOneAndDelete({ id });
+      if (!deleted) {
+        res.status(404).json({ error: 'Item not found' });
+        return;
+      }
+      res.json({ message: 'Item deleted successfully' });
+    } catch (error) {
+      logger.error('[BEToolkit] Delete error:', error);
+      res.status(500).json({ error: 'Failed to delete toolkit item' });
+    }
+  }
+);
+
 export default router;

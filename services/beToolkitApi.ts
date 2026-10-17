@@ -44,6 +44,13 @@ export async function addBEToolkitItem(data: Omit<BEToolkitItem, 'id' | 'created
   });
 }
 
+export async function deleteBEToolkitItem(id: string): Promise<{ message: string }> {
+  return fetchJson(`/be-toolkit/${id}`, {
+    method: 'DELETE',
+    headers: { ...authHeaders() },
+  });
+}
+
 // ─── AI-powered search ────────────────────────────────────────────────────────
 
 export interface SearchResult {

@@ -76,9 +76,57 @@ async function runDailyReset(): Promise<void> {
     }
 }
 
+async function syncActiveLiveClasses(): Promise<void> {
+    try {
+        const { LiveClass } = await import('../models.js');
+        const { syncLiveClassStatus } = await import('../controllers/liveClassController.js');
+        const activeClasses = await LiveClass.find({ status: 'live' });
+        if (activeClasses.length > 0) {
+            for (const lc of activeClasses) {
+                await syncLiveClassStatus(lc);
+            }
+        }
+
+        // Also check recently completed classes lacking cached recording to auto-cache once ready
+        const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+        const pendingRecordings = await LiveClass.find({
+            status: 'completed',
+            dailyRoomName: { $exists: true, $ne: '' },
+            $or: [
+                { recordingUrl: null },
+                { recordingUrl: '' }
+            ],
+            updatedAt: { $gte: oneDayAgo }
+        }).limit(5);
+
+        if (pendingRecordings.length > 0) {
+            const { getWebinarRecording } = await import('./webinargg.js');
+            for (const plc of pendingRecordings) {
+                if (plc.dailyRoomName.startsWith('webinar-')) continue;
+                try {
+                    const rec = await getWebinarRecording(plc.dailyRoomName);
+                    if (rec.status === 'ready' && rec.playbackUrl) {
+                        plc.recordingUrl = rec.playbackUrl;
+                        await plc.save();
+                        logger.info(`[Scheduler] Automatically cached ready recording for LiveClass ${plc.id}`);
+                    }
+                } catch {
+                    // silent catch
+                }
+            }
+        }
+    } catch (err: any) {
+        // silent catch
+    }
+}
+
 export function startScheduler(): void {
     // Run immediately on startup to catch any missed resets (e.g. server was down at midnight)
     runDailyReset();
+
+    // Periodically sync any live classes status with Webinar.gg every 15 seconds
+    syncActiveLiveClasses();
+    setInterval(syncActiveLiveClasses, 15000);
 
     // Then schedule to run every day at midnight
     function scheduleNext() {

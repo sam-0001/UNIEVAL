@@ -2,13 +2,15 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../services/api';
-import { Course, Note, Quiz, Viva, UserRole, Question } from '../types';
-import { Loader2, CheckCircle, AlertCircle, Trash2, Video } from 'lucide-react';
+import { Course, Note, Quiz, Viva, UserRole, Question, BEToolkitItem } from '../types';
+import { Loader2, CheckCircle, AlertCircle, Trash2, Video, Users, ExternalLink, Plus, Calendar, Clock, Copy, Check, BookOpen, Sparkles, Filter, Search } from 'lucide-react';
 import { SubjectSelector } from '../components/SubjectSelector';
 import { useSubjectSelection } from '../hooks/useSubjectSelection';
 import CouponManager from '../components/CouponManager';
+import { uploadExamIntelligence, listExamIntelligence, deleteExamIntelligence, ListItem } from '../services/examIntelligenceApi';
+import { getBEToolkitItems, addBEToolkitItem, deleteBEToolkitItem } from '../services/beToolkitApi';
 
-type DashboardTab = 'courses' | 'notes' | 'quizzes' | 'viva' | 'analytics' | 'payout';
+type DashboardTab = 'courses' | 'live' | 'notes' | 'quizzes' | 'viva' | 'be-toolkit' | 'exam-prep' | 'analytics' | 'payout';
 
 type TeacherView = 'LOGIN' | 'SIGNUP' | 'FORGOT_PASSWORD';
 
@@ -260,6 +262,620 @@ const TeacherLogin: React.FC = () => {
     );
 };
 
+// ─── BE Toolkit Tab ───────────────────────────────────────────────────────────
+const BEToolkitTab: React.FC = () => {
+  const [items, setItems] = useState<BEToolkitItem[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [filterType, setFilterType] = useState<'all' | 'project' | 'research' | 'case-study'>('all');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  // Add Item form state
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [toolkit, setToolkit] = useState({
+    title: '',
+    type: 'project' as const,
+    branch: '',
+    tags: '',
+    difficulty: 'medium' as const,
+    summary: '',
+    source: '',
+    link: ''
+  });
+  const [toolkitStatus, setToolkitStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+  const [toolkitMessage, setToolkitMessage] = useState('');
+
+  const fetchItems = async () => {
+    setIsLoading(true);
+    try {
+      const data = await getBEToolkitItems();
+      setItems(data || []);
+    } catch (e) {
+      console.error(e);
+      setItems([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchItems();
+  }, []);
+
+  const handleDeleteItem = async (item: BEToolkitItem) => {
+    if (!window.confirm(`Delete "${item.title}"? This cannot be undone.`)) return;
+    setDeletingId(item.id);
+    try {
+      await deleteBEToolkitItem(item.id);
+      setItems(prev => prev.filter(i => i.id !== item.id));
+    } catch (err: any) {
+      alert(err.message || 'Failed to delete toolkit item');
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  const handleToolkitChange = (key: string, value: string) => {
+    setToolkit(prev => ({ ...prev, [key]: value }));
+  };
+
+  const handleToolkitSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!toolkit.title || !toolkit.branch || !toolkit.summary || !toolkit.source || !toolkit.link) {
+      setToolkitStatus('error');
+      setToolkitMessage('Please fill in all required fields (*)');
+      return;
+    }
+    setToolkitStatus('loading');
+    setToolkitMessage('');
+    try {
+      const result = await addBEToolkitItem({
+        ...toolkit,
+        tags: toolkit.tags.split(',').map(t => t.trim()).filter(Boolean)
+      });
+      setToolkitStatus('success');
+      setToolkitMessage(result.message || 'Item added successfully!');
+      setToolkit({ title: '', type: 'project', branch: '', tags: '', difficulty: 'medium', summary: '', source: '', link: '' });
+      fetchItems();
+      setTimeout(() => {
+        setShowAddForm(false);
+        setToolkitStatus('idle');
+        setToolkitMessage('');
+      }, 1500);
+    } catch (err: any) {
+      setToolkitStatus('error');
+      setToolkitMessage(err.message || 'Failed to add item.');
+    }
+  };
+
+  const handleLoadSampleToolkit = async () => {
+    setToolkitStatus('loading');
+    const samples = [
+      { title: "Autonomous Robot Navigation using ROS", type: "project" as const, branch: "Mechanical Engineering", tags: ["ROS", "Robotics", "Python"], difficulty: "hard" as const, summary: "A ROS-based project implementing SLAM and path planning for autonomous indoor navigation.", source: "arXiv", link: "https://arxiv.org/abs/2106.11461" },
+      { title: "Deep Learning for Image Classification", type: "research" as const, branch: "Computer Engineering", tags: ["CNN", "Deep Learning", "Python"], difficulty: "medium" as const, summary: "Survey of CNN architectures for image classification tasks with benchmark comparisons.", source: "arXiv", link: "https://arxiv.org/abs/1901.06032" },
+      { title: "Smart Grid Power Distribution Optimization", type: "case-study" as const, branch: "Electrical Engineering", tags: ["Smart Grid", "IoT", "Power Systems"], difficulty: "medium" as const, summary: "A comprehensive case study on reducing transmission losses using automated load-balancing algorithms.", source: "IEEE Xplore", link: "https://ieeexplore.ieee.org" }
+    ];
+    let added = 0;
+    for (const item of samples) {
+      try {
+        await addBEToolkitItem(item);
+        added++;
+      } catch {}
+    }
+    setToolkitStatus(added > 0 ? 'success' : 'error');
+    setToolkitMessage(added > 0 ? `${added} sample items loaded!` : 'Failed to load samples.');
+    fetchItems();
+  };
+
+  const filteredItems = items.filter(item => {
+    const matchesType = filterType === 'all' || item.type === filterType;
+    const matchesSearch = searchQuery === '' || 
+      item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      item.branch.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      item.tags?.some(t => t.toLowerCase().includes(searchQuery.toLowerCase()));
+    return matchesType && matchesSearch;
+  });
+
+  const inputClass = "w-full text-sm border border-gray-200 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-slate-50 focus:bg-white transition-all";
+
+  return (
+    <div className="space-y-6 animate-in fade-in duration-300">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+          <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+            <BookOpen className="w-5 h-5 text-indigo-600" />
+            BE Toolkit Resources ({items.length})
+          </h2>
+          <p className="text-xs text-slate-500 mt-1">
+            Provide curated final year projects, research papers, and case studies to university students.
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setShowAddForm(!showAddForm)}
+            className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold px-4 py-2.5 rounded-lg transition shadow-sm flex items-center gap-1.5"
+          >
+            {showAddForm ? '✕ Close Form' : '+ Add Toolkit Item'}
+          </button>
+          <button
+            onClick={handleLoadSampleToolkit}
+            disabled={toolkitStatus === 'loading'}
+            className="bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold px-4 py-2.5 rounded-lg transition border border-slate-200 disabled:opacity-50"
+          >
+            Load Sample Data
+          </button>
+        </div>
+      </div>
+
+      {showAddForm && (
+        <form onSubmit={handleToolkitSubmit} className="bg-white border border-indigo-100 rounded-xl p-6 shadow-sm space-y-4 animate-in fade-in duration-200">
+          <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+            <h3 className="font-bold text-gray-900 text-sm">Add New BE Toolkit Resource</h3>
+            <span className="text-[11px] text-gray-400">Open-access links only (arXiv, DOAJ, GitHub, PDF)</span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-[11px] font-bold text-gray-500 uppercase mb-1">Title *</label>
+              <input className={inputClass} placeholder="e.g. Distributed Consensus in Cloud Systems" value={toolkit.title} onChange={e => handleToolkitChange('title', e.target.value)} required />
+            </div>
+            <div>
+              <label className="block text-[11px] font-bold text-gray-500 uppercase mb-1">Branch *</label>
+              <input className={inputClass} placeholder="e.g. Computer Engineering" value={toolkit.branch} onChange={e => handleToolkitChange('branch', e.target.value)} required />
+            </div>
+            <div>
+              <label className="block text-[11px] font-bold text-gray-500 uppercase mb-1">Resource Type *</label>
+              <select className={inputClass} value={toolkit.type} onChange={e => handleToolkitChange('type', e.target.value)}>
+                <option value="project">🔧 Final Year Project</option>
+                <option value="research">🔬 Research Paper</option>
+                <option value="case-study">📋 Industrial Case Study</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-[11px] font-bold text-gray-500 uppercase mb-1">Difficulty Level *</label>
+              <select className={inputClass} value={toolkit.difficulty} onChange={e => handleToolkitChange('difficulty', e.target.value)}>
+                <option value="easy">Easy (Beginner)</option>
+                <option value="medium">Medium (Intermediate)</option>
+                <option value="hard">Hard (Advanced)</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-[11px] font-bold text-gray-500 uppercase mb-1">Tags (comma-separated)</label>
+              <input className={inputClass} placeholder="e.g. Blockchain, Consensus, Raft" value={toolkit.tags} onChange={e => handleToolkitChange('tags', e.target.value)} />
+            </div>
+            <div>
+              <label className="block text-[11px] font-bold text-gray-500 uppercase mb-1">Source Publisher *</label>
+              <input className={inputClass} placeholder="e.g. arXiv, IEEE, GitHub" value={toolkit.source} onChange={e => handleToolkitChange('source', e.target.value)} required />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-[11px] font-bold text-gray-500 uppercase mb-1">Summary / Abstract *</label>
+            <textarea className={inputClass} rows={3} placeholder="Comprehensive description of the project or study..." value={toolkit.summary} onChange={e => handleToolkitChange('summary', e.target.value)} required />
+          </div>
+
+          <div>
+            <label className="block text-[11px] font-bold text-gray-500 uppercase mb-1">Link URL *</label>
+            <input className={inputClass} type="url" placeholder="https://arxiv.org/abs/..." value={toolkit.link} onChange={e => handleToolkitChange('link', e.target.value)} required />
+          </div>
+
+          {toolkitMessage && (
+            <div className={`flex items-center gap-2 text-xs px-3 py-2 rounded-lg ${toolkitStatus === 'success' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
+              {toolkitStatus === 'success' ? <CheckCircle className="w-4 h-4 shrink-0" /> : <AlertCircle className="w-4 h-4 shrink-0" />}
+              {toolkitMessage}
+            </div>
+          )}
+
+          <div className="flex justify-end gap-2 pt-2">
+            <button type="button" onClick={() => setShowAddForm(false)} className="px-4 py-2 text-xs font-semibold text-gray-600 hover:bg-gray-100 rounded-lg transition">Cancel</button>
+            <button type="submit" disabled={toolkitStatus === 'loading'} className="px-5 py-2 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition disabled:opacity-50 flex items-center gap-1.5">
+              {toolkitStatus === 'loading' && <Loader2 className="w-3.5 h-3.5 animate-spin" />} Save Resource
+            </button>
+          </div>
+        </form>
+      )}
+
+      {/* Filter and Search Bar */}
+      <div className="bg-white p-3 rounded-xl border border-gray-200 flex flex-col sm:flex-row justify-between items-center gap-3">
+        <div className="flex gap-1.5 overflow-x-auto w-full sm:w-auto">
+          {[
+            { id: 'all', label: 'All' },
+            { id: 'project', label: 'Projects' },
+            { id: 'research', label: 'Research' },
+            { id: 'case-study', label: 'Case Studies' }
+          ].map(f => (
+            <button
+              key={f.id}
+              onClick={() => setFilterType(f.id as any)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition ${
+                filterType === f.id
+                  ? 'bg-indigo-600 text-white shadow-sm'
+                  : 'text-slate-600 hover:bg-slate-100'
+              }`}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
+        <div className="relative w-full sm:w-64">
+          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            placeholder="Search resources or tags..."
+            className="w-full pl-9 pr-3 py-1.5 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-slate-50 focus:bg-white"
+          />
+        </div>
+      </div>
+
+      {isLoading ? (
+        <div className="flex items-center justify-center py-12 text-gray-400 text-xs gap-2">
+          <Loader2 className="w-4 h-4 animate-spin text-indigo-500" />
+          Loading BE Toolkit resources...
+        </div>
+      ) : filteredItems.length === 0 ? (
+        <div className="bg-white rounded-xl border border-dashed border-gray-300 p-12 text-center">
+          <BookOpen className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+          <p className="text-sm font-semibold text-gray-700">No resources found</p>
+          <p className="text-xs text-gray-400 mt-1 max-w-sm mx-auto">
+            {searchQuery ? 'Try adjusting your search query.' : 'Add your first final year project, research paper, or case study.'}
+          </p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {filteredItems.map(item => (
+            <div key={item.id} className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm hover:shadow-md transition flex flex-col justify-between">
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider ${
+                    item.type === 'project'
+                      ? 'bg-blue-100 text-blue-700'
+                      : item.type === 'research'
+                        ? 'bg-purple-100 text-purple-700'
+                        : 'bg-emerald-100 text-emerald-700'
+                  }`}>
+                    {item.type}
+                  </span>
+                  <span className={`text-[10px] font-semibold px-2 py-0.5 rounded capitalize ${
+                    item.difficulty === 'easy'
+                      ? 'bg-green-50 text-green-700'
+                      : item.difficulty === 'hard'
+                        ? 'bg-red-50 text-red-700'
+                        : 'bg-amber-50 text-amber-700'
+                  }`}>
+                    {item.difficulty}
+                  </span>
+                </div>
+
+                <a
+                  href={item.link}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-bold text-gray-900 text-sm hover:text-indigo-600 transition flex items-center gap-1.5 group mb-1.5"
+                >
+                  <span className="line-clamp-2">{item.title}</span>
+                  <ExternalLink className="w-3.5 h-3.5 text-gray-400 group-hover:text-indigo-600 shrink-0" />
+                </a>
+
+                <p className="text-xs text-indigo-700 font-medium mb-2">{item.branch} • <span className="text-gray-500 font-normal">{item.source}</span></p>
+                <p className="text-xs text-gray-600 line-clamp-3 leading-relaxed mb-3">{item.summary}</p>
+
+                {item.tags && item.tags.length > 0 && (
+                  <div className="flex flex-wrap gap-1 mb-2">
+                    {item.tags.map((tag, idx) => (
+                      <span key={idx} className="bg-slate-100 text-slate-600 text-[10px] font-medium px-2 py-0.5 rounded-full">
+                        #{tag}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="pt-3 border-t border-gray-100 flex items-center justify-between text-xs mt-3">
+                <a
+                  href={item.link}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-indigo-600 font-semibold hover:underline flex items-center gap-1"
+                >
+                  Open Resource ↗
+                </a>
+                <button
+                  onClick={() => handleDeleteItem(item)}
+                  disabled={deletingId === item.id}
+                  className="text-red-500 hover:text-red-700 font-semibold flex items-center gap-1 disabled:opacity-50 transition"
+                >
+                  {deletingId === item.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                  Delete
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ─── Exam Prep Tab ────────────────────────────────────────────────────────────
+const ExamPrepTab: React.FC = () => {
+  const [examFile, setExamFile] = useState<File | null>(null);
+  const [examStatus, setExamStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+  const [examMessage, setExamMessage] = useState('');
+  const [examPreview, setExamPreview] = useState<any>(null);
+  const [uploadedFiles, setUploadedFiles] = useState<ListItem[]>([]);
+  const [filesLoading, setFilesLoading] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [deleteMessage, setDeleteMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [seedStatus, setSeedStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+
+  const fetchUploadedFiles = async () => {
+    setFilesLoading(true);
+    try {
+      const list = await listExamIntelligence();
+      setUploadedFiles(list || []);
+    } catch {
+      setUploadedFiles([]);
+    } finally {
+      setFilesLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchUploadedFiles();
+  }, []);
+
+  const handleDeleteFile = async (item: ListItem) => {
+    if (!window.confirm(`Delete "${item.subject} (Sem ${item.semester})"? This cannot be undone.`)) return;
+    setDeletingId(item.id);
+    setDeleteMessage(null);
+    try {
+      await deleteExamIntelligence(item.id);
+      setUploadedFiles(prev => prev.filter(f => f.id !== item.id));
+      setDeleteMessage({ type: 'success', text: `"${item.subject}" deleted successfully.` });
+    } catch (err: any) {
+      setDeleteMessage({ type: 'error', text: err.message || 'Failed to delete.' });
+    } finally {
+      setDeletingId(null);
+      setTimeout(() => setDeleteMessage(null), 4000);
+    }
+  };
+
+  const handleExamFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0] ?? null;
+    setExamFile(file);
+    setExamStatus('idle');
+    setExamMessage('');
+    setExamPreview(null);
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        setExamPreview(JSON.parse(ev.target?.result as string));
+      } catch {
+        setExamStatus('error');
+        setExamMessage('Invalid JSON file — could not parse.');
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  const handleExamUpload = async () => {
+    if (!examPreview) return;
+    setExamStatus('loading');
+    setExamMessage('');
+    try {
+      const result = await uploadExamIntelligence(examPreview);
+      setExamStatus('success');
+      setExamMessage(result.message || 'Uploaded successfully!');
+      setExamFile(null);
+      setExamPreview(null);
+      fetchUploadedFiles();
+    } catch (err: any) {
+      setExamStatus('error');
+      setExamMessage(err.message || 'Upload failed.');
+    }
+  };
+
+  const handleLoadDemo = async () => {
+    setSeedStatus('loading');
+    const demo = {
+      subject: "Data Structures & Algorithms",
+      semester: "3",
+      branch: "Computer Engineering",
+      units: [
+        {
+          unit: "Unit 1",
+          title: "Arrays & Linked Lists",
+          topics: [
+            {
+              name: "Array Operations",
+              priority: "high",
+              weightage: 25,
+              frequency: 8,
+              topQuestions: ["Explain time complexity of array insertion.", "Compare arrays and linked lists."],
+              pyqs: [
+                { question: "Write an algorithm to reverse an array in-place.", year: 2023, marks: 5 },
+                { question: "What is the difference between static and dynamic arrays?", year: 2022, marks: 3 }
+              ]
+            },
+            {
+              name: "Singly Linked List",
+              priority: "high",
+              weightage: 20,
+              frequency: 7,
+              topQuestions: ["Implement insert at head in linked list.", "How to detect a cycle in a linked list?"],
+              pyqs: [
+                { question: "Write a program to reverse a singly linked list.", year: 2023, marks: 5 }
+              ]
+            }
+          ]
+        },
+        {
+          unit: "Unit 2",
+          title: "Stacks & Queues",
+          topics: [
+            {
+              name: "Stack Implementation",
+              priority: "high",
+              weightage: 15,
+              frequency: 9,
+              topQuestions: ["Implement stack using array.", "Applications of stack in expression evaluation."],
+              pyqs: [
+                { question: "Convert infix expression to postfix using stack.", year: 2023, marks: 6 }
+              ]
+            }
+          ]
+        }
+      ]
+    };
+    try {
+      await uploadExamIntelligence(demo as any);
+      setSeedStatus('success');
+      fetchUploadedFiles();
+    } catch {
+      setSeedStatus('error');
+    }
+  };
+
+  return (
+    <div className="space-y-6 animate-in fade-in duration-300">
+      <div>
+        <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+          <Sparkles className="w-5 h-5 text-indigo-600" />
+          Exam Intelligence & Syllabus Analysis
+        </h2>
+        <p className="text-xs text-slate-500 mt-1">
+          Upload and manage SPPU past papers, unit weightages, topic priority maps, and recurring questions.
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm flex flex-col justify-between">
+          <div>
+            <h3 className="font-bold text-gray-900 text-sm mb-1">Upload Syllabus JSON</h3>
+            <p className="text-xs text-gray-500 mb-4">Select structured JSON with subjects, units, and PYQs.</p>
+
+            <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-indigo-200 rounded-xl cursor-pointer bg-indigo-50/50 hover:bg-indigo-50 transition-colors mb-4">
+              <span className="text-2xl mb-1">📂</span>
+              <span className="text-xs text-indigo-700 font-semibold px-2 text-center truncate max-w-full">
+                {examFile ? examFile.name : 'Select .json file'}
+              </span>
+              <span className="text-[10px] text-gray-400 mt-1">Structured syllabus format</span>
+              <input type="file" accept=".json" className="hidden" onChange={handleExamFileChange} />
+            </label>
+
+            {examPreview && (() => {
+              const items: any[] = Array.isArray(examPreview) ? examPreview : (Array.isArray(examPreview?.subjects) ? examPreview.subjects : [examPreview]);
+              const totalUnits = items.reduce((a: number, s: any) => a + (s.units?.length ?? 0), 0);
+              const totalTopics = items.reduce((a: number, s: any) => a + (s.units?.reduce((b: number, u: any) => b + (u.topics?.length ?? 0), 0) ?? 0), 0);
+              return (
+                <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 mb-4 text-xs text-gray-600">
+                  <p className="font-semibold text-gray-800 mb-1">Preview ({items.length} subject{items.length > 1 ? 's' : ''})</p>
+                  {items.map((s: any, i: number) => (
+                    <p key={i} className="text-indigo-700 font-medium truncate">• {s.subject} (Sem {s.semester})</p>
+                  ))}
+                  <p className="mt-2 text-gray-500 text-[11px]">Units: <strong className="text-gray-700">{totalUnits}</strong> | Topics: <strong className="text-gray-700">{totalTopics}</strong></p>
+                </div>
+              );
+            })()}
+
+            {examMessage && (
+              <div className={`flex items-center gap-2 text-xs px-3 py-2 rounded-lg mb-4 ${examStatus === 'success' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
+                {examStatus === 'success' ? <CheckCircle className="w-4 h-4 shrink-0" /> : <AlertCircle className="w-4 h-4 shrink-0" />}
+                <span className="truncate">{examMessage}</span>
+              </div>
+            )}
+          </div>
+
+          <div className="flex gap-2 pt-2">
+            <button
+              onClick={handleExamUpload}
+              disabled={!examPreview || examStatus === 'loading'}
+              className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold py-2.5 rounded-lg transition disabled:opacity-50 flex items-center justify-center gap-1.5 shadow-sm"
+            >
+              {examStatus === 'loading' && <Loader2 className="w-3.5 h-3.5 animate-spin" />} Upload JSON
+            </button>
+            <button
+              onClick={handleLoadDemo}
+              disabled={seedStatus === 'loading'}
+              className="bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold px-3 py-2.5 rounded-lg transition disabled:opacity-50"
+              title="Load Demo DSA Subject"
+            >
+              {seedStatus === 'loading' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : '🧪 Demo'}
+            </button>
+          </div>
+        </div>
+
+        <div className="lg:col-span-2 bg-white border border-gray-200 rounded-xl p-6 shadow-sm flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="font-bold text-gray-900 text-sm">Uploaded Exam Intelligence Subjects ({uploadedFiles.length})</h3>
+              <button onClick={fetchUploadedFiles} disabled={filesLoading} className="text-xs text-indigo-600 font-semibold hover:underline flex items-center gap-1 disabled:opacity-50">
+                {filesLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : '↻'} Refresh
+              </button>
+            </div>
+            <p className="text-xs text-gray-500 mb-4">These syllabus topics, weightages, and PYQs are live for students in Exam Prep.</p>
+
+            {deleteMessage && (
+              <div className={`flex items-center gap-2 text-xs px-3 py-2 rounded-lg mb-3 ${deleteMessage.type === 'success' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
+                {deleteMessage.type === 'success' ? <CheckCircle className="w-3.5 h-3.5 shrink-0" /> : <AlertCircle className="w-3.5 h-3.5 shrink-0" />}
+                {deleteMessage.text}
+              </div>
+            )}
+
+            {filesLoading ? (
+              <div className="flex items-center justify-center py-12 text-gray-400 text-xs gap-2">
+                <Loader2 className="w-4 h-4 animate-spin text-indigo-500" />
+                Loading exam subjects...
+              </div>
+            ) : uploadedFiles.length === 0 ? (
+              <div className="border border-dashed border-gray-200 rounded-xl p-8 text-center text-gray-400 text-xs">
+                No subjects uploaded yet. Upload a JSON file or click Demo to test.
+              </div>
+            ) : (
+              <div className="overflow-x-auto rounded-lg border border-gray-100 max-h-80 overflow-y-auto">
+                <table className="w-full text-xs text-left">
+                  <thead className="bg-slate-50 text-slate-500 font-semibold sticky top-0 border-b border-gray-100">
+                    <tr>
+                      <th className="px-3 py-2.5">Subject</th>
+                      <th className="px-3 py-2.5">Semester</th>
+                      <th className="px-3 py-2.5">Branch</th>
+                      <th className="px-3 py-2.5 text-right">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100 bg-white">
+                    {uploadedFiles.map(item => (
+                      <tr key={item.id} className="hover:bg-slate-50 transition-colors">
+                        <td className="px-3 py-2.5 font-semibold text-gray-800">{item.subject}</td>
+                        <td className="px-3 py-2.5">
+                          <span className="bg-indigo-50 text-indigo-700 text-[10px] font-bold px-2 py-0.5 rounded">Sem {item.semester}</span>
+                        </td>
+                        <td className="px-3 py-2.5 text-gray-500">{item.branch || '—'}</td>
+                        <td className="px-3 py-2.5 text-right">
+                          <button
+                            onClick={() => handleDeleteFile(item)}
+                            disabled={deletingId === item.id}
+                            className="text-red-600 hover:text-red-800 font-semibold text-[11px] disabled:opacity-50 transition inline-flex items-center gap-1"
+                          >
+                            {deletingId === item.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                            Delete
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const AdminDashboard: React.FC = () => {
   const { user, updateUser } = useAuth();
   const [activeTab, setActiveTab] = useState<DashboardTab>('courses');
@@ -308,6 +924,39 @@ const AdminDashboard: React.FC = () => {
   const [liveClasses, setLiveClasses] = useState<any[]>([]);
   const [globalLiveClasses, setGlobalLiveClasses] = useState<any[]>([]);
   const [isScheduling, setIsScheduling] = useState(false);
+
+  const [courseStudentsMap, setCourseStudentsMap] = useState<Record<string, Array<{ id: string; name: string; email: string; phoneNumber?: string; createdAt?: string }>>>({});
+  const [expandedStudentsCourse, setExpandedStudentsCourse] = useState<string | null>(null);
+  const [studentsLoadingCourse, setStudentsLoadingCourse] = useState<string | null>(null);
+
+  const toggleCourseStudents = async (courseId: string) => {
+    if (expandedStudentsCourse === courseId) {
+      setExpandedStudentsCourse(null);
+      return;
+    }
+    setExpandedStudentsCourse(courseId);
+    if (!courseStudentsMap[courseId]) {
+      setStudentsLoadingCourse(courseId);
+      try {
+        const students = await api.getCourseStudents(courseId);
+        setCourseStudentsMap(prev => ({ ...prev, [courseId]: students || [] }));
+      } catch (err) {
+        console.error('Failed to fetch course students', err);
+      } finally {
+        setStudentsLoadingCourse(null);
+      }
+    }
+  };
+
+  const [liveClassFilter, setLiveClassFilter] = useState<'all' | 'upcoming' | 'completed'>('all');
+  const [copiedClassId, setCopiedClassId] = useState<string | null>(null);
+
+  const handleCopyClassLink = (classId: string) => {
+    const url = `${window.location.origin}/live-class/${classId}`;
+    navigator.clipboard.writeText(url);
+    setCopiedClassId(classId);
+    setTimeout(() => setCopiedClassId(null), 2500);
+  };
 
   const fetchGlobalLiveClasses = async () => {
       try {
@@ -597,6 +1246,166 @@ const AdminDashboard: React.FC = () => {
       </div>
   );
 
+  const renderLiveClassesTab = () => {
+    const upcoming = globalLiveClasses.filter(c => c.status !== 'completed');
+    const completed = globalLiveClasses.filter(c => c.status === 'completed');
+    const displayed = liveClassFilter === 'upcoming' 
+      ? upcoming 
+      : liveClassFilter === 'completed' 
+        ? completed 
+        : globalLiveClasses;
+
+    return (
+      <div className="space-y-6 animate-in fade-in duration-300">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div>
+            <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+              <Video className="w-5 h-5 text-indigo-600" />
+              Live Classrooms ({globalLiveClasses.length})
+            </h2>
+            <p className="text-xs text-slate-500 mt-1">
+              Host interactive live webinars, share your screen, and automatically record sessions for your enrolled students.
+            </p>
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={() => {
+                if (courses.length > 0) {
+                  openLiveModal(courses[0].id);
+                } else {
+                  alert('Please create a course first before scheduling a live class.');
+                }
+              }}
+              className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold px-4 py-2.5 rounded-lg transition shadow-sm flex items-center gap-1.5"
+            >
+              <Plus className="w-4 h-4" /> Schedule Live Class
+            </button>
+            <button
+              onClick={() => navigate('/teacher/live-classes')}
+              className="bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold px-4 py-2.5 rounded-lg transition border border-slate-200 flex items-center gap-1.5"
+            >
+              <ExternalLink className="w-4 h-4" /> Full Studio Manager
+            </button>
+          </div>
+        </div>
+
+        {/* Filter chips */}
+        <div className="flex gap-2 border-b border-gray-200 pb-3">
+          {[
+            { id: 'all', label: `All Classes (${globalLiveClasses.length})` },
+            { id: 'upcoming', label: `Upcoming & Active (${upcoming.length})` },
+            { id: 'completed', label: `Completed / Recordings (${completed.length})` }
+          ].map(f => (
+            <button
+              key={f.id}
+              onClick={() => setLiveClassFilter(f.id as any)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
+                liveClassFilter === f.id
+                  ? 'bg-indigo-100 text-indigo-800'
+                  : 'text-slate-600 hover:bg-slate-100'
+              }`}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Classes grid */}
+        {displayed.length === 0 ? (
+          <div className="bg-white rounded-xl border border-dashed border-gray-300 p-12 text-center">
+            <div className="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center mx-auto mb-3">
+              <Video className="w-6 h-6" />
+            </div>
+            <h3 className="font-bold text-gray-800 text-base mb-1">No live classes in this view</h3>
+            <p className="text-xs text-gray-500 max-w-sm mx-auto mb-4">
+              Schedule a new session for your course to stream live with WebRTC audio, video, and screen sharing.
+            </p>
+            <button
+              onClick={() => {
+                if (courses.length > 0) openLiveModal(courses[0].id);
+                else alert('Please create a course first.');
+              }}
+              className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold px-4 py-2 rounded-lg transition"
+            >
+              + Schedule First Class
+            </button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {displayed.map(lc => {
+              const course = courses.find(c => c.id === lc.courseId);
+              const isLive = lc.status === 'live';
+              const isCompleted = lc.status === 'completed';
+
+              return (
+                <div key={lc.id} className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm hover:shadow-md transition flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-[11px] font-bold text-indigo-600 truncate max-w-[180px]">
+                        {course?.title || 'Course'}
+                      </span>
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider ${
+                        isLive 
+                          ? 'bg-red-100 text-red-700 animate-pulse' 
+                          : isCompleted 
+                            ? 'bg-slate-100 text-slate-600' 
+                            : 'bg-emerald-100 text-emerald-700'
+                      }`}>
+                        {isLive ? '● Live Now' : isCompleted ? 'Completed' : 'Scheduled'}
+                      </span>
+                    </div>
+                    <h3 className="font-bold text-gray-900 text-base mb-1 line-clamp-2">{lc.title}</h3>
+                    <div className="text-xs text-slate-500 space-y-1 mt-2">
+                      <p className="flex items-center gap-1.5">
+                        <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                        {new Date(lc.scheduledStartTime).toLocaleDateString('en-IN', {
+                          weekday: 'short', month: 'short', day: 'numeric', year: 'numeric'
+                        })}
+                      </p>
+                      <p className="flex items-center gap-1.5">
+                        <Clock className="w-3.5 h-3.5 text-slate-400" />
+                        {new Date(lc.scheduledStartTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="mt-5 pt-3 border-t border-gray-100 flex items-center gap-2">
+                    <button
+                      onClick={() => navigate(`/live-class/${lc.id}`)}
+                      className={`flex-1 text-xs font-bold py-2 px-3 rounded-lg transition text-center ${
+                        isCompleted 
+                          ? 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                          : 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-sm'
+                      }`}
+                    >
+                      {isCompleted ? 'View Recording' : isLive ? 'Join Live Room' : 'Start Studio'}
+                    </button>
+                    <button
+                      onClick={() => handleCopyClassLink(lc.id)}
+                      className="p-2 border border-slate-200 rounded-lg hover:bg-slate-50 text-slate-600 text-xs transition"
+                      title="Copy Student Invite Link"
+                    >
+                      {copiedClassId === lc.id ? <Check className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4" />}
+                    </button>
+                    {!isCompleted && (
+                      <button
+                        onClick={() => handleDeleteLiveClass(lc.id)}
+                        className="p-2 text-red-600 hover:bg-red-50 border border-red-200 rounded-lg transition text-xs"
+                        title="Cancel Class"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    );
+  };
+
   const renderCoursesList = () => (
       <div className="space-y-6 animate-in fade-in duration-300">
           {/* Dashboard Global Live Classes */}
@@ -662,16 +1471,78 @@ const AdminDashboard: React.FC = () => {
                                     <span className="font-bold text-gray-900">₹{course.price?.toFixed(2) || '0.00'}</span>
                                 )}
                               </div>
-                              <div className="flex gap-4">
-                                  <button onClick={() => navigate(`/teacher/live-classes/${course.id}`)} className="text-blue-600 text-sm font-bold hover:underline">Live Classes</button>
-                                  <button onClick={() => setExpandedCouponProduct(prev => prev === course.id ? null : course.id)} className="text-slate-600 text-sm font-bold hover:underline">Coupons</button>
-                                  <button onClick={() => handleEditCourse(course)} className="text-indigo-600 text-sm font-bold hover:underline">Edit</button>
-                                  <button onClick={() => handleDeleteCourse(course)} className="text-red-600 text-sm font-bold hover:underline">Delete</button>
+                              <div className="flex gap-3 text-xs font-bold">
+                                  <button onClick={() => toggleCourseStudents(course.id)} className="text-emerald-600 hover:text-emerald-700 hover:underline flex items-center gap-1">
+                                      <Users className="w-3.5 h-3.5" /> Students
+                                  </button>
+                                  <button onClick={() => navigate(`/teacher/live-classes/${course.id}`)} className="text-blue-600 hover:underline">Live</button>
+                                  <button onClick={() => setExpandedCouponProduct(prev => prev === course.id ? null : course.id)} className="text-slate-600 hover:underline">Coupons</button>
+                                  <button onClick={() => handleEditCourse(course)} className="text-indigo-600 hover:underline">Edit</button>
+                                  <button onClick={() => handleDeleteCourse(course)} className="text-red-600 hover:underline">Delete</button>
                               </div>
                           </div>
                           {expandedCouponProduct === course.id && (
                               <div className="mt-4 pt-4 border-t border-gray-100">
                                   <CouponManager productId={course.id} productType="course" />
+                              </div>
+                          )}
+                          {expandedStudentsCourse === course.id && (
+                              <div className="mt-4 pt-4 border-t border-gray-100 animate-in fade-in duration-200">
+                                  <div className="flex items-center justify-between mb-3">
+                                      <h4 className="text-xs font-bold text-gray-700 uppercase tracking-wider flex items-center gap-1.5">
+                                          <Users className="w-4 h-4 text-emerald-600" />
+                                          Enrolled Students ({courseStudentsMap[course.id]?.length ?? (studentsLoadingCourse === course.id ? '...' : 0)})
+                                      </h4>
+                                      <button
+                                          onClick={() => {
+                                              setStudentsLoadingCourse(course.id);
+                                              api.getCourseStudents(course.id)
+                                                  .then(students => setCourseStudentsMap(prev => ({ ...prev, [course.id]: students || [] })))
+                                                  .catch(console.error)
+                                                  .finally(() => setStudentsLoadingCourse(null));
+                                          }}
+                                          className="text-[11px] font-semibold text-indigo-600 hover:text-indigo-800 transition"
+                                      >
+                                          ↻ Refresh
+                                      </button>
+                                  </div>
+
+                                  {studentsLoadingCourse === course.id ? (
+                                      <div className="flex items-center justify-center py-6 text-gray-400 text-xs gap-2">
+                                          <Loader2 className="w-4 h-4 animate-spin text-indigo-500" />
+                                          Loading enrolled students...
+                                      </div>
+                                  ) : !courseStudentsMap[course.id] || courseStudentsMap[course.id].length === 0 ? (
+                                      <div className="bg-slate-50 border border-slate-100 rounded-lg p-4 text-center text-xs text-gray-500">
+                                          <p className="font-semibold text-gray-600">No students enrolled yet</p>
+                                          <p className="mt-0.5 text-gray-400">When students purchase or enroll in this course, their name, email, and phone will appear here.</p>
+                                      </div>
+                                  ) : (
+                                      <div className="overflow-x-auto rounded-lg border border-gray-100 max-h-60 overflow-y-auto">
+                                          <table className="w-full text-xs text-left">
+                                              <thead className="bg-slate-50 text-slate-500 font-semibold sticky top-0 border-b border-gray-100">
+                                                  <tr>
+                                                      <th className="px-3 py-2">Student</th>
+                                                      <th className="px-3 py-2">Email</th>
+                                                      <th className="px-3 py-2">Phone</th>
+                                                      <th className="px-3 py-2">Enrolled</th>
+                                                  </tr>
+                                              </thead>
+                                              <tbody className="divide-y divide-gray-100 bg-white">
+                                                  {courseStudentsMap[course.id].map(s => (
+                                                      <tr key={s.id} className="hover:bg-slate-50 transition-colors">
+                                                          <td className="px-3 py-2 font-medium text-gray-900">{s.name}</td>
+                                                          <td className="px-3 py-2 text-gray-600 font-mono text-[11px]">{s.email}</td>
+                                                          <td className="px-3 py-2 text-gray-600">{s.phoneNumber || '—'}</td>
+                                                          <td className="px-3 py-2 text-gray-400">
+                                                              {s.createdAt ? new Date(s.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}
+                                                          </td>
+                                                      </tr>
+                                                  ))}
+                                              </tbody>
+                                          </table>
+                                      </div>
+                                  )}
                               </div>
                           )}
                       </div>
@@ -950,9 +1821,12 @@ const AdminDashboard: React.FC = () => {
               <div className="mt-8 flex gap-2 overflow-x-auto no-scrollbar">
                   {[
                       { id: 'courses', label: 'Courses' },
+                      { id: 'live', label: 'Live Classes' },
                       { id: 'notes', label: 'Notes' },
                       { id: 'quizzes', label: 'Quizzes' },
                       { id: 'viva', label: 'Viva Sets' },
+                      { id: 'be-toolkit', label: 'BE Toolkit' },
+                      { id: 'exam-prep', label: 'Exam Intelligence' },
                       { id: 'analytics', label: 'Analytics' },
                       { id: 'payout', label: 'Payout Settings' }
                   ].map(tab => (
@@ -968,9 +1842,12 @@ const AdminDashboard: React.FC = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           {activeTab === 'analytics' && renderAnalytics()}
           {activeTab === 'courses' && renderCoursesList()}
+          {activeTab === 'live' && renderLiveClassesTab()}
           {activeTab === 'notes' && renderNotesList()}
           {activeTab === 'quizzes' && renderQuizzesList()}
           {activeTab === 'viva' && renderVivaList()}
+          {activeTab === 'be-toolkit' && <BEToolkitTab />}
+          {activeTab === 'exam-prep' && <ExamPrepTab />}
           {activeTab === 'payout' && renderPayout()}
       </div>
 
@@ -1897,217 +2774,3 @@ const LiveModal: React.FC<{
 
 export default AdminDashboard;
 
-// ─── Exam Upload Tab ──────────────────────────────────────────────────────────
-
-import { uploadExamIntelligence, listExamIntelligence, deleteExamIntelligence, ListItem } from '../services/examIntelligenceApi';
-import { addBEToolkitItem } from '../services/beToolkitApi';
-
-const ExamUploadTab: React.FC = () => {
-  const [examFile, setExamFile]         = useState<File | null>(null);
-  const [examStatus, setExamStatus]     = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
-  const [examMessage, setExamMessage]   = useState('');
-  const [examPreview, setExamPreview]   = useState<any>(null);
-  const [uploadedFiles, setUploadedFiles]       = useState<ListItem[]>([]);
-  const [filesLoading, setFilesLoading]         = useState(false);
-  const [deletingId, setDeletingId]             = useState<string | null>(null);
-  const [deleteMessage, setDeleteMessage]       = useState<{ type: 'success' | 'error'; text: string } | null>(null);
-
-  const fetchUploadedFiles = async () => {
-    setFilesLoading(true);
-    try { const list = await listExamIntelligence(); setUploadedFiles(list); }
-    catch { setUploadedFiles([]); }
-    finally { setFilesLoading(false); }
-  };
-
-  useEffect(() => { fetchUploadedFiles(); }, []);
-
-  const handleDeleteFile = async (item: ListItem) => {
-    if (!window.confirm(`Delete "${item.subject} (Sem ${item.semester})"? This cannot be undone.`)) return;
-    setDeletingId(item.id); setDeleteMessage(null);
-    try {
-      await deleteExamIntelligence(item.id);
-      setUploadedFiles(prev => prev.filter(f => f.id !== item.id));
-      setDeleteMessage({ type: 'success', text: `"${item.subject}" deleted successfully.` });
-    } catch (err: any) {
-      setDeleteMessage({ type: 'error', text: err.message || 'Failed to delete.' });
-    } finally {
-      setDeletingId(null);
-      setTimeout(() => setDeleteMessage(null), 4000);
-    }
-  };
-
-  const [toolkit, setToolkit] = useState({ title: '', type: 'project' as const, branch: '', tags: '', difficulty: 'medium' as const, summary: '', source: '', link: '' });
-  const [toolkitStatus, setToolkitStatus]   = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
-  const [toolkitMessage, setToolkitMessage] = useState('');
-  const [seedStatus, setSeedStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
-
-  const handleExamFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0] ?? null;
-    setExamFile(file); setExamStatus('idle'); setExamMessage(''); setExamPreview(null);
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      try { setExamPreview(JSON.parse(ev.target?.result as string)); }
-      catch { setExamStatus('error'); setExamMessage('Invalid JSON file — could not parse.'); }
-    };
-    reader.readAsText(file);
-  };
-
-  const handleExamUpload = async () => {
-    if (!examPreview) return;
-    setExamStatus('loading'); setExamMessage('');
-    try {
-      const result = await uploadExamIntelligence(examPreview);
-      setExamStatus('success'); setExamMessage(result.message || 'Uploaded successfully!');
-      setExamFile(null); setExamPreview(null); fetchUploadedFiles();
-    } catch (err: any) { setExamStatus('error'); setExamMessage(err.message || 'Upload failed.'); }
-  };
-
-  const handleLoadDemo = async () => {
-    setSeedStatus('loading');
-    const demo = { subject: "Data Structures & Algorithms", semester: "3", units: [{ unit: "Unit 1", title: "Arrays & Linked Lists", topics: [{ name: "Array Operations", priority: "high", weightage: 25, frequency: 8, topQuestions: ["Explain time complexity of array insertion.", "Compare arrays and linked lists."], pyqs: [{ question: "Write an algorithm to reverse an array in-place.", year: 2023, marks: 5 }, { question: "What is the difference between static and dynamic arrays?", year: 2022, marks: 3 }] }, { name: "Singly Linked List", priority: "high", weightage: 20, frequency: 7, topQuestions: ["Implement insert at head in linked list.", "How to detect a cycle in a linked list?"], pyqs: [{ question: "Write a program to reverse a singly linked list.", year: 2023, marks: 5 }] }] }, { unit: "Unit 2", title: "Stacks & Queues", topics: [{ name: "Stack Implementation", priority: "high", weightage: 15, frequency: 9, topQuestions: ["Implement stack using array.", "Applications of stack in expression evaluation."], pyqs: [{ question: "Convert infix expression to postfix using stack.", year: 2023, marks: 6 }] }] }] };
-    try { await uploadExamIntelligence(demo as any); setSeedStatus('success'); }
-    catch { setSeedStatus('error'); }
-  };
-
-  const handleToolkitChange = (key: string, value: string) => setToolkit(prev => ({ ...prev, [key]: value }));
-
-  const handleToolkitSubmit = async () => {
-    setToolkitStatus('loading'); setToolkitMessage('');
-    try {
-      const result = await addBEToolkitItem({ ...toolkit, tags: toolkit.tags.split(',').map(t => t.trim()).filter(Boolean) });
-      setToolkitStatus('success'); setToolkitMessage(result.message || 'Item added!');
-      setToolkit({ title: '', type: 'project', branch: '', tags: '', difficulty: 'medium', summary: '', source: '', link: '' });
-    } catch (err: any) { setToolkitStatus('error'); setToolkitMessage(err.message || 'Failed to add item.'); }
-  };
-
-  const handleLoadSampleToolkit = async () => {
-    setToolkitStatus('loading');
-    const samples = [
-      { title: "Autonomous Robot Navigation using ROS", type: "project" as const, branch: "Mechanical Engineering", tags: ["ROS", "Robotics", "Python"], difficulty: "hard" as const, summary: "A ROS-based project implementing SLAM and path planning for autonomous indoor navigation.", source: "arXiv", link: "https://arxiv.org/abs/2106.11461" },
-      { title: "Deep Learning for Image Classification", type: "research" as const, branch: "Computer Engineering", tags: ["CNN", "Deep Learning", "Python"], difficulty: "medium" as const, summary: "Survey of CNN architectures for image classification tasks with benchmark comparisons.", source: "arXiv", link: "https://arxiv.org/abs/1901.06032" },
-    ];
-    let added = 0;
-    for (const item of samples) { try { await addBEToolkitItem(item); added++; } catch {} }
-    setToolkitStatus(added > 0 ? 'success' : 'error');
-    setToolkitMessage(added > 0 ? `${added} sample items loaded!` : 'Failed to load samples.');
-  };
-
-  const inputClass = "w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-400";
-
-  return (
-    <div className="space-y-8 max-w-3xl">
-      <div className="bg-white border border-gray-200 rounded-xl p-6">
-        <h2 className="text-lg font-bold text-gray-900 mb-1">📥 Exam Intelligence — JSON Upload</h2>
-        <p className="text-sm text-gray-500 mb-5">Upload a structured JSON file to populate exam topics, PYQs, and priorities.</p>
-        <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-indigo-300 rounded-xl cursor-pointer bg-indigo-50 hover:bg-indigo-100 transition-colors mb-4">
-          <span className="text-2xl mb-1">📂</span>
-          <span className="text-sm text-indigo-700 font-medium">{examFile ? examFile.name : 'Click to select JSON file'}</span>
-          <span className="text-xs text-gray-400 mt-1">Only .json files accepted</span>
-          <input type="file" accept=".json" className="hidden" onChange={handleExamFileChange} />
-        </label>
-        {examPreview && (() => {
-          const items: any[] = Array.isArray(examPreview) ? examPreview : (Array.isArray(examPreview?.subjects) ? examPreview.subjects : [examPreview]);
-          const totalUnits  = items.reduce((a: number, s: any) => a + (s.units?.length ?? 0), 0);
-          const totalTopics = items.reduce((a: number, s: any) => a + (s.units?.reduce((b: number, u: any) => b + (u.topics?.length ?? 0), 0) ?? 0), 0);
-          return (
-            <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 mb-4 text-xs text-gray-600">
-              <p className="font-semibold text-gray-700 mb-2">Preview — {items.length} subject{items.length > 1 ? 's' : ''} detected</p>
-              {items.map((s: any, i: number) => (<p key={i} className="text-indigo-700 font-medium">• {s.subject} <span className="text-gray-500 font-normal">(Sem {s.semester}, {s.units?.length ?? 0} units)</span></p>))}
-              <p className="mt-2 text-gray-500">Total Units: <span className="font-medium text-gray-700">{totalUnits}</span> &nbsp;|&nbsp; Total Topics: <span className="font-medium text-gray-700">{totalTopics}</span></p>
-            </div>
-          );
-        })()}
-        {examMessage && (
-          <div className={`flex items-center gap-2 text-sm px-3 py-2 rounded-lg mb-4 ${examStatus === 'success' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
-            {examStatus === 'success' ? <CheckCircle className="w-4 h-4 shrink-0" /> : <AlertCircle className="w-4 h-4 shrink-0" />}
-            {examMessage}
-          </div>
-        )}
-        <div className="flex gap-3">
-          <button onClick={handleExamUpload} disabled={!examPreview || examStatus === 'loading'} className="flex items-center gap-2 px-5 py-2 bg-indigo-600 text-white text-sm font-semibold rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
-            {examStatus === 'loading' && <Loader2 className="w-4 h-4 animate-spin" />} Upload JSON
-          </button>
-          <button onClick={handleLoadDemo} disabled={seedStatus === 'loading'} className="flex items-center gap-2 px-5 py-2 bg-gray-100 text-gray-700 text-sm font-semibold rounded-lg hover:bg-gray-200 disabled:opacity-50 transition-colors">
-            {seedStatus === 'loading' ? <Loader2 className="w-4 h-4 animate-spin" /> : '🧪'}
-            {seedStatus === 'success' ? 'Demo Loaded!' : seedStatus === 'error' ? 'Already exists' : 'Load Demo Data'}
-          </button>
-        </div>
-      </div>
-
-      <div className="bg-white border border-gray-200 rounded-xl p-6">
-        <div className="flex items-center justify-between mb-1">
-          <h2 className="text-lg font-bold text-gray-900">📋 Uploaded Exam Files</h2>
-          <button onClick={fetchUploadedFiles} disabled={filesLoading} className="flex items-center gap-1 text-xs text-indigo-600 font-semibold hover:underline disabled:opacity-50">
-            {filesLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : '↻'} Refresh
-          </button>
-        </div>
-        <p className="text-sm text-gray-500 mb-4">View and delete previously uploaded exam intelligence JSON files.</p>
-        {deleteMessage && (
-          <div className={`flex items-center gap-2 text-sm px-3 py-2 rounded-lg mb-4 ${deleteMessage.type === 'success' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
-            {deleteMessage.type === 'success' ? <CheckCircle className="w-4 h-4 shrink-0" /> : <AlertCircle className="w-4 h-4 shrink-0" />}
-            {deleteMessage.text}
-          </div>
-        )}
-        {filesLoading ? (
-          <div className="flex items-center justify-center py-8 text-gray-400"><Loader2 className="w-5 h-5 animate-spin mr-2" /> Loading...</div>
-        ) : uploadedFiles.length === 0 ? (
-          <div className="text-center py-8 text-gray-400 text-sm border-2 border-dashed border-gray-200 rounded-xl"><span className="text-2xl block mb-2">📭</span>No exam files uploaded yet.</div>
-        ) : (
-          <div className="overflow-hidden rounded-xl border border-gray-200">
-            <table className="w-full text-sm text-left">
-              <thead className="bg-gray-50 text-gray-500 text-xs font-bold uppercase border-b border-gray-200">
-                <tr><th className="px-4 py-3">Subject</th><th className="px-4 py-3">Semester</th><th className="px-4 py-3">Branch</th><th className="px-4 py-3">Uploaded</th><th className="px-4 py-3 text-right">Action</th></tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {uploadedFiles.map(item => (
-                  <tr key={item.id} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-4 py-3 font-semibold text-gray-800">{item.subject}</td>
-                    <td className="px-4 py-3"><span className="bg-indigo-100 text-indigo-700 text-xs font-bold px-2 py-0.5 rounded">Sem {item.semester}</span></td>
-                    <td className="px-4 py-3 text-gray-500">{item.branch || '—'}</td>
-                    <td className="px-4 py-3 text-gray-400 text-xs">{item.createdAt ? new Date(item.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}</td>
-                    <td className="px-4 py-3 text-right">
-                      <button onClick={() => handleDeleteFile(item)} disabled={deletingId === item.id} className="flex items-center gap-1 ml-auto text-xs font-bold text-red-500 hover:text-red-700 hover:bg-red-50 px-2 py-1 rounded transition disabled:opacity-50">
-                        {deletingId === item.id ? <Loader2 className="w-3 h-3 animate-spin" /> : (<svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>)}
-                        Delete
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
-
-      <div className="bg-white border border-gray-200 rounded-xl p-6">
-        <h2 className="text-lg font-bold text-gray-900 mb-1">🧰 BE Toolkit — Add Item</h2>
-        <p className="text-sm text-gray-500 mb-5">Add a project, research paper, or case study. Only open-access links (arXiv, DOAJ, free PDFs).</p>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
-          <input className={inputClass} placeholder="Title *" value={toolkit.title} onChange={e => handleToolkitChange('title', e.target.value)} />
-          <input className={inputClass} placeholder="Branch (e.g. Computer Engineering) *" value={toolkit.branch} onChange={e => handleToolkitChange('branch', e.target.value)} />
-          <select className={inputClass} value={toolkit.type} onChange={e => handleToolkitChange('type', e.target.value)}><option value="project">🔧 Project</option><option value="research">🔬 Research</option><option value="case-study">📋 Case Study</option></select>
-          <select className={inputClass} value={toolkit.difficulty} onChange={e => handleToolkitChange('difficulty', e.target.value)}><option value="easy">Easy</option><option value="medium">Medium</option><option value="hard">Hard</option></select>
-          <input className={inputClass} placeholder="Tags (comma-separated)" value={toolkit.tags} onChange={e => handleToolkitChange('tags', e.target.value)} />
-          <input className={inputClass} placeholder="Source (e.g. arXiv, DOAJ) *" value={toolkit.source} onChange={e => handleToolkitChange('source', e.target.value)} />
-        </div>
-        <textarea className={`${inputClass} mb-3`} rows={3} placeholder="Summary *" value={toolkit.summary} onChange={e => handleToolkitChange('summary', e.target.value)} />
-        <input className={`${inputClass} mb-4`} placeholder="Link (full URL) *" value={toolkit.link} onChange={e => handleToolkitChange('link', e.target.value)} />
-        {toolkitMessage && (
-          <div className={`flex items-center gap-2 text-sm px-3 py-2 rounded-lg mb-4 ${toolkitStatus === 'success' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
-            {toolkitStatus === 'success' ? <CheckCircle className="w-4 h-4 shrink-0" /> : <AlertCircle className="w-4 h-4 shrink-0" />}
-            {toolkitMessage}
-          </div>
-        )}
-        <div className="flex gap-3">
-          <button onClick={handleToolkitSubmit} disabled={toolkitStatus === 'loading'} className="flex items-center gap-2 px-5 py-2 bg-indigo-600 text-white text-sm font-semibold rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition-colors">
-            {toolkitStatus === 'loading' && <Loader2 className="w-4 h-4 animate-spin" />} Add Item
-          </button>
-          <button onClick={handleLoadSampleToolkit} disabled={toolkitStatus === 'loading'} className="flex items-center gap-2 px-5 py-2 bg-gray-100 text-gray-700 text-sm font-semibold rounded-lg hover:bg-gray-200 disabled:opacity-50 transition-colors">
-            🛠️ Load Sample Toolkit Data
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-};

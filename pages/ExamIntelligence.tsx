@@ -664,8 +664,8 @@ const ExamIntelligence: React.FC = () => {
   const isSuperAdmin = user?.role === UserRole.SUPER_ADMIN;
 
   useSEO({
-    title: 'SPPU Exam Intelligence | AI Study Plan & PYQs',
-    description: 'Get AI-driven SPPU exam intelligence, PYQ analysis, and custom study plans for Pune University Engineering students to easily pass semester exams.',
+    title: 'SPPU PYQs & Exam Intelligence - High-Weightage Topics & Question Papers',
+    description: 'Master SPPU (Pune University) insem and endsem engineering exams with past year question paper (PYQ) analysis, mark weightage distributions, and verified questions.',
     canonical: 'https://unieval.in/exam-intelligence',
   });
 

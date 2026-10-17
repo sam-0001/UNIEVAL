@@ -5,6 +5,7 @@ import { Note, NoteFile, User } from '../types';
 import { useAuth } from '../context/AuthContext';
 import SecurePdfViewer from '../components/SecurePdfViewer';
 import SecureHtmlViewer from '../components/SecureHtmlViewer';
+import { useSEO } from '../hooks/useSEO';
 
 declare global {
   interface Window {
@@ -32,6 +33,13 @@ const NoteDetail: React.FC = () => {
   const [appliedCoupon, setAppliedCoupon] = useState<AppliedCoupon | null>(null);
   const [activeFile, setActiveFile] = useState<NoteFile | null>(null);
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
+
+  useSEO({
+    title: note ? `${note.title} - SPPU Engineering Notes PDF` : 'SPPU Engineering Notes PDF',
+    description: note?.description || 'Download chapter-wise SPPU Engineering notes, previous year solved questions, and unit guides for Pune University engineering exams.',
+    canonical: id ? `https://unieval.in/note/${id}` : 'https://unieval.in/notes',
+    ogImage: note?.thumbnailUrl || undefined,
+  });
 
   // Fullscreen state
   const [isFullscreen, setIsFullscreen] = useState(false);

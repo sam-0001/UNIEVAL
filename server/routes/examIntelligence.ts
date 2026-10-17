@@ -70,7 +70,7 @@ function normalise(body: any): any[] | { error: string } {
 // ─── POST /api/exam-intelligence/upload ──────────────────────────────────────
 router.post(
   '/exam-intelligence/upload',
-  requireRole(UserRole.SUPER_ADMIN),
+  requireRole(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.TEACHER),
   async (req, res) => {
     const normalised = normalise(req.body);
     if ('error' in normalised) { res.status(400).json({ error: (normalised as any).error }); return; }
@@ -139,7 +139,7 @@ router.get('/exam-intelligence/:id', async (req, res) => {
 // ─── DELETE /api/exam-intelligence/:id — admin/teacher only ──────────────────
 router.delete(
   '/exam-intelligence/:id',
-  requireRole(UserRole.SUPER_ADMIN),
+  requireRole(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.TEACHER),
   async (req, res) => {
     try {
       const result = await ExamIntelligence.deleteOne({ id: req.params.id });

@@ -8,8 +8,8 @@ const NotesLibrary: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
 
   useSEO({
-    title: 'SPPU Notes & Study Material | Pune University Notes',
-    description: 'Download the best SPPU notes, cheat sheets, and study materials for Pune University Engineering students. FE, SE, TE, and BE notes available.',
+    title: 'SPPU Notes PDF - Download Pune University Engineering Notes',
+    description: 'Download verified SPPU Engineering Notes PDF for FE, SE, TE, and BE. Complete chapter-wise handwritten & topper notes for Computer, IT, Mechanical, Civil, ENTC & AIDS.',
     canonical: 'https://unieval.in/notes',
   });
 

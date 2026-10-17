@@ -1,6 +1,7 @@
 import express from 'express';
 import { randomUUID } from 'crypto';
-import { Course, Note, Quiz, Viva } from '../models/index.js';
+import { Course, Note, Quiz, Viva, User } from '../models/index.js';
+import { UserRole } from '../../types.js';
 import { cache } from '../services/cache.service.js';
 import logger from '../logger.js';
 import { deleteFileFromR2 } from '../routes/upload.js';
@@ -144,6 +145,34 @@ export async function deleteCourse(req: express.Request, res: express.Response):
         await Promise.all([cache.invalidate('courses:*'), cache.invalidate(`course:${id}`)]);
         res.json({ success: true });
     } catch (err) { logger.error('[Courses] deleteCourse:', err); res.status(500).json({ error: 'An internal error occurred' }); }
+}
+
+export async function getCourseStudents(req: express.Request, res: express.Response): Promise<void> {
+    const courseId = req.params.id as string;
+    const currentUser = (req as any).currentUser;
+    try {
+        const course = await Course.findOne({ id: courseId }).lean();
+        if (!course) {
+            res.status(404).json({ error: 'Course not found' });
+            return;
+        }
+
+        // Check ownership if teacher (admins and super admins can view any)
+        if (currentUser && currentUser.role === UserRole.TEACHER && course.teacherId !== currentUser.id) {
+            res.status(403).json({ error: 'You are not authorized to view students for this course' });
+            return;
+        }
+
+        const students = await User.find(
+            { purchasedCourseIds: courseId },
+            'id name email phoneNumber createdAt'
+        ).lean();
+
+        res.json(students);
+    } catch (err) {
+        logger.error('[Courses] getCourseStudents error:', err);
+        res.status(500).json({ error: 'Failed to fetch course students' });
+    }
 }
 
 // ─── Notes ────────────────────────────────────────────────────────────────────

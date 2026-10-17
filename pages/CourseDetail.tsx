@@ -4,6 +4,7 @@ import { api } from '../services/api';
 import { Course, CourseModule, CourseVideo, User } from '../types';
 import { useAuth } from '../context/AuthContext';
 import CustomVideoPlayer from '../components/CustomVideoPlayer';
+import { useSEO } from '../hooks/useSEO';
 
 // Extend window object to support Cashfree
 declare global {
@@ -27,6 +28,13 @@ const CourseDetail: React.FC = () => {
   const [activeModule, setActiveModule] = useState<CourseModule | null>(null);
   const [activeVideo, setActiveVideo] = useState<CourseVideo | null>(null);
   const [liveClasses, setLiveClasses] = useState<any[]>([]);
+
+  useSEO({
+    title: course ? `${course.title} - SPPU Engineering Course` : 'SPPU Engineering Course',
+    description: course?.description || 'Learn with expert SPPU engineering video courses, lecture modules, and study materials on UniEval.',
+    canonical: id ? `https://unieval.in/course/${id}` : 'https://unieval.in/browse',
+    ogImage: course?.thumbnailUrl || undefined,
+  });
 
   // Coupon state
   const [couponCode, setCouponCode] = useState('');

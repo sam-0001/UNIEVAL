@@ -2,10 +2,17 @@ import React, { useState, useEffect } from 'react';
 import { api } from '../services/api';
 import { Branch, Subject, Course, Note, Quiz, Viva } from '../types';
 import { Link, useSearchParams } from 'react-router-dom';
+import { useSEO } from '../hooks/useSEO';
 
 const BrowseCourses: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   
+  useSEO({
+    title: 'SPPU Engineering Courses, Video Lectures & Syllabus Catalog',
+    description: 'Browse all SPPU (Pune University) engineering courses, video lectures, notes, and viva assessments across Computer, IT, Mechanical, Civil, ENTC & AIDS.',
+    canonical: 'https://unieval.in/browse',
+  });
+
   // --- Filters State ---
   const initialBranch = searchParams.get('branch') || '';
   const initialYear = searchParams.get('year') ? Number(searchParams.get('year')) : '';

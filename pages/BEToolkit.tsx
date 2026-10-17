@@ -6,6 +6,7 @@ import {
   SearchResult,
 } from '../services/beToolkitApi';
 import { useCredits } from '../context/AuthContext';
+import { useSEO } from '../hooks/useSEO';
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 
@@ -504,6 +505,12 @@ const FilterBar: React.FC<{
 
 const BEToolkit: React.FC = () => {
   const { isUnlimited } = useCredits();
+
+  useSEO({
+    title: 'SPPU BE Toolkit - Final Year Engineering Projects, Research & Viva',
+    description: 'Final Year (BE) SPPU Engineering projects, research paper finder, AI literature summaries, case studies, and seminar guidance across all branches.',
+    canonical: 'https://unieval.in/be-toolkit',
+  });
 
   const [items,         setItems]         = useState<BEToolkitItem[]>([]);
   const [loading,       setLoading]       = useState(true);

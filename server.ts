@@ -1,5 +1,7 @@
 import "dotenv/config";
 import express from "express";
+import fs from "fs";
+import mongoose from "mongoose";
 import { createServer as createViteServer } from "vite";
 import cors from "cors";
 import helmet from "helmet";
@@ -86,8 +88,70 @@ async function startServer() {
                 fontSrc:    ["'self'", "https://fonts.gstatic.com", "data:"],
                 imgSrc:     ["'self'", "data:", "https:", "blob:"],
                 mediaSrc:   ["'self'", "https:", "blob:"],
-                connectSrc: ["'self'", "https://api.cashfree.com", "https://sandbox.cashfree.com", "https://sdk.cashfree.com", "https://*.r2.cloudflarestorage.com", "https://*.r2.dev", "https://*.daily.co", "wss://*.daily.co", "https://*.sentry.io", "https://*.stream-io-video.com", "wss://*.stream-io-video.com", "https://stream-io-video.com", "wss://stream-io-video.com", "https://hint.stream-io-video.com", "https://*.stream-io-api.com", "wss://*.stream-io-api.com", "https://stream-io-api.com", "wss://stream-io-api.com", "https://*.getstream.io", "wss://*.getstream.io", "https://getstream.io", "wss://getstream.io"],
-                frameSrc:   ["'self'", "https://sandbox.cashfree.com", "https://payments.cashfree.com", "https://sdk.cashfree.com", "https://api.cashfree.com", "https://webinar.gg", "https://*.webinar.gg"],
+                connectSrc: [
+                    "'self'",
+                    "ws:",
+                    "wss:",
+                    "https://*.unieval.in",
+                    "wss://*.unieval.in",
+                    "https://unieval.in",
+                    "wss://unieval.in",
+                    "https://api.cashfree.com",
+                    "https://sandbox.cashfree.com",
+                    "https://sdk.cashfree.com",
+                    "https://*.r2.cloudflarestorage.com",
+                    "https://*.r2.dev",
+                    "https://*.webinar.gg",
+                    "https://webinar.gg",
+                    "https://*.webinar-api.webinar.gg",
+                    "https://webinar-api.webinar.gg",
+                    "wss://*.webinar.gg",
+                    "wss://*.webinar-api.webinar.gg",
+                    "https://*.classx.co.in",
+                    "wss://*.classx.co.in",
+                    "https://classx.co.in",
+                    "wss://classx.co.in",
+                    "https://*.zego.im",
+                    "wss://*.zego.im",
+                    "https://*.zegocloud.com",
+                    "wss://*.zegocloud.com",
+                    "https://*.agora.io",
+                    "wss://*.agora.io",
+                    "https://*.edge.agora.io",
+                    "wss://*.edge.agora.io",
+                    "https://*.sd-rtn.com",
+                    "wss://*.sd-rtn.com",
+                    "https://*.daily.co",
+                    "wss://*.daily.co",
+                    "https://*.sentry.io",
+                    "https://*.stream-io-video.com",
+                    "wss://*.stream-io-video.com",
+                    "https://stream-io-video.com",
+                    "wss://stream-io-video.com",
+                    "https://hint.stream-io-video.com",
+                    "https://*.stream-io-api.com",
+                    "wss://*.stream-io-api.com",
+                    "https://stream-io-api.com",
+                    "wss://stream-io-api.com",
+                    "https://*.getstream.io",
+                    "wss://*.getstream.io",
+                    "https://getstream.io",
+                    "wss://getstream.io"
+                ],
+                frameSrc:   [
+                    "'self'",
+                    "https://sandbox.cashfree.com",
+                    "https://payments.cashfree.com",
+                    "https://sdk.cashfree.com",
+                    "https://api.cashfree.com",
+                    "https://webinar.gg",
+                    "https://*.webinar.gg",
+                    "https://webinar-api.webinar.gg",
+                    "https://*.webinar-api.webinar.gg",
+                    "https://*.classx.co.in",
+                    "https://classx.co.in",
+                    "https://*.daily.co"
+                ],
                 workerSrc:  ["'self'", "blob:"],
                 // NOTE: upgradeInsecureRequests is intentionally omitted — server runs plain HTTP
             },
@@ -237,9 +301,77 @@ async function startServer() {
         app.use(vite.middlewares);
     } else {
         const distPath = path.resolve(__dirname, 'dist');
-        app.get(/.*/, (_req, res) => {
+        const indexPath = path.join(distPath, 'index.html');
+        let cachedIndexHtml: string | null = null;
+
+        app.get(/.*/, async (req, res) => {
             res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-            res.sendFile(path.join(distPath, 'index.html'));
+            try {
+                if (!cachedIndexHtml) {
+                    cachedIndexHtml = await fs.promises.readFile(indexPath, 'utf-8');
+                }
+
+                let html = cachedIndexHtml;
+                const urlPath = req.path;
+
+                if (urlPath === '/notes') {
+                    html = html
+                        .replace(/<title>.*?<\/title>/i, '<title>SPPU Notes PDF - Download Pune University Engineering Notes | UniEval</title>')
+                        .replace(/content="Top-ranked SPPU Engineering notes.*?"/i, 'content="Download chapter-wise SPPU Engineering Notes PDF for FE, SE, TE, and BE across Computer, IT, Mechanical, Civil, ENTC & AIDS branches."');
+                } else if (urlPath === '/exam-intelligence') {
+                    html = html
+                        .replace(/<title>.*?<\/title>/i, '<title>SPPU PYQs & Exam Intelligence - High-Weightage Topics & Question Papers | UniEval</title>')
+                        .replace(/content="Top-ranked SPPU Engineering notes.*?"/i, 'content="Master SPPU insem and endsem exams with past year question paper analysis, mark weightage distributions, and verified questions."');
+                } else if (urlPath === '/browse') {
+                    html = html
+                        .replace(/<title>.*?<\/title>/i, '<title>SPPU Engineering Courses, Video Lectures & Syllabus | Pune University - UniEval</title>')
+                        .replace(/content="Top-ranked SPPU Engineering notes.*?"/i, 'content="Explore video lectures, curriculum, and subject modules for all SPPU engineering branches and semesters."');
+                } else if (urlPath === '/be-toolkit') {
+                    html = html
+                        .replace(/<title>.*?<\/title>/i, '<title>SPPU BE Toolkit - Final Year Engineering Projects, Research & Viva | UniEval</title>')
+                        .replace(/content="Top-ranked SPPU Engineering notes.*?"/i, 'content="Comprehensive Final Year (BE) engineering toolkit for SPPU students: capstone project topics, case studies, and placement prep."');
+                } else if (urlPath.startsWith('/note/')) {
+                    const noteId = urlPath.replace('/note/', '').split('/')[0];
+                    if (mongoose.connection.readyState === 1 && noteId) {
+                        try {
+                            const db = mongoose.connection.db;
+                            const noteDoc = await db?.collection('notes').findOne(
+                                { $or: [{ id: noteId }, { _id: noteId as any }] },
+                                { projection: { title: 1, description: 1 } }
+                            );
+                            if (noteDoc?.title) {
+                                html = html
+                                    .replace(/<title>.*?<\/title>/i, `<title>${noteDoc.title} - SPPU Engineering Notes PDF | UniEval</title>`)
+                                    .replace(/content="Top-ranked SPPU Engineering notes.*?"/i, `content="Download ${noteDoc.title} notes for SPPU (Pune University) engineering students. Exam-oriented chapter notes & verified materials."`);
+                            }
+                        } catch {
+                            // Fallback to default template
+                        }
+                    }
+                } else if (urlPath.startsWith('/course/')) {
+                    const courseId = urlPath.replace('/course/', '').split('/')[0];
+                    if (mongoose.connection.readyState === 1 && courseId) {
+                        try {
+                            const db = mongoose.connection.db;
+                            const courseDoc = await db?.collection('courses').findOne(
+                                { $or: [{ id: courseId }, { _id: courseId as any }] },
+                                { projection: { title: 1, description: 1 } }
+                            );
+                            if (courseDoc?.title) {
+                                html = html
+                                    .replace(/<title>.*?<\/title>/i, `<title>${courseDoc.title} - SPPU Engineering Course | UniEval</title>`)
+                                    .replace(/content="Top-ranked SPPU Engineering notes.*?"/i, `content="${courseDoc.title} - comprehensive video lectures and study material for SPPU engineering students."`);
+                            }
+                        } catch {
+                            // Fallback to default template
+                        }
+                    }
+                }
+
+                res.send(html);
+            } catch (err) {
+                res.sendFile(indexPath);
+            }
         });
     }
 

@@ -17,10 +17,11 @@ interface CustomVideoPlayerProps {
   resources?: CourseResource[];
   autoPlay?: boolean;
   watermarkText?: string; // e.g. "9876543210 | ID:abc123" — identifies the viewer
+  className?: string;
 }
 
 const CustomVideoPlayer: React.FC<CustomVideoPlayerProps> = ({ 
-  src, poster, title, nextTitle, onNext, onPrev, resources = [], autoPlay = false, watermarkText
+  src, poster, title, nextTitle, onNext, onPrev, resources = [], autoPlay = false, watermarkText, className
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -102,7 +103,12 @@ const CustomVideoPlayer: React.FC<CustomVideoPlayerProps> = ({
     };
     
     const handleWaiting  = () => setLoading(true);
-    const handleCanPlay  = () => setLoading(false);
+    const handleCanPlay  = () => {
+      setLoading(false);
+      if (autoPlay && video.paused) {
+        video.play().catch(() => {});
+      }
+    };
     const handlePlaying  = () => setLoading(false);
     
     // Stop spinner if the video file itself is broken/404s
@@ -386,7 +392,7 @@ const CustomVideoPlayer: React.FC<CustomVideoPlayerProps> = ({
   return (
     <div 
       ref={containerRef}
-      className={`relative bg-black group overflow-hidden ${isFullscreen ? 'w-full h-full' : 'w-full aspect-video rounded-xl shadow-xl'}`}
+      className={`relative bg-black group overflow-hidden ${className ? className : isFullscreen ? 'w-full h-full' : 'w-full aspect-video rounded-xl shadow-xl'}`}
       onMouseMove={handleMouseMove}
       onMouseLeave={handleMouseLeave}
     >

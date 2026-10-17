@@ -4,6 +4,21 @@ import logger from './logger.js';
 import { redis } from './redis.js';
 import { LiveChat, LiveQuestion, LivePoll, LivePollResponse } from './models.js';
 
+let ioInstance: SocketIOServer | null = null;
+
+export const getIO = (): SocketIOServer | null => ioInstance;
+
+export const broadcastClassEnded = (classId: string, message?: string) => {
+  if (ioInstance) {
+    const endMsg = message || 'This live class has been ended by the teacher.';
+    ioInstance.to(classId).emit('class-ended', { message: endMsg });
+    // Also broadcast global event to all connected dashboards
+    ioInstance.emit('live-class-status-changed', { classId, status: 'completed' });
+    ioInstance.emit('live-class-ended', { classId });
+    logger.info(`Broadcasted class-ended for class ${classId}`);
+  }
+};
+
 export const initSocket = (server: HttpServer) => {
   const io = new SocketIOServer(server, {
     cors: {
@@ -11,6 +26,7 @@ export const initSocket = (server: HttpServer) => {
       methods: ['GET', 'POST']
     }
   });
+  ioInstance = io;
 
   // Track active participants per room in-memory
   const roomParticipants = new Map<string, Map<string, { userId: string; userName: string }>>();

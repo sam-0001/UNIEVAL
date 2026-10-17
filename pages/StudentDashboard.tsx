@@ -1,13 +1,15 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth, useCredits } from '../context/AuthContext';
 import { api } from '../services/api';
 import { Course, Note, UserRole } from '../types';
 import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom';
+import { io } from 'socket.io-client';
 import { 
   LayoutDashboard, BookOpen, FileText, Video, VideoOff,
-  Settings, CreditCard, Sparkles, GraduationCap, ChevronRight, CheckCircle, Clock, LogOut, Menu, X, Brain, Wrench, Search, Bell, ArrowRight, Play, Zap, Compass, Rocket, Calendar, Download, Bookmark, Star, Navigation, Radio, Eye, Users, MonitorPlay, AlertCircle, Database, Globe, ExternalLink, Loader2, RefreshCw
+  Settings, CreditCard, Sparkles, GraduationCap, ChevronRight, CheckCircle, Clock, LogOut, Menu, X, Brain, Wrench, Search, Bell, ArrowRight, Play, Zap, Compass, Rocket, Calendar, Download, Bookmark, Star, Navigation, Radio, Eye, Users, MonitorPlay, AlertCircle, Database, Globe, Loader2, RefreshCw
 } from 'lucide-react';
 import { BuyCreditsModal } from './QuizDetail';
+import CustomVideoPlayer from '../components/CustomVideoPlayer';
 
 type Tab = 'overview' | 'courses' | 'notes' | 'live' | 'billing' | 'settings';
 
@@ -122,6 +124,61 @@ const StudentDashboard: React.FC = () => {
     }
   }, [user]);
 
+  const refreshLiveSchedule = useCallback(async () => {
+    try {
+      const scheduleRes = await api.getMyLiveClassSchedule();
+      if (Array.isArray(scheduleRes?.liveClasses)) {
+        setLiveClasses(scheduleRes.liveClasses);
+      }
+    } catch (e) {
+      // Ignore background refresh errors
+    }
+  }, []);
+
+  // Real-time synchronization for live classes
+  useEffect(() => {
+    if (!user || user.role !== UserRole.STUDENT) return;
+
+    let socket: any = null;
+    try {
+      socket = io(window.location.origin, {
+        transports: ['websocket', 'polling']
+      });
+
+      socket.on('live-class-status-changed', () => {
+        refreshLiveSchedule();
+      });
+
+      socket.on('live-class-ended', () => {
+        refreshLiveSchedule();
+      });
+
+      socket.on('class-ended', () => {
+        refreshLiveSchedule();
+      });
+    } catch (e) {
+      // Fallback to polling
+    }
+
+    // Auto-poll live class schedule: every 4 seconds when viewing live tab, every 15 seconds otherwise
+    const pollInterval = setInterval(() => {
+      refreshLiveSchedule();
+    }, activeTab === 'live' ? 4000 : 15000);
+
+    return () => {
+      if (socket) {
+        socket.disconnect();
+      }
+      clearInterval(pollInterval);
+    };
+  }, [user, activeTab, refreshLiveSchedule]);
+
+  useEffect(() => {
+    if (activeTab === 'live') {
+      refreshLiveSchedule();
+    }
+  }, [activeTab, refreshLiveSchedule]);
+
   if (!user) return <Navigate to="/login" replace />;
   if (user.role === UserRole.SUPER_ADMIN) return <Navigate to="/super-admin" replace />;
   if (user.role === UserRole.ADMIN || user.role === UserRole.TEACHER) return <Navigate to="/admin" replace />;
@@ -152,6 +209,26 @@ const StudentDashboard: React.FC = () => {
   const getSubjectName = (subjectId: string) => {
     const subject = subjects.find(s => s.id === subjectId);
     return subject ? subject.name : '';
+  };
+
+  const formatSubjectLabel = (rawSubject?: string, rawCourse?: string) => {
+    if (!rawSubject && !rawCourse) return 'Pune University';
+    const text = (rawSubject || rawCourse || '').trim();
+    const found = subjects.find(s => s.id === text || s.name.toLowerCase() === text.toLowerCase());
+    if (found) return found.name;
+    if (/^fe[-_ ]?1$/i.test(text)) return 'First Year (FE) • Sem 1';
+    if (/^fe[-_ ]?2$/i.test(text)) return 'First Year (FE) • Sem 2';
+    if (/^se[-_ ]?1$/i.test(text)) return 'Second Year (SE) • Sem 1';
+    if (/^se[-_ ]?2$/i.test(text)) return 'Second Year (SE) • Sem 2';
+    if (/^te[-_ ]?1$/i.test(text)) return 'Third Year (TE) • Sem 1';
+    if (/^te[-_ ]?2$/i.test(text)) return 'Third Year (TE) • Sem 2';
+    if (/^be[-_ ]?1$/i.test(text)) return 'Final Year (BE) • Sem 1';
+    if (/^be[-_ ]?2$/i.test(text)) return 'Final Year (BE) • Sem 2';
+    if (/^fe$/i.test(text)) return 'First Year (FE)';
+    if (/^se$/i.test(text)) return 'Second Year (SE)';
+    if (/^te$/i.test(text)) return 'Third Year (TE)';
+    if (/^be$/i.test(text)) return 'Final Year (BE)';
+    return text;
   };
 
   return (
@@ -202,10 +279,10 @@ const StudentDashboard: React.FC = () => {
                         <button
                             key={item.id}
                             onClick={() => { setActiveTab(item.id as Tab); setIsMobileMenuOpen(false); }}
-                            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200 ${
+                            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors border ${
                                 isActive 
-                                ? 'bg-[#1F81FC]/10 text-[#1F81FC] shadow-inner border border-[#1F81FC]/20' 
-                                : 'hover:bg-white/5 hover:text-white'
+                                ? 'bg-[#1F81FC]/10 text-[#1F81FC] shadow-inner border-[#1F81FC]/30' 
+                                : 'border-transparent text-slate-300 hover:bg-white/5 hover:text-white'
                             }`}
                         >
                             <Icon className={`w-5 h-5 ${isActive ? 'text-[#1F81FC]' : 'text-slate-400'}`} />
@@ -234,10 +311,10 @@ const StudentDashboard: React.FC = () => {
             <div className="p-4 border-t border-white/10 space-y-2">
                 <button
                     onClick={() => { setActiveTab('settings'); setIsMobileMenuOpen(false); }}
-                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200 ${
+                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors border ${
                         activeTab === 'settings' 
-                        ? 'bg-[#1F81FC]/10 text-[#1F81FC] shadow-inner border border-[#1F81FC]/20' 
-                        : 'hover:bg-white/5 hover:text-white text-slate-300'
+                        ? 'bg-[#1F81FC]/10 text-[#1F81FC] shadow-inner border-[#1F81FC]/30' 
+                        : 'border-transparent hover:bg-white/5 hover:text-white text-slate-300'
                     }`}
                 >
                     <Settings className={`w-5 h-5 ${activeTab === 'settings' ? 'text-[#1F81FC]' : 'text-slate-400'}`} />
@@ -258,7 +335,7 @@ const StudentDashboard: React.FC = () => {
                     <p className="text-slate-500 font-medium">Loading your dashboard...</p>
                 </div>
             ) : (
-                <div key={activeTab} className="space-y-8 animate-in fade-in duration-300 pb-20">
+                <div key={activeTab} className="space-y-8 fade-in pb-20">
                     {/* Header */}
                     {activeTab === 'overview' ? (
                         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 relative z-20">
@@ -302,16 +379,6 @@ const StudentDashboard: React.FC = () => {
                                     {activeTab === 'settings' && 'Update your profile and preferences.'}
                                 </p>
                             </div>
-                            {activeTab === 'live' && (
-                                <div className="flex items-center gap-3">
-                                    <button onClick={() => alert('Feature coming soon!')} className="flex items-center gap-2 bg-white border border-slate-200 text-slate-700 px-4 py-2.5 rounded-lg text-sm font-semibold hover:bg-slate-50 shadow-sm transition-colors">
-                                        <Calendar className="w-4 h-4 text-blue-600" /> My Joined Classes
-                                    </button>
-                                    <button onClick={() => alert('Feature coming soon!')} className="flex items-center gap-2 bg-blue-600 text-white px-5 py-2.5 rounded-lg text-sm font-bold hover:bg-blue-700 shadow-sm transition-colors">
-                                        Join with Class Code <ArrowRight className="w-4 h-4" />
-                                    </button>
-                                </div>
-                            )}
                         </div>
                     )}
 
@@ -396,23 +463,37 @@ const StudentDashboard: React.FC = () => {
                                                             </div>
                                                             <div>
                                                                 <div className="text-sm font-bold text-slate-900">{timeStr}</div>
-                                                                <div className="text-xs text-slate-500 flex items-center gap-1 mt-0.5"><Clock className="w-3 h-3" /> 1h 0m</div>
+                                                                {(() => {
+                                                                    const durationMinutes = lc.scheduledEndTime && lc.scheduledStartTime
+                                                                        ? Math.max(15, Math.round((new Date(lc.scheduledEndTime).getTime() - new Date(lc.scheduledStartTime).getTime()) / 60000))
+                                                                        : 60;
+                                                                    const durHrs = Math.floor(durationMinutes / 60);
+                                                                    const durMins = durationMinutes % 60;
+                                                                    const durStr = durHrs > 0 ? (durMins > 0 ? `${durHrs}h ${durMins}m` : `${durHrs}h`) : `${durMins}m`;
+                                                                    return <div className="text-xs text-slate-500 flex items-center gap-1 mt-0.5"><Clock className="w-3 h-3" /> {durStr}</div>;
+                                                                })()}
                                                             </div>
                                                         </div>
                                                         
                                                         <div className="flex-1 flex items-start gap-4">
-                                                            <div className="w-20 h-14 bg-[#131A3F] rounded-lg shrink-0 flex items-center justify-center relative overflow-hidden">
-                                                                <div className="text-white font-extrabold text-sm z-10 px-1 text-center truncate w-full">{lc.subject || 'LIVE'}</div>
-                                                                <div className="absolute right-0 opacity-20"><Database className="w-12 h-12" /></div>
+                                                            <div className="w-12 h-12 rounded-xl bg-blue-50 border border-blue-200 text-blue-600 shrink-0 flex flex-col items-center justify-center shadow-sm">
+                                                                <Video className="w-5 h-5" />
+                                                                <span className="text-[9px] font-bold uppercase tracking-wider mt-0.5">Live</span>
                                                             </div>
                                                             <div>
                                                                 <h4 className="font-bold text-slate-900 text-base mb-1">{lc.title}</h4>
-                                                                <div className="flex items-center gap-2 text-xs text-slate-500 mb-2">
-                                                                    <span className="flex items-center gap-1.5 font-medium"><div className="w-4 h-4 rounded-full bg-slate-200 flex items-center justify-center text-[8px] text-slate-700">T</div> Teacher</span>
-                                                                    {lc.course && <span className="text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded font-bold">{lc.course}</span>}
-                                                                    {lc.subject && <span className="text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded font-bold">{lc.subject}</span>}
+                                                                <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500 mb-1.5">
+                                                                    <span className="flex items-center gap-1.5 font-medium text-slate-700">
+                                                                        <div className="w-4 h-4 rounded-full bg-slate-200 flex items-center justify-center text-[8px] text-slate-700 font-bold">
+                                                                            {(lc.teacherName || 'Faculty')[0].toUpperCase()}
+                                                                        </div> 
+                                                                        {lc.teacherName || 'Faculty'}
+                                                                    </span>
+                                                                    <span className="inline-flex items-center px-2 py-0.5 rounded-full font-semibold text-[11px] bg-blue-50 text-blue-700 border border-blue-100">
+                                                                        {formatSubjectLabel(lc.subject, lc.course)}
+                                                                    </span>
                                                                 </div>
-                                                                <p className="text-xs text-slate-500">Live Interactive Session</p>
+                                                                <p className="text-xs text-slate-500">Live Interactive Classroom with Faculty</p>
                                                             </div>
                                                         </div>
 
@@ -725,11 +806,17 @@ const StudentDashboard: React.FC = () => {
                                                     </button>
                                                 </div>
 
-                                                <div className="flex items-center gap-6 text-sm text-slate-500 mb-6">
-                                                    <span className="flex items-center gap-1.5"><Video className="w-4 h-4" /> {c.modules?.length || 12} Lectures</span>
-                                                    <span className="flex items-center gap-1.5"><FileText className="w-4 h-4" /> 8 Notes</span>
-                                                    <span className="flex items-center gap-1.5"><Clock className="w-4 h-4" /> 4h 20m</span>
-                                                </div>
+                                                {(() => {
+                                                    const lectureCount = c.modules?.reduce((acc: number, m: any) => acc + (m.videos?.length || (m.videoUrl ? 1 : 0)), 0) || (c.modules?.length ?? 0);
+                                                    const noteCount = c.modules?.reduce((acc: number, m: any) => acc + (m.resources?.length || 0) + (m.videos?.reduce((vacc: number, v: any) => vacc + (v.resources?.length || 0), 0) || 0), 0) || 0;
+                                                    return (
+                                                        <div className="flex items-center gap-6 text-sm text-slate-500 mb-6">
+                                                            <span className="flex items-center gap-1.5"><Video className="w-4 h-4" /> {lectureCount} {lectureCount === 1 ? 'Lecture' : 'Lectures'}</span>
+                                                            {noteCount > 0 && <span className="flex items-center gap-1.5"><FileText className="w-4 h-4" /> {noteCount} {noteCount === 1 ? 'Note' : 'Notes'}</span>}
+                                                            {c.modules && c.modules.length > 0 && <span className="flex items-center gap-1.5"><BookOpen className="w-4 h-4" /> {c.modules.length} {c.modules.length === 1 ? 'Module' : 'Modules'}</span>}
+                                                        </div>
+                                                    );
+                                                })()}
 
                                                 <div className="flex items-center gap-4 mt-auto">
                                                     <div className="flex-1 flex items-center gap-3">
@@ -793,7 +880,7 @@ const StudentDashboard: React.FC = () => {
                                                 {recommendedCourses.map((c, i) => (
                                                     <div key={c.id} className="bg-white rounded-xl border border-slate-100 shadow-sm overflow-hidden flex flex-col group">
                                                         <div className="aspect-[4/3] bg-slate-900 relative">
-                                                            {c.thumbnailUrl && <img src={c.thumbnailUrl} className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" />}
+                                                            {c.thumbnailUrl && <img src={c.thumbnailUrl} className="w-full h-full object-contain opacity-90 group-hover:opacity-100 transition-opacity" />}
                                                             <div className="absolute top-3 left-3 bg-white/20 backdrop-blur-md text-white text-[10px] font-bold px-2 py-0.5 rounded">
                                                                 {getSubjectBadge(c.subjectId)}
                                                             </div>
@@ -803,14 +890,16 @@ const StudentDashboard: React.FC = () => {
                                                         </div>
                                                         <div className="p-4 flex-1 flex flex-col">
                                                             <h3 className="font-bold text-slate-900 mb-3 line-clamp-2 leading-snug">{c.title}</h3>
-                                                            <div className="flex items-center gap-2 mb-3">
-                                                                <div className="w-5 h-5 rounded-full bg-slate-200 flex items-center justify-center text-[8px] font-bold text-slate-600">P</div>
-                                                                <span className="text-xs text-slate-500">Prof. Name</span>
-                                                            </div>
-                                                            <div className="flex items-center gap-4 text-xs text-slate-500 mb-4">
-                                                                <span className="flex items-center gap-1"><Video className="w-3.5 h-3.5" /> 32 Lectures</span>
-                                                                <span className="flex items-center gap-1"><FileText className="w-3.5 h-3.5" /> 18 Notes</span>
-                                                            </div>
+                                                            {(() => {
+                                                                const recLectures = c.modules?.reduce((acc: number, m: any) => acc + (m.videos?.length || (m.videoUrl ? 1 : 0)), 0) || (c.modules?.length ?? 0);
+                                                                const recNotes = c.modules?.reduce((acc: number, m: any) => acc + (m.resources?.length || 0) + (m.videos?.reduce((vacc: number, v: any) => vacc + (v.resources?.length || 0), 0) || 0), 0) || 0;
+                                                                return (
+                                                                    <div className="flex items-center gap-4 text-xs text-slate-500 mb-4">
+                                                                        <span className="flex items-center gap-1"><Video className="w-3.5 h-3.5" /> {recLectures} {recLectures === 1 ? 'Lecture' : 'Lectures'}</span>
+                                                                        {recNotes > 0 && <span className="flex items-center gap-1"><FileText className="w-3.5 h-3.5" /> {recNotes} {recNotes === 1 ? 'Note' : 'Notes'}</span>}
+                                                                    </div>
+                                                                );
+                                                            })()}
                                                             <div className="mt-auto flex items-center justify-between">
                                                                 <span className="font-bold text-slate-900">₹{c.price}</span>
                                                                 <Link to={`/course/${c.id}`} className="bg-blue-50 text-blue-600 px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-blue-100 transition-colors flex items-center gap-1">
@@ -967,7 +1056,7 @@ const StudentDashboard: React.FC = () => {
                                             {notes.slice(0,4).map(n => (
                                                 <Link key={n.id} to={`/note/${n.id}`} className="bg-white rounded-xl border border-slate-100 shadow-sm overflow-hidden flex flex-col group">
                                                     <div className="aspect-[4/3] bg-slate-900 relative">
-                                                        {n.thumbnailUrl ? <img src={n.thumbnailUrl} className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" /> : <div className="w-full h-full bg-indigo-900"></div>}
+                                                        {n.thumbnailUrl ? <img src={n.thumbnailUrl} className="w-full h-full object-contain opacity-90 group-hover:opacity-100 transition-opacity" /> : <div className="w-full h-full bg-indigo-900"></div>}
                                                         <div className="absolute top-3 left-3 bg-white/20 backdrop-blur-md text-white text-[10px] font-bold px-2 py-0.5 rounded">
                                                             {getSubjectBadge(n.subjectId)}
                                                         </div>
@@ -980,14 +1069,14 @@ const StudentDashboard: React.FC = () => {
                                                     </div>
                                                     <div className="p-4 flex-1 flex flex-col">
                                                         <h3 className="font-bold text-slate-900 mb-2 line-clamp-2 leading-snug">{n.title}</h3>
-                                                        <div className="flex items-center gap-2 mb-3">
-                                                            <div className="w-5 h-5 rounded-full bg-slate-200 flex items-center justify-center text-[8px] font-bold text-slate-600">P</div>
-                                                            <span className="text-xs text-slate-500">Prof. Name</span>
-                                                        </div>
-                                                        <div className="flex items-center justify-between text-xs text-slate-500 mb-4">
-                                                            <span className="flex items-center gap-1"><FileText className="w-3.5 h-3.5" /> 120 Pages</span>
-                                                            <span className="flex items-center gap-1"><Download className="w-3.5 h-3.5" /> 2.4k+</span>
-                                                        </div>
+                                                        {(() => {
+                                                            const fileCount = n.sections?.reduce((acc: number, s: any) => acc + (s.files?.length || 0), 0) || 0;
+                                                            return (
+                                                                <div className="flex items-center gap-4 text-xs text-slate-500 mb-4">
+                                                                    <span className="flex items-center gap-1"><FileText className="w-3.5 h-3.5" /> {fileCount > 0 ? `${fileCount} ${fileCount === 1 ? 'PDF' : 'PDFs'}` : `${n.sections?.length || 0} Sections`}</span>
+                                                                </div>
+                                                            );
+                                                        })()}
                                                         <div className="mt-auto flex items-center justify-between">
                                                             <span className="font-bold text-slate-900">₹{n.price}</span>
                                                             <span className="bg-blue-50 text-blue-600 px-3 py-1.5 rounded-lg text-xs font-bold group-hover:bg-blue-100 transition-colors flex items-center gap-1">
@@ -1041,7 +1130,7 @@ const StudentDashboard: React.FC = () => {
                                                 {recommendedNotes.map((n, i) => (
                                                     <Link key={n.id} to={`/note/${n.id}`} className="bg-white rounded-xl border border-slate-100 shadow-sm overflow-hidden flex flex-col group">
                                                         <div className="aspect-[4/3] bg-slate-900 relative">
-                                                            {n.thumbnailUrl ? <img src={n.thumbnailUrl} className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" /> : <div className="w-full h-full bg-purple-900"></div>}
+                                                            {n.thumbnailUrl ? <img src={n.thumbnailUrl} className="w-full h-full object-contain opacity-90 group-hover:opacity-100 transition-opacity" /> : <div className="w-full h-full bg-purple-900"></div>}
                                                             <div className="absolute top-3 left-3 bg-white/20 backdrop-blur-md text-white text-[10px] font-bold px-2 py-0.5 rounded">
                                                                 {getSubjectBadge(n.subjectId)}
                                                             </div>
@@ -1054,14 +1143,14 @@ const StudentDashboard: React.FC = () => {
                                                         </div>
                                                         <div className="p-4 flex-1 flex flex-col">
                                                             <h3 className="font-bold text-slate-900 mb-2 line-clamp-2 leading-snug">{n.title}</h3>
-                                                            <div className="flex items-center gap-2 mb-3">
-                                                                <div className="w-5 h-5 rounded-full bg-slate-200 flex items-center justify-center text-[8px] font-bold text-slate-600">P</div>
-                                                                <span className="text-xs text-slate-500">Prof. Name</span>
-                                                            </div>
-                                                            <div className="flex items-center justify-between text-xs text-slate-500 mb-4">
-                                                                <span className="flex items-center gap-1"><FileText className="w-3.5 h-3.5" /> 130 Pages</span>
-                                                                <span className="flex items-center gap-1"><Download className="w-3.5 h-3.5" /> 2.1k+</span>
-                                                            </div>
+                                                            {(() => {
+                                                                const fileCount = n.sections?.reduce((acc: number, s: any) => acc + (s.files?.length || 0), 0) || 0;
+                                                                return (
+                                                                    <div className="flex items-center gap-4 text-xs text-slate-500 mb-4">
+                                                                        <span className="flex items-center gap-1"><FileText className="w-3.5 h-3.5" /> {fileCount > 0 ? `${fileCount} ${fileCount === 1 ? 'PDF' : 'PDFs'}` : `${n.sections?.length || 0} Sections`}</span>
+                                                                    </div>
+                                                                );
+                                                            })()}
                                                             <div className="mt-auto flex items-center justify-between">
                                                                 <span className="font-bold text-slate-900">₹{n.price}</span>
                                                                 <span className="bg-blue-50 text-blue-600 px-3 py-1.5 rounded-lg text-xs font-bold group-hover:bg-blue-100 transition-colors flex items-center gap-1">
@@ -1096,10 +1185,10 @@ const StudentDashboard: React.FC = () => {
                                  <div className="flex items-center gap-3 overflow-x-auto pb-2 md:pb-0">
                                      <button 
                                          onClick={() => setLiveTabFilter('upcoming')} 
-                                         className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold whitespace-nowrap transition-all ${
+                                         className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold whitespace-nowrap transition-colors border ${
                                              liveTabFilter === 'upcoming' 
-                                                 ? 'bg-blue-600 text-white shadow-sm' 
-                                                 : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50'
+                                                 ? 'bg-blue-600 border-blue-600 text-white shadow-sm' 
+                                                 : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
                                          }`}
                                      >
                                          <Calendar className="w-4 h-4" /> 
@@ -1113,10 +1202,10 @@ const StudentDashboard: React.FC = () => {
 
                                      <button 
                                          onClick={() => setLiveTabFilter('live')} 
-                                         className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold whitespace-nowrap transition-all ${
+                                         className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold whitespace-nowrap transition-colors border ${
                                              liveTabFilter === 'live' 
-                                                 ? 'bg-red-600 text-white shadow-sm' 
-                                                 : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50'
+                                                 ? 'bg-red-600 border-red-600 text-white shadow-sm' 
+                                                 : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
                                          }`}
                                      >
                                          <Radio className={`w-4 h-4 ${liveTabFilter === 'live' ? 'text-white' : 'text-red-500 animate-pulse'}`} /> 
@@ -1130,10 +1219,10 @@ const StudentDashboard: React.FC = () => {
 
                                      <button 
                                          onClick={() => setLiveTabFilter('my-classes')} 
-                                         className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold whitespace-nowrap transition-all ${
+                                         className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold whitespace-nowrap transition-colors border ${
                                              liveTabFilter === 'my-classes' 
-                                                 ? 'bg-blue-600 text-white shadow-sm' 
-                                                 : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50'
+                                                 ? 'bg-blue-600 border-blue-600 text-white shadow-sm' 
+                                                 : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
                                          }`}
                                      >
                                          <BookOpen className="w-4 h-4" /> 
@@ -1147,10 +1236,10 @@ const StudentDashboard: React.FC = () => {
 
                                      <button 
                                          onClick={() => setLiveTabFilter('recordings')} 
-                                         className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold whitespace-nowrap transition-all ${
+                                         className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold whitespace-nowrap transition-colors border ${
                                              liveTabFilter === 'recordings' 
-                                                 ? 'bg-indigo-600 text-white shadow-sm' 
-                                                 : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50'
+                                                 ? 'bg-indigo-600 border-indigo-600 text-white shadow-sm' 
+                                                 : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
                                          }`}
                                      >
                                          <Play className={`w-4 h-4 ${liveTabFilter === 'recordings' ? 'fill-current' : ''}`} /> 
@@ -1287,21 +1376,49 @@ const StudentDashboard: React.FC = () => {
                                                          </div>
                                                          
                                                          <div className="flex-1 flex items-start gap-4">
-                                                             <div className="w-20 h-14 bg-[#131A3F] rounded-lg shrink-0 flex items-center justify-center relative overflow-hidden">
-                                                                 <div className="text-white font-extrabold text-sm z-10 px-1 text-center truncate w-full">{lc.subject || 'LIVE'}</div>
-                                                                 <div className="absolute right-0 opacity-20"><Database className="w-12 h-12" /></div>
+                                                             <div className={`w-12 h-12 rounded-xl shrink-0 flex flex-col items-center justify-center shadow-sm border ${
+                                                                isLive 
+                                                                    ? "bg-rose-50 text-rose-600 border-rose-200" 
+                                                                    : isCompleted 
+                                                                    ? "bg-indigo-50 text-indigo-600 border-indigo-200" 
+                                                                    : "bg-blue-50 text-blue-600 border-blue-200"
+                                                            }`}>
+                                                                 {isLive ? (
+                                                                     <>
+                                                                         <Radio className="w-5 h-5 animate-pulse" />
+                                                                         <span className="text-[9px] font-bold uppercase tracking-wider mt-0.5">Live</span>
+                                                                     </>
+                                                                 ) : isCompleted ? (
+                                                                     <>
+                                                                         <Play className="w-5 h-5 fill-current" />
+                                                                         <span className="text-[9px] font-bold uppercase tracking-wider mt-0.5">Replay</span>
+                                                                     </>
+                                                                 ) : (
+                                                                     <>
+                                                                         <Video className="w-5 h-5" />
+                                                                         <span className="text-[9px] font-bold uppercase tracking-wider mt-0.5">Class</span>
+                                                                     </>
+                                                                 )}
                                                              </div>
                                                              <div>
                                                                  <h4 className="font-bold text-slate-900 text-base mb-1">{lc.title}</h4>
-                                                                 <div className="flex items-center gap-2 text-xs text-slate-500 mb-2">
-                                                                     <span className="flex items-center gap-1.5 font-medium"><div className="w-4 h-4 rounded-full bg-slate-200 flex items-center justify-center text-[8px] text-slate-700">T</div> {lc.teacherName || 'Instructor'}</span>
-                                                                     {lc.course && <span className="text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded font-bold">{lc.course}</span>}
-                                                                     {lc.subject && <span className="text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded font-bold">{lc.subject}</span>}
+                                                                 <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500 mb-1.5">
+                                                                     <span className="flex items-center gap-1.5 font-medium text-slate-700">
+                                                                         <div className="w-4 h-4 rounded-full bg-slate-200 flex items-center justify-center text-[8px] text-slate-700 font-bold">
+                                                                             {(lc.teacherName || 'Faculty')[0].toUpperCase()}
+                                                                         </div> 
+                                                                         {lc.teacherName || 'Faculty'}
+                                                                     </span>
+                                                                     <span className="inline-flex items-center px-2 py-0.5 rounded-full font-semibold text-[11px] bg-blue-50 text-blue-700 border border-blue-100">
+                                                                         {formatSubjectLabel(lc.subject, lc.course)}
+                                                                     </span>
                                                                  </div>
                                                                  <p className="text-xs text-slate-500">
                                                                      {isCompleted 
-                                                                         ? (hasRealRecording ? 'Class concluded • Recording replay available' : 'Class concluded • No recording available') 
-                                                                         : 'Live Interactive Classroom with Teacher & Peers'}
+                                                                         ? (hasRealRecording ? 'Class concluded • Interactive recording replay available' : 'Class concluded • Recording archived') 
+                                                                         : isLive 
+                                                                         ? 'Interactive broadcast in progress • Join with audio & chat' 
+                                                                         : 'Scheduled live lecture session'}
                                                                  </p>
                                                              </div>
                                                          </div>
@@ -1452,18 +1569,6 @@ const StudentDashboard: React.FC = () => {
                   </h3>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
-                  {playbackStreamUrl && (
-                    <a
-                      href={playbackStreamUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800/90 text-slate-200 hover:text-white hover:bg-slate-700 border border-slate-700 transition-all"
-                      title="Open recording in separate tab"
-                    >
-                      <ExternalLink className="w-3.5 h-3.5" />
-                      <span className="hidden sm:inline">Pop-out</span>
-                    </a>
-                  )}
                   <button
                     onClick={() => setActiveRecording(null)}
                     className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
@@ -1528,13 +1633,17 @@ const StudentDashboard: React.FC = () => {
                     </button>
                   </div>
                 ) : playbackStreamUrl ? (
-                  playbackStreamUrl.match(/\.(mp4|webm|ogg|m4v)(\?.*)?$/i) ? (
-                    <video
-                      src={playbackStreamUrl}
-                      controls
-                      autoPlay
-                      className="w-full h-full max-h-[80vh] object-contain bg-black"
-                    />
+                  playbackStreamUrl.match(/\.(mp4|webm|ogg|m4v|m3u8)(\?.*)?$/i) || !playbackStreamUrl.includes('webinar.gg') ? (
+                    <div className="w-full h-full flex items-center justify-center p-2">
+                      <CustomVideoPlayer
+                        src={playbackStreamUrl}
+                        title={activeRecording.title || "Class Recording"}
+                        poster={activeRecording.thumbnail}
+                        autoPlay={true}
+                        watermarkText={user ? `${user.phoneNumber || user.email} | ${user.id.slice(-6).toUpperCase()}` : undefined}
+                        className="w-full max-w-5xl aspect-video rounded-xl shadow-2xl"
+                      />
+                    </div>
                   ) : (
                     <iframe
                       src={playbackStreamUrl}

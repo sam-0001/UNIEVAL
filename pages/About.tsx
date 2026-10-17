@@ -1,6 +1,12 @@
 import React from 'react';
+import { useSEO } from '../hooks/useSEO';
 
 const About: React.FC = () => {
+  useSEO({
+    title: 'About UniEval - The Premier Learning Platform for SPPU Engineering Students',
+    description: 'Learn more about UniEval, the dedicated educational platform for Pune University (SPPU) engineering students providing curated notes, PYQs, and video courses.',
+    canonical: 'https://unieval.in/about',
+  });
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
       <div className="text-center mb-16">

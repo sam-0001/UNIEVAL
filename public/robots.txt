@@ -1,6 +1,7 @@
+# ── Global user-agent rules ──────────────────────────────────────────────────
 User-agent: *
 
-# ── Public pages — allow all ──────────────────────────────────────────────────
+# Public pages — allow all
 Allow: /
 Allow: /about
 Allow: /browse
@@ -8,11 +9,14 @@ Allow: /notes
 Allow: /exam-intelligence
 Allow: /be-toolkit
 Allow: /course/
+Allow: /note/
 Allow: /sitemap.xml
+Allow: /llms.txt
+Allow: /llms-full.txt
 Allow: /img/
 Allow: /img/og-image.png
 
-# ── Private / admin areas — block crawlers ────────────────────────────────────
+# Private / admin areas — block crawlers
 Disallow: /admin
 Disallow: /super-admin
 Disallow: /teacher/
@@ -20,14 +24,62 @@ Disallow: /profile
 Disallow: /live-class/
 Disallow: /login
 
-# ── API routes — never index ──────────────────────────────────────────────────
+# API routes — never index
 Disallow: /api/
 
-# ── Note / Quiz / Viva detail pages — paywalled, noindex via meta ─────────────
-# Indexed via noindex meta tag in the page itself; listed here for belt-and-suspenders
-Disallow: /note/
+# Quiz / Viva detail pages — interactive / authenticated
 Disallow: /quiz/
 Disallow: /viva/
 
-# ── Sitemap ───────────────────────────────────────────────────────────────────
+# ── AI Agents & Search Engines (Google AI Overviews, Gemini, Perplexity, OpenAI, Claude) ──
+User-agent: Google-Extended
+Allow: /
+Allow: /notes
+Allow: /exam-intelligence
+Allow: /browse
+Allow: /llms.txt
+Allow: /llms-full.txt
+
+User-agent: GoogleOther
+Allow: /
+Allow: /notes
+Allow: /exam-intelligence
+Allow: /browse
+Allow: /llms.txt
+Allow: /llms-full.txt
+
+User-agent: GPTBot
+Allow: /
+Allow: /notes
+Allow: /exam-intelligence
+Allow: /browse
+Allow: /llms.txt
+Allow: /llms-full.txt
+
+User-agent: PerplexityBot
+Allow: /
+Allow: /notes
+Allow: /exam-intelligence
+Allow: /browse
+Allow: /llms.txt
+Allow: /llms-full.txt
+
+User-agent: ClaudeBot
+Allow: /
+Allow: /notes
+Allow: /exam-intelligence
+Allow: /browse
+Allow: /llms.txt
+Allow: /llms-full.txt
+
+User-agent: anthropic-ai
+Allow: /
+Allow: /notes
+Allow: /exam-intelligence
+Allow: /browse
+Allow: /llms.txt
+Allow: /llms-full.txt
+
+# ── Sitemap & LLM Standard ───────────────────────────────────────────────────
 Sitemap: https://unieval.in/sitemap.xml
+# LLM Knowledge standard: https://unieval.in/llms.txt

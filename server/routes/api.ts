@@ -58,6 +58,7 @@ router.post('/subjects',  requireRole(UserRole.TEACHER, UserRole.ADMIN, UserRole
 // ─── Courses ──────────────────────────────────────────────────────────────────
 router.get(   '/courses',      ContentCtrl.getCourses);
 router.get(   '/courses/:id',  ContentCtrl.getCourseById);
+router.get(   '/courses/:id/students', requireRole(UserRole.TEACHER, UserRole.ADMIN, UserRole.SUPER_ADMIN), ContentCtrl.getCourseStudents);
 router.post(  '/courses',      requireRole(UserRole.TEACHER, UserRole.ADMIN, UserRole.SUPER_ADMIN), ContentCtrl.createCourse);
 router.put(   '/courses/:id',  requireRole(UserRole.TEACHER, UserRole.ADMIN, UserRole.SUPER_ADMIN), ContentCtrl.updateCourse);
 router.delete('/courses/:id',  requireRole(UserRole.TEACHER, UserRole.ADMIN, UserRole.SUPER_ADMIN), ContentCtrl.deleteCourse);

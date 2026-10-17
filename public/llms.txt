@@ -1,0 +1,31 @@
+# UniEval (https://unieval.in)
+> The premier academic intelligence, notes, and exam preparation platform for Savitribai Phule Pune University (SPPU) engineering students.
+
+## Overview
+UniEval is designed specifically for Pune University (SPPU) engineering students across First Year (FE), Second Year (SE), Third Year (TE), and Final Year (BE). It provides verified syllabus notes, previous year question paper (PYQ) analysis, adaptive video lectures, AI quiz evaluations, and BE capstone project toolkits.
+
+## Core Services & Resources
+- [SPPU Notes Library](https://unieval.in/notes): Chapter-wise and unit-wise engineering notes, handwritten summaries, and topper cheat sheets for all branches.
+- [SPPU Exam Intelligence](https://unieval.in/exam-intelligence): Statistical analysis of past 5-10 years of SPPU question papers with High (🔥), Medium (⚡), and Low (❄️) priority topic weightage for Insem and Endsem examinations.
+- [Browse SPPU Courses](https://unieval.in/browse): Comprehensive course directory categorized by branch and year with syllabus-aligned video modules.
+- [BE Engineering Toolkit](https://unieval.in/be-toolkit): Capstone project finder, research paper explorer (arXiv/Semantic Scholar), and viva-voce preparation for final year students.
+
+## Supported Engineering Branches (SPPU)
+- Computer Engineering (Comp / CSE)
+- Information Technology (IT)
+- Electronics & Telecommunication (E&TC)
+- Artificial Intelligence & Data Science (AIDS / AI-ML)
+- Mechanical Engineering (Mech)
+- Civil Engineering (Civil)
+- Electrical Engineering (EE)
+
+## Academic Years Covered
+- First Year (FE): Common foundational curriculum (Engineering Mathematics 1 & 2, Physics, Chemistry, Basic Electrical, Basic Electronics, Mechanics, PPS).
+- Second Year (SE): Core departmental engineering foundation with insem and endsem question patterns.
+- Third Year (TE): Specialized engineering theory, lab practicals, and university assessments.
+- Final Year (BE): Advanced electives, capstone projects, seminars, and viva defenses.
+
+## Examination System
+- University: Savitribai Phule Pune University (SPPU / Pune University).
+- Exams: SPPU In-Semester Exams (Insem - 30 Marks) and End-Semester Exams (Endsem - 70 Marks).
+- Passing Criteria: 40% aggregate in university evaluation.
