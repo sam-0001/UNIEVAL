@@ -598,7 +598,7 @@ const QuizDetail: React.FC = () => {
         Back to Quizzes
       </Link>
       <div className="bg-white rounded-2xl shadow-xl border border-slate-100 overflow-hidden animate-in fade-in zoom-in-95 duration-300">
-        <div className="p-10 text-center">
+        <div className="p-5 sm:p-10 text-center">
           <div className="w-20 h-20 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-6">
             <span className="text-4xl">🎓</span>
           </div>
@@ -732,10 +732,10 @@ const QuizDetail: React.FC = () => {
         <div className="w-full h-1.5 bg-gray-100"><div className="h-full bg-indigo-600 transition-all duration-300" style={{ width: `${progress}%` }} /></div>
       </div>
 
-      <div className="max-w-5xl mx-auto px-4 py-8 flex flex-col md:flex-row gap-8">
+      <div className="max-w-5xl mx-auto px-3 sm:px-4 py-4 sm:py-8 flex flex-col md:flex-row gap-6 md:gap-8">
         <div className="flex-grow">
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 min-h-[400px] flex flex-col">
-            <h3 className="text-xl font-medium text-slate-900 leading-relaxed mb-8">{currentQuestion.text}</h3>
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 sm:p-8 min-h-[350px] sm:min-h-[400px] flex flex-col">
+            <h3 className="text-lg sm:text-xl font-medium text-slate-900 leading-relaxed mb-6 sm:mb-8">{currentQuestion.text}</h3>
             <div className="space-y-3 mb-8">
               {currentQuestion.options?.map((opt, idx) => {
                 const sel = answers[currentQuestion.id] === opt;

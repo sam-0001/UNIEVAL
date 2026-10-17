@@ -333,10 +333,10 @@ const NoteDetail: React.FC = () => {
 
   return (
     <div className="bg-slate-50 min-h-screen pb-12">
-      <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <div className="max-w-[1400px] mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6">
 
         {/* Back Link */}
-        <Link to="/browse?year=1" className="inline-flex items-center text-sm text-slate-500 hover:text-brand-cobalt mb-6 transition-colors font-medium">
+        <Link to="/browse?year=1" className="inline-flex items-center text-xs sm:text-sm text-slate-500 hover:text-brand-cobalt mb-4 sm:mb-6 transition-colors font-medium">
           <svg className="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
           </svg>
@@ -428,7 +428,7 @@ const NoteDetail: React.FC = () => {
         <div className="flex flex-col lg:flex-row gap-6">
 
           {/* Sidebar */}
-          <div className="w-full lg:w-1/4 flex-shrink-0 space-y-4">
+          <div className="w-full lg:w-1/4 flex-shrink-0 space-y-4 order-2 lg:order-1">
             <div className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
               <div className="p-4 border-b border-slate-100 font-bold text-slate-800 bg-slate-50/50 uppercase text-xs tracking-wider">
                 Course Materials
@@ -482,7 +482,7 @@ const NoteDetail: React.FC = () => {
           </div>
 
           {/* Content Viewer */}
-          <div className="flex-1 bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden flex flex-col h-[600px] lg:h-[800px]">
+          <div className="flex-1 bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden flex flex-col h-[520px] sm:h-[650px] lg:h-[800px] order-1 lg:order-2">
 
             {/* Viewer Header — no Download button */}
             <div className="border-b border-slate-200 px-4 py-3 flex justify-between items-center bg-white">

@@ -217,7 +217,7 @@ const CourseDetail: React.FC = () => {
   if (!course) return <div className="p-8 text-center">Loading course...</div>;
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-24">
+    <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-8 pb-24">
       <div className="lg:grid lg:grid-cols-3 lg:gap-8">
         {/* Main Content (Video Player) */}
         <div className="lg:col-span-2">
@@ -254,17 +254,17 @@ const CourseDetail: React.FC = () => {
                 </div>
               )
             ) : (
-              <div className="absolute inset-0 flex items-center justify-center flex-col bg-brand-navy/95 backdrop-blur-sm z-10 p-6 text-center rounded-xl shadow-2xl overflow-hidden">
-                <div className="w-16 h-16 bg-brand-cobalt rounded-full flex items-center justify-center mb-4 shadow-lg shadow-brand-cobalt/30">
-                  <svg className="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <div className="absolute inset-0 flex items-center justify-center flex-col bg-brand-navy/95 backdrop-blur-sm z-10 p-4 sm:p-6 text-center rounded-xl shadow-2xl overflow-hidden">
+                <div className="w-12 h-12 sm:w-16 sm:h-16 bg-brand-cobalt rounded-full flex items-center justify-center mb-3 sm:mb-4 shadow-lg shadow-brand-cobalt/30 shrink-0">
+                  <svg className="w-6 h-6 sm:w-8 sm:h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                   </svg>
                 </div>
-                <h3 className="text-2xl font-bold text-white mb-2">Course Locked</h3>
-                <p className="text-gray-300 mb-6 max-w-md">Enroll in this course to access high-quality video lectures, assignments, and more.</p>
+                <h3 className="text-xl sm:text-2xl font-bold text-white mb-1.5 sm:mb-2">Course Locked</h3>
+                <p className="text-gray-300 text-xs sm:text-sm mb-4 sm:mb-6 max-w-md">Enroll in this course to access high-quality video lectures, assignments, and more.</p>
                 <button
                   onClick={() => handlePayment()}
-                  className="bg-gradient-main text-white hover:opacity-90 px-8 py-3 rounded-xl font-bold text-lg transition-all"
+                  className="bg-gradient-main text-white hover:opacity-90 px-6 sm:px-8 py-2.5 sm:py-3 rounded-xl font-bold text-sm sm:text-lg transition-all active:scale-95"
                 >
                   {!user ? 'Login to Enroll' : (course.price === 0 ? 'Enroll for Free' : `Unlock for ₹${displayPrice}`)}
                 </button>
@@ -272,11 +272,11 @@ const CourseDetail: React.FC = () => {
             )}
           </div>
 
-          <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-6 mb-8">
-            <div className="flex flex-col md:flex-row justify-between items-start gap-6">
-              <div className="flex-1">
-                <div className="flex items-center gap-3 mb-3">
-                  <h1 className="text-3xl font-bold text-brand-navy">{course.title}</h1>
+          <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-4 sm:p-6 mb-6 sm:mb-8">
+            <div className="flex flex-col md:flex-row justify-between items-start gap-4 sm:gap-6">
+              <div className="flex-1 w-full">
+                <div className="flex items-center gap-3 mb-2 sm:mb-3">
+                  <h1 className="text-2xl sm:text-3xl font-bold text-brand-navy">{course.title}</h1>
                 </div>
                 
                 {course.collegeConfig && !hasAccess && (

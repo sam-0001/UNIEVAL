@@ -176,7 +176,7 @@ const VivaDetail: React.FC = () => {
   if (!viva || !viva.questions) return <div className="p-12 text-center">Viva set not found.</div>;
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-8 min-h-screen">
+    <div className="max-w-4xl mx-auto px-3 sm:px-6 py-4 sm:py-8 min-h-screen">
        <Link to="/browse?tab=viva" className="inline-flex items-center text-sm text-slate-500 hover:text-brand-cobalt mb-6 transition-colors font-medium">
             <svg className="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
@@ -184,18 +184,18 @@ const VivaDetail: React.FC = () => {
             Back to Viva List
        </Link>
 
-       <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-8 mb-8">
-            <div className="flex items-start gap-4">
-                <div className="bg-gradient-main p-3 rounded-xl text-white shadow-lg">
+       <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-4 sm:p-8 mb-6 sm:mb-8">
+            <div className="flex flex-col sm:flex-row items-start gap-4">
+                <div className="bg-gradient-main p-3 rounded-xl text-white shadow-lg shrink-0">
                     <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
                     </svg>
                 </div>
                 <div>
-                    <h1 className="text-3xl font-bold text-brand-navy">{viva.title}</h1>
-                    <p className="text-slate-600 mt-2">{viva.description}</p>
-                    <div className="mt-4 flex items-center gap-2 text-sm text-slate-500">
-                        <span className="bg-slate-100 px-2 py-1 rounded border border-slate-200">{viva.questions.length} Questions</span>
+                    <h1 className="text-2xl sm:text-3xl font-bold text-brand-navy">{viva.title}</h1>
+                    <p className="text-slate-600 mt-2 text-sm sm:text-base">{viva.description}</p>
+                    <div className="mt-4 flex flex-wrap items-center gap-2 text-sm text-slate-500">
+                        <span className="bg-slate-100 px-2.5 py-1 rounded-md border border-slate-200 font-semibold text-xs">{viva.questions.length} Questions</span>
                         <span>•</span>
                         <span>AI-Powered Evaluation</span>
                     </div>
@@ -204,25 +204,25 @@ const VivaDetail: React.FC = () => {
        </div>
 
        {!user ? (
-           <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-12 text-center">
+           <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 sm:p-12 text-center">
                <div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-6">
                    <svg className="w-8 h-8 text-brand-cobalt" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                    </svg>
                </div>
                <h3 className="text-xl font-bold text-slate-900 mb-2">Login Required</h3>
-               <p className="text-slate-600 mb-8 max-w-md mx-auto">
+               <p className="text-slate-600 mb-8 max-w-md mx-auto text-sm sm:text-base">
                    Please log in to access the Viva questions and use the AI evaluation features.
                </p>
                 <button 
                    onClick={() => setShowLoginModal(true)}
-                   className="bg-gradient-main hover:opacity-90 text-white px-8 py-3 rounded-xl font-bold shadow-lg shadow-indigo-200 transition-all"
+                   className="w-full sm:w-auto bg-gradient-main hover:opacity-90 text-white px-8 py-3.5 rounded-xl font-bold shadow-lg shadow-indigo-200 transition-all min-h-[44px]"
                 >
                    Log In to Start
-               </button>
+                </button>
            </div>
        ) : (
-           <div className="space-y-8">
+           <div className="space-y-6 sm:space-y-8">
                {viva.questions.map((q, idx) => {
                const evaluation = evaluations[q.id];
                const isEvaluating = loadingEval[q.id];
@@ -230,30 +230,31 @@ const VivaDetail: React.FC = () => {
 
                return (
                    <div key={q.id} className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-                       <div className="bg-slate-50/50 p-6 border-b border-slate-100">
-                           <h3 className="text-lg font-bold text-slate-800 flex items-start gap-3">
-                               <span className="bg-slate-200 text-slate-600 text-xs font-bold px-2 py-1 rounded mt-0.5">Q{idx + 1}</span>
-                               {q.text}
+                       <div className="bg-slate-50/50 p-4 sm:p-6 border-b border-slate-100">
+                           <h3 className="text-base sm:text-lg font-bold text-slate-800 flex items-start gap-3">
+                               <span className="bg-slate-200 text-slate-700 text-xs font-bold px-2 py-1 rounded mt-0.5 shrink-0">Q{idx + 1}</span>
+                               <span className="leading-snug">{q.text}</span>
                            </h3>
                        </div>
                        
-                       <div className="p-6">
+                       <div className="p-4 sm:p-6">
                            <div className="relative">
                                <textarea 
-                                   className="w-full border border-slate-300 rounded-lg p-4 pr-12 pb-12 focus:ring-2 focus:ring-brand-cobalt focus:border-brand-cobalt outline-none min-h-[100px] text-slate-700 resize-none bg-slate-50 focus:bg-white transition-colors"
+                                   className="w-full border border-slate-300 rounded-lg p-3 sm:p-4 pr-14 pb-14 focus:ring-2 focus:ring-brand-cobalt focus:border-brand-cobalt outline-none min-h-[110px] text-sm sm:text-base text-slate-700 resize-none bg-slate-50 focus:bg-white transition-colors"
                                    placeholder="Type your answer here or click the microphone to speak..."
                                    value={answers[q.id] || ''}
                                    onChange={(e) => setAnswers(prev => ({ ...prev, [q.id]: e.target.value }))}
                                ></textarea>
-                               
+                                
                                <button 
                                    onClick={() => startListening(q.id)}
-                                   className={`absolute right-3 bottom-3 p-2 rounded-full transition-all ${
+                                   className={`absolute right-3 bottom-3 w-11 h-11 rounded-full flex items-center justify-center transition-all ${
                                        listeningToThis 
                                        ? 'bg-red-500 text-white animate-pulse shadow-lg shadow-red-200' 
-                                       : 'bg-blue-50 text-brand-cobalt hover:bg-blue-100 border border-brand-cobalt/20'
+                                       : 'bg-blue-50 text-brand-cobalt hover:bg-blue-100 border border-brand-cobalt/20 active:scale-95'
                                    }`}
                                    title="Speak Answer"
+                                   aria-label="Speak Answer"
                                >
                                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
@@ -261,11 +262,11 @@ const VivaDetail: React.FC = () => {
                                </button>
                            </div>
 
-                           <div className="mt-4 flex justify-between items-center">
+                           <div className="mt-4 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
                                <button 
                                    onClick={() => handleEvaluate(q.id)}
                                    disabled={isEvaluating || !answers[q.id]}
-                                   className="bg-gradient-main text-white px-6 py-2.5 rounded-lg font-bold hover:opacity-90 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 shadow-sm"
+                                   className="w-full sm:w-auto bg-gradient-main text-white px-6 py-3 rounded-lg font-bold hover:opacity-90 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-sm min-h-[44px]"
                                >
                                    {isEvaluating ? (
                                        <>

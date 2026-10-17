@@ -274,16 +274,16 @@ const BrowseCourses: React.FC = () => {
   );
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 min-h-screen">
+    <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-5 sm:py-8 min-h-screen">
       
       {/* Dynamic Header */}
-      <div className="mb-8 border-b border-gray-200 pb-6">
+      <div className="mb-6 sm:mb-8 border-b border-gray-200 pb-5 sm:pb-6">
          <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
              <div>
-                <h1 className="text-3xl font-bold text-gray-900">
+                <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
                     {isFirstYearMode ? 'First Year Engineering (FE)' : (selectedBranch ? `${selectedBranch}` : 'Browse All Content')}
                 </h1>
-                <p className="mt-2 text-gray-600">
+                <p className="mt-2 text-sm sm:text-base text-gray-600">
                 {isFirstYearMode 
                     ? 'Common curriculum for all engineering branches.' 
                     : 'Select your academic year to view specific subjects.'}
@@ -292,7 +292,7 @@ const BrowseCourses: React.FC = () => {
              {/* Toggle Button for Context Switching */}
              <button 
                 onClick={toggleFirstYearMode}
-                className="bg-gray-900 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-800 transition-colors whitespace-nowrap"
+                className="w-full sm:w-auto text-center bg-gray-900 text-white px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-gray-800 transition-colors whitespace-nowrap min-h-[44px] flex items-center justify-center"
              >
                 {isFirstYearMode ? 'View Departmental Content' : 'View First Year (FE)'}
              </button>
@@ -300,14 +300,14 @@ const BrowseCourses: React.FC = () => {
       </div>
 
       {/* Filters Section */}
-      <div className="flex flex-wrap gap-4 items-end mb-8">
+      <div className="flex flex-col sm:flex-row flex-wrap gap-4 items-start sm:items-end mb-6 sm:mb-8">
             {/* Year Selector */}
-            <div className="flex space-x-2 overflow-x-auto pb-2 no-scrollbar">
+            <div className="flex space-x-2 overflow-x-auto pb-2 no-scrollbar w-full sm:w-auto -mx-3 px-3 sm:mx-0 sm:px-0">
                 {availableYears.map(y => (
                     <button
                         key={y}
                         onClick={() => handleYearChange(y === selectedYear ? '' : y)}
-                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
+                        className={`px-4 py-2.5 rounded-lg text-sm font-medium transition-colors whitespace-nowrap min-h-[44px] min-w-[52px] flex items-center justify-center ${
                             selectedYear === y 
                             ? 'bg-indigo-600 text-white shadow-md' 
                             : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50'
@@ -329,7 +329,7 @@ const BrowseCourses: React.FC = () => {
                      <select
                         value={selectedBranch}
                         onChange={(e) => handleBranchChange(e.target.value)}
-                        className="appearance-none block w-full pl-10 pr-10 py-3 text-base bg-white border border-gray-200 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-700 font-medium cursor-pointer hover:border-indigo-300 transition-colors"
+                        className="appearance-none block w-full pl-10 pr-10 py-3 text-base bg-white border border-gray-200 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-700 font-medium cursor-pointer hover:border-indigo-300 transition-colors min-h-[44px]"
                      >
                         <option value="">All Engineering Branches</option>
                         <option value="Computer Science Engineering (CSE)">Computer Science (CSE)</option>
@@ -348,14 +348,14 @@ const BrowseCourses: React.FC = () => {
       </div>
 
       {/* TABS NAVIGATION */}
-      <div className="mb-8 border-b border-gray-200 overflow-x-auto no-scrollbar">
-          <nav className="-mb-px flex space-x-8 min-w-max" aria-label="Tabs">
+      <div className="mb-8 border-b border-gray-200 overflow-x-auto no-scrollbar -mx-3 px-3 sm:mx-0 sm:px-0">
+          <nav className="-mb-px flex space-x-6 sm:space-x-8 min-w-max" aria-label="Tabs">
               {(['courses', 'notes', 'quizzes', 'viva'] as TabType[]).map((tab) => (
                   <button
                       key={tab}
                       onClick={() => setActiveTab(tab)}
                       className={`
-                        whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors
+                        whitespace-nowrap py-3.5 px-1 border-b-2 font-medium text-sm transition-colors min-h-[44px] flex items-center
                         ${activeTab === tab
                           ? 'border-indigo-500 text-indigo-600'
                           : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}
