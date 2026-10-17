@@ -281,21 +281,81 @@ const CustomVideoPlayer: React.FC<CustomVideoPlayerProps> = ({
     }
   }, [isMuted, volume]);
 
-  // Fullscreen
-  const toggleFullscreen = () => {
+  // Fullscreen & Screen Orientation handling
+  const toggleFullscreen = async () => {
     const container = containerRef.current;
     if (!container) return;
 
-    if (!document.fullscreenElement) {
-      container.requestFullscreen().catch(err => {
-        console.error(`Error attempting to enable fullscreen: ${err.message}`);
-      });
-      setIsFullscreen(true);
+    const isDocFs = !!(
+      document.fullscreenElement ||
+      (document as any).webkitFullscreenElement ||
+      (document as any).mozFullScreenElement ||
+      (document as any).msFullscreenElement
+    );
+
+    if (!isDocFs) {
+      const req = container.requestFullscreen ||
+                  (container as any).webkitRequestFullscreen ||
+                  (container as any).mozRequestFullScreen ||
+                  (container as any).msRequestFullscreen;
+      if (req) {
+        try {
+          await req.call(container);
+          setIsFullscreen(true);
+        } catch (err: any) {
+          console.error(`Error attempting to enable fullscreen: ${err?.message}`);
+        }
+      }
+      try {
+        if (screen.orientation && typeof (screen.orientation as any).lock === 'function') {
+          await (screen.orientation as any).lock('landscape');
+        }
+      } catch (e) {}
     } else {
-      document.exitFullscreen();
-      setIsFullscreen(false);
+      const exit = document.exitFullscreen ||
+                   (document as any).webkitExitFullscreen ||
+                   (document as any).mozCancelFullScreen ||
+                   (document as any).msExitFullscreen;
+      if (exit) {
+        try {
+          await exit.call(document);
+          setIsFullscreen(false);
+        } catch (err: any) {
+          console.error(`Error attempting to exit fullscreen: ${err?.message}`);
+        }
+      }
+      try {
+        if (screen.orientation && typeof (screen.orientation as any).unlock === 'function') {
+          (screen.orientation as any).unlock();
+        }
+      } catch (e) {}
     }
   };
+
+  useEffect(() => {
+    const handleFsChange = () => {
+      const inFs = !!(
+        document.fullscreenElement ||
+        (document as any).webkitFullscreenElement ||
+        (document as any).mozFullScreenElement ||
+        (document as any).msFullscreenElement
+      );
+      setIsFullscreen(inFs);
+      if (!inFs) {
+        try {
+          if (screen.orientation && typeof (screen.orientation as any).unlock === 'function') {
+            (screen.orientation as any).unlock();
+          }
+        } catch (e) {}
+      }
+    };
+
+    const events = ['fullscreenchange', 'webkitfullscreenchange', 'mozfullscreenchange', 'MSFullscreenChange'];
+    events.forEach(evt => document.addEventListener(evt, handleFsChange));
+    return () => {
+      events.forEach(evt => document.removeEventListener(evt, handleFsChange));
+    };
+  }, []);
 
   // Quality
   const changeQuality = (level: number) => {

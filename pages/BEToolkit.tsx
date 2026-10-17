@@ -414,19 +414,19 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onResults }) => {
         ))}
       </div>
 
-      <div className="flex gap-2">
+      <div className="flex flex-col sm:flex-row gap-2">
         <input
           type="text"
           value={topic}
           onChange={e => setTopic(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && !loading && handleSearch()}
           placeholder="e.g. Machine learning for traffic prediction…"
-          className="flex-1 text-sm border border-gray-200 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-400 bg-white"
+          className="flex-1 text-sm border border-gray-200 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-400 bg-white min-h-[44px]"
         />
         <button
           onClick={handleSearch}
           disabled={loading}
-          className="shrink-0 bg-gradient-main text-white text-sm font-bold px-5 py-2.5 rounded-xl hover:opacity-90 disabled:opacity-60 disabled:cursor-not-allowed transition-all flex items-center gap-2"
+          className="w-full sm:w-auto shrink-0 bg-gradient-main text-white text-sm font-bold px-5 py-2.5 rounded-xl hover:opacity-90 disabled:opacity-60 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2 min-h-[44px]"
         >
           {loading ? (
             <>
@@ -567,7 +567,7 @@ const BEToolkit: React.FC = () => {
     searchResults.length > UNLIMITED_PREVIEW_LIMIT;
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 min-h-screen">
+    <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-5 sm:py-8 min-h-screen">
 
       {/* PDF Viewer Modal */}
       {pdfViewer && (

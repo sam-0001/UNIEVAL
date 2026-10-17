@@ -43,7 +43,7 @@ const Profile: React.FC = () => {
   const unlimitedActive = isUnlimited;
 
   return (
-    <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+    <div className="max-w-5xl mx-auto px-3 sm:px-6 lg:px-8 py-6 sm:py-10">
 
       {showBuyModal && (
         <BuyCreditsModal
@@ -56,14 +56,14 @@ const Profile: React.FC = () => {
 
       {/* ── Profile Header ─────────────────────────────────────────────── */}
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden mb-6">
-        <div className="bg-gradient-to-r from-indigo-600 to-purple-600 px-8 py-10 text-white">
-          <div className="flex items-center gap-6 flex-wrap">
-            <div className="w-20 h-20 bg-white text-indigo-600 rounded-full flex items-center justify-center text-3xl font-black shadow-lg shrink-0">
+        <div className="bg-gradient-to-r from-indigo-600 to-purple-600 px-5 py-6 sm:px-8 sm:py-10 text-white">
+          <div className="flex items-center gap-4 sm:gap-6 flex-wrap">
+            <div className="w-16 h-16 sm:w-20 sm:h-20 bg-white text-indigo-600 rounded-full flex items-center justify-center text-2xl sm:text-3xl font-black shadow-lg shrink-0">
               {user.name.charAt(0).toUpperCase()}
             </div>
             <div>
-              <h1 className="text-2xl font-extrabold">{user.name}</h1>
-              <p className="text-indigo-200 mt-0.5 text-sm">{user.email}</p>
+              <h1 className="text-xl sm:text-2xl font-extrabold">{user.name}</h1>
+              <p className="text-indigo-200 mt-0.5 text-xs sm:text-sm">{user.email}</p>
               <div className="mt-2 inline-flex items-center px-3 py-1 rounded-full bg-white/20 border border-white/30 text-xs font-bold">
                 {user.role === UserRole.STUDENT ? '🎓 Student' : user.role === UserRole.TEACHER ? '👨‍🏫 Teacher' : user.role === UserRole.ADMIN ? '⚙️ Admin' : '🌐 Super Admin'}
               </div>
@@ -238,7 +238,7 @@ const Profile: React.FC = () => {
                     ? <img 
                         src={course.thumbnailUrl} 
                         alt={course.title} 
-                        className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-500" 
+                        className="w-full h-full object-contain transform group-hover:scale-105 transition-transform duration-500" 
                         onError={(e) => { e.currentTarget.src = 'https://picsum.photos/800/600?random=' + course.id; }}
                       />
                     : <div className="w-full h-full flex items-center justify-center bg-indigo-50 text-indigo-300">

@@ -375,40 +375,97 @@ export const LiveClassRoom: React.FC = () => {
         return () => clearInterval(interval);
     }, [id, statusNotice]);
 
-    // Fullscreen handling
-    const toggleFullscreen = () => {
+    // Screen Orientation & Fullscreen handling
+    const lockLandscape = useCallback(async () => {
+        try {
+            if (screen.orientation && typeof (screen.orientation as any).lock === 'function') {
+                await (screen.orientation as any).lock('landscape');
+            }
+        } catch (e) {
+            // Orientation lock may not be allowed without fullscreen or on unsupported devices
+        }
+    }, []);
+
+    const unlockOrientation = useCallback(() => {
+        try {
+            if (screen.orientation && typeof (screen.orientation as any).unlock === 'function') {
+                (screen.orientation as any).unlock();
+            }
+        } catch (e) {}
+    }, []);
+
+    const toggleFullscreen = async () => {
         if (!containerRef.current) return;
-        if (!document.fullscreenElement) {
-            containerRef.current.requestFullscreen().catch(err => console.error("Fullscreen request failed:", err));
+        const isDocFs = !!(
+            document.fullscreenElement ||
+            (document as any).webkitFullscreenElement ||
+            (document as any).mozFullScreenElement ||
+            (document as any).msFullscreenElement
+        );
+
+        if (!isDocFs) {
+            const req = containerRef.current.requestFullscreen ||
+                        (containerRef.current as any).webkitRequestFullscreen ||
+                        (containerRef.current as any).mozRequestFullScreen ||
+                        (containerRef.current as any).msRequestFullscreen;
+            if (req) {
+                try {
+                    await req.call(containerRef.current);
+                } catch (err) {
+                    console.error("Fullscreen request failed:", err);
+                }
+            }
+            await lockLandscape();
         } else {
-            document.exitFullscreen().catch(err => console.error("Exit fullscreen failed:", err));
+            const exit = document.exitFullscreen ||
+                         (document as any).webkitExitFullscreen ||
+                         (document as any).mozCancelFullScreen ||
+                         (document as any).msExitFullscreen;
+            if (exit) {
+                try {
+                    await exit.call(document);
+                } catch (err) {
+                    console.error("Exit fullscreen failed:", err);
+                }
+            }
+            unlockOrientation();
         }
     };
 
     useEffect(() => {
         const handleFullscreenChange = () => {
-            const inFs = !!document.fullscreenElement;
+            const inFs = !!(
+                document.fullscreenElement ||
+                (document as any).webkitFullscreenElement ||
+                (document as any).mozFullScreenElement ||
+                (document as any).msFullscreenElement
+            );
             setIsFullscreen(inFs);
             if (inFs) {
-                // Instantly hide navbar so it doesn't linger over the video
+                // Instantly hide all UI controls for full immersion
                 setControlsVisible(false);
-                // Trigger smooth slide-in hint from right
+                lockLandscape();
                 setShowEscHint(true);
                 if (escHintTimerRef.current) clearTimeout(escHintTimerRef.current);
                 escHintTimerRef.current = setTimeout(() => {
                     setShowEscHint(false);
-                }, 3500);
+                }, 3000);
             } else {
                 setControlsVisible(true);
                 setShowEscHint(false);
+                unlockOrientation();
             }
         };
-        document.addEventListener('fullscreenchange', handleFullscreenChange);
+
+        const events = ['fullscreenchange', 'webkitfullscreenchange', 'mozfullscreenchange', 'MSFullscreenChange'];
+        events.forEach(evt => document.addEventListener(evt, handleFullscreenChange));
+
         return () => {
-            document.removeEventListener('fullscreenchange', handleFullscreenChange);
+            events.forEach(evt => document.removeEventListener(evt, handleFullscreenChange));
             if (escHintTimerRef.current) clearTimeout(escHintTimerRef.current);
+            unlockOrientation();
         };
-    }, []);
+    }, [lockLandscape, unlockOrientation]);
 
     // YouTube-style auto-hiding controls on inactivity
     const resetControlsTimer = useCallback(() => {
@@ -930,82 +987,85 @@ export const LiveClassRoom: React.FC = () => {
             onMouseMove={handleMouseMove}
             className="h-screen min-h-[100dvh] max-h-[100dvh] w-full bg-[#0B0F19] flex flex-col overflow-hidden relative"
         >
-            {/* UniEval Branded Top Header (YouTube style auto-hiding when idle in fullscreen) */}
-            <header className={`${
-                isFullscreen 
-                    ? 'absolute top-0 inset-x-0 z-30 bg-[#131A3F]/95 backdrop-blur-md shadow-2xl' 
-                    : 'relative z-20 bg-[#131A3F]'
-            } h-13 sm:h-14 border-b border-slate-800 px-2.5 sm:px-6 flex items-center justify-between shrink-0 transition-all duration-300 ${
-                controlsVisible ? 'opacity-100 translate-y-0' : isFullscreen ? 'opacity-0 -translate-y-full pointer-events-none' : 'opacity-100'
-            }`}>
-                <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
-                    <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-gradient-to-tr from-[#1F81FC] to-[#7F26FE] flex items-center justify-center shadow-sm shrink-0">
-                        <Radio className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white animate-pulse" />
-                    </div>
-                    <div className="min-w-0">
-                        <div className="flex items-center gap-1.5 sm:gap-2">
-                            <span className="text-xs sm:text-sm font-bold text-white tracking-tight truncate max-w-[120px] xs:max-w-[180px] sm:max-w-xs md:max-w-md">
-                                {classDetails?.title || 'UniEval Live Class'}
-                            </span>
-                            <span className="hidden xs:inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 shrink-0">
-                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
-                                LIVE
-                            </span>
-                            {isScreenSharing && (
-                                <span className="hidden sm:inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-blue-500/20 text-blue-300 border border-blue-500/30 shrink-0">
-                                    <MonitorPlay className="w-3 h-3 text-blue-400 animate-pulse" />
-                                    Screen Share Active
+            {/* UniEval Branded Top Header (Completely hidden in fullscreen to keep screen 100% unobstructed) */}
+            {!isFullscreen && (
+                <header className="relative z-20 bg-[#131A3F] h-14 border-b border-slate-800 px-3 sm:px-6 flex items-center justify-between shrink-0">
+                    <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+                        <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-[#1F81FC] to-[#7F26FE] flex items-center justify-center shadow-sm shrink-0">
+                            <Radio className="w-4 h-4 text-white animate-pulse" />
+                        </div>
+                        <div className="min-w-0">
+                            <div className="flex items-center gap-1.5 sm:gap-2">
+                                <span className="text-xs sm:text-sm font-bold text-white tracking-tight truncate max-w-[130px] xs:max-w-[180px] sm:max-w-xs md:max-w-md">
+                                    {classDetails?.title || 'UniEval Live Class'}
                                 </span>
-                            )}
-                            <span className="hidden md:inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-800 text-slate-300 border border-slate-700 shrink-0">
-                                <Users className="w-3 h-3 text-blue-400" />
-                                {realAttendees.length + 1} Connected
-                            </span>
+                                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 shrink-0">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
+                                    LIVE
+                                </span>
+                                {isScreenSharing && (
+                                    <span className="hidden sm:inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-blue-500/20 text-blue-300 border border-blue-500/30 shrink-0">
+                                        <MonitorPlay className="w-3 h-3 text-blue-400 animate-pulse" />
+                                        Screen Share Active
+                                    </span>
+                                )}
+                                <span className="hidden md:inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-800 text-slate-300 border border-slate-700 shrink-0">
+                                    <Users className="w-3 h-3 text-blue-400" />
+                                    {realAttendees.length + 1} Connected
+                                </span>
+                            </div>
                         </div>
                     </div>
-                </div>
 
-                <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-                    {/* YouTube Fullscreen Toggle Button */}
+                    <div className="flex items-center gap-2 shrink-0">
+                        {/* Fullscreen Toggle Button */}
+                        <button
+                            onClick={toggleFullscreen}
+                            className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800/90 text-slate-200 hover:text-white hover:bg-slate-700 border border-slate-700 transition-all min-h-[36px]"
+                            title="Fullscreen Player"
+                        >
+                            <Maximize className="w-3.5 h-3.5" />
+                            <span className="hidden sm:inline">Fullscreen</span>
+                        </button>
+
+                        <button 
+                            onClick={handleLeave}
+                            className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold text-rose-300 hover:text-white hover:bg-rose-600/30 transition-colors border border-rose-500/30 min-h-[36px]"
+                            title="Leave class"
+                        >
+                            <LogOut className="w-3.5 h-3.5" />
+                            <span className="hidden sm:inline">Leave</span>
+                        </button>
+                    </div>
+                </header>
+            )}
+
+            {/* In Fullscreen: Auto-hiding Minimal Exit Pill (Appears only on user tap/interaction and auto-disappears) */}
+            {isFullscreen && (
+                <div className={`fixed top-4 right-4 z-50 transition-all duration-300 ${
+                    controlsVisible ? 'opacity-100 scale-100 pointer-events-auto' : 'opacity-0 scale-95 pointer-events-none'
+                }`}>
                     <button
                         onClick={toggleFullscreen}
-                        className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800/90 text-slate-200 hover:text-white hover:bg-slate-700 border border-slate-700 transition-all"
-                        title={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen Player'}
+                        className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-slate-900/90 hover:bg-slate-800 text-white border border-slate-700/80 shadow-2xl backdrop-blur-md text-xs font-semibold active:scale-95 transition-all"
+                        title="Exit Fullscreen"
                     >
-                        {isFullscreen ? (
-                            <>
-                                <Minimize className="w-3.5 h-3.5" />
-                                <span className="hidden sm:inline">Exit</span>
-                            </>
-                        ) : (
-                            <>
-                                <Maximize className="w-3.5 h-3.5" />
-                                <span className="hidden sm:inline">Fullscreen</span>
-                            </>
-                        )}
-                    </button>
-
-                    <button 
-                        onClick={handleLeave}
-                        className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-medium text-slate-300 hover:text-white hover:bg-slate-800 transition-colors border border-transparent hover:border-slate-700"
-                        title="Leave class"
-                    >
-                        <LogOut className="w-3.5 h-3.5" />
-                        <span className="hidden sm:inline">Leave</span>
+                        <Minimize className="w-3.5 h-3.5" />
+                        <span>Exit Fullscreen</span>
                     </button>
                 </div>
-            </header>
+            )}
 
-            {/* Floating ESC Hint Toast (Smooth slide-in from right side on fullscreen) */}
-            <div className={`fixed top-5 right-5 z-50 transition-all duration-300 ease-out pointer-events-none ${
+            {/* Floating ESC Hint Toast (Brief slide-in hint on desktop) */}
+            <div className={`fixed top-5 left-1/2 -translate-x-1/2 z-50 transition-all duration-300 ease-out pointer-events-none ${
                 showEscHint && isFullscreen
-                    ? 'opacity-100 translate-x-0'
-                    : 'opacity-0 translate-x-12'
+                    ? 'opacity-100 translate-y-0'
+                    : 'opacity-0 -translate-y-4'
             }`}>
                 <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[#131A3F]/95 backdrop-blur-md text-white text-xs font-medium border border-white/10 shadow-2xl">
-                    <span className="text-slate-300">Press</span>
+                    <span className="text-slate-300">Viewing in fullscreen • Press</span>
                     <kbd className="px-2 py-0.5 text-[10px] font-mono font-bold bg-white/10 text-white rounded border border-white/20 shadow-sm">ESC</kbd>
-                    <span className="text-slate-300">to exit full screen</span>
+                    <span className="text-slate-300">or tap screen to exit</span>
                 </div>
             </div>
 
@@ -1017,35 +1077,18 @@ export const LiveClassRoom: React.FC = () => {
                 </div>
             )}
 
-            {/* Context Notice Banner (Only shown outside fullscreen or when controls are active) */}
+            {/* Context Notice Banner (Only shown outside fullscreen) */}
             {!isFullscreen && (
-                <div className={`transition-all duration-300 ${
-                    controlsVisible ? 'opacity-100 max-h-28 sm:max-h-12' : 'opacity-0 max-h-0 overflow-hidden'
-                }`}>
+                <div className="bg-[#131A3F]/90 backdrop-blur-sm border-b border-white/5 px-3 py-1.5 text-[11px] text-slate-300 flex items-center justify-between gap-2 shrink-0">
                     {isTeacher ? (
-                        <div className="bg-[#131A3F]/90 backdrop-blur-sm border-b border-white/5 px-3 py-1.5 sm:px-4 sm:py-2 text-[11px] sm:text-xs text-slate-300 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-1.5 sm:gap-2 shrink-0">
-                            <div className="flex items-center gap-2">
-                                <Video className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-blue-400 shrink-0" />
-                                <span className="font-medium text-slate-200">
-                                    Instructor Studio Active • Manage camera, mic & presentation in the bottom toolbar.
-                                </span>
-                            </div>
-                            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 sm:px-3 sm:py-1 rounded-full text-[10px] sm:text-[11px] font-semibold bg-rose-500/10 text-rose-300 border border-rose-500/30">
-                                <span className="w-1.5 h-1.5 rounded-full bg-rose-400 animate-pulse" />
-                                When finished, click <strong>End Webinar</strong> in toolbar to auto-generate recording
-                            </span>
+                        <div className="flex items-center gap-1.5 truncate">
+                            <Video className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+                            <span className="truncate">Instructor Studio Active • Manage camera, mic & screen share in bottom toolbar</span>
                         </div>
                     ) : (
-                        <div className="bg-[#131A3F]/90 backdrop-blur-sm border-b border-white/5 px-3 py-1.5 sm:px-4 sm:py-2 text-[11px] sm:text-xs text-slate-300 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-1.5 sm:gap-2 shrink-0">
-                            <div className="flex items-center gap-2">
-                                <Radio className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-400 shrink-0" />
-                                <span className="font-medium text-slate-200">
-                                    Connected to live classroom • Welcome, {user?.name?.split(' ')[0] || 'Student'}!
-                                </span>
-                            </div>
-                            <span className="inline-flex items-center gap-1.5 text-[10px] sm:text-[11px] font-medium bg-blue-500/10 text-blue-300 px-2.5 py-0.5 sm:px-3 sm:py-1 rounded-full border border-blue-500/20">
-                                ✋ To speak or present: click <strong>Raise Hand</strong> in toolbar
-                            </span>
+                        <div className="flex items-center gap-1.5 truncate">
+                            <Radio className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                            <span className="truncate">Welcome, {user?.name?.split(' ')[0] || 'Student'}! Click <strong>Raise Hand</strong> to speak</span>
                         </div>
                     )}
                 </div>
@@ -1057,22 +1100,25 @@ export const LiveClassRoom: React.FC = () => {
                     ref={iframeRef}
                     src={iframeSrc}
                     allow="camera *; microphone *; fullscreen *; display-capture *; autoplay *; clipboard-write *; speaker-selection *; encrypted-media *"
-                    className="w-full h-full border-none"
+                    className="w-full h-full border-none absolute inset-0"
                     title="UniEval Live Classroom"
                 />
 
-                {/* Floating Fullscreen Button (Positioned safely above mobile toolbar, fades out when mouse is idle) */}
-                <div className={`absolute bottom-20 sm:bottom-6 right-3 sm:right-6 z-20 flex items-center gap-2 transition-all duration-300 ${
-                    controlsVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'
-                }`}>
-                    <button
-                        onClick={toggleFullscreen}
-                        className="bg-slate-900/90 hover:bg-slate-800 text-white p-2.5 rounded-xl border border-slate-700/80 shadow-xl backdrop-blur-md transition-all active:scale-95"
-                        title={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}
-                    >
-                        {isFullscreen ? <Minimize className="w-4 h-4" /> : <Maximize className="w-4 h-4" />}
-                    </button>
-                </div>
+                {/* Floating Fullscreen Button (Only shown outside fullscreen) */}
+                {!isFullscreen && (
+                    <div className={`absolute bottom-20 sm:bottom-6 right-3 sm:right-6 z-20 flex items-center gap-2 transition-all duration-300 ${
+                        controlsVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'
+                    }`}>
+                        <button
+                            onClick={toggleFullscreen}
+                            className="bg-slate-900/90 hover:bg-slate-800 text-white p-2.5 rounded-xl border border-slate-700/80 shadow-xl backdrop-blur-md transition-all active:scale-95 flex items-center gap-1.5 text-xs font-semibold"
+                            title="Fullscreen"
+                        >
+                            <Maximize className="w-4 h-4" />
+                            <span className="hidden sm:inline">Fullscreen</span>
+                        </button>
+                    </div>
+                )}
             </div>
         </main>
     );

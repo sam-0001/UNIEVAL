@@ -212,23 +212,36 @@ const StudentDashboard: React.FC = () => {
   };
 
   const formatSubjectLabel = (rawSubject?: string, rawCourse?: string) => {
-    if (!rawSubject && !rawCourse) return 'Pune University';
-    const text = (rawSubject || rawCourse || '').trim();
-    const found = subjects.find(s => s.id === text || s.name.toLowerCase() === text.toLowerCase());
-    if (found) return found.name;
-    if (/^fe[-_ ]?1$/i.test(text)) return 'First Year (FE) • Sem 1';
-    if (/^fe[-_ ]?2$/i.test(text)) return 'First Year (FE) • Sem 2';
-    if (/^se[-_ ]?1$/i.test(text)) return 'Second Year (SE) • Sem 1';
-    if (/^se[-_ ]?2$/i.test(text)) return 'Second Year (SE) • Sem 2';
-    if (/^te[-_ ]?1$/i.test(text)) return 'Third Year (TE) • Sem 1';
-    if (/^te[-_ ]?2$/i.test(text)) return 'Third Year (TE) • Sem 2';
-    if (/^be[-_ ]?1$/i.test(text)) return 'Final Year (BE) • Sem 1';
-    if (/^be[-_ ]?2$/i.test(text)) return 'Final Year (BE) • Sem 2';
-    if (/^fe$/i.test(text)) return 'First Year (FE)';
-    if (/^se$/i.test(text)) return 'Second Year (SE)';
-    if (/^te$/i.test(text)) return 'Third Year (TE)';
-    if (/^be$/i.test(text)) return 'Final Year (BE)';
-    return text;
+    const sFound = subjects.find(s => s.id === rawSubject || (rawSubject && s.name.toLowerCase() === rawSubject.toLowerCase()));
+    if (sFound) return sFound.name;
+    const cFound = subjects.find(s => s.id === rawCourse || (rawCourse && s.name.toLowerCase() === rawCourse.toLowerCase()));
+    if (cFound) return cFound.name;
+
+    const parseText = (t: string) => {
+      if (/^fe[-_ ]?1$/i.test(t)) return 'First Year (FE) • Sem 1';
+      if (/^fe[-_ ]?2$/i.test(t)) return 'First Year (FE) • Sem 2';
+      if (/^se[-_ ]?1$/i.test(t)) return 'Second Year (SE) • Sem 1';
+      if (/^se[-_ ]?2$/i.test(t)) return 'Second Year (SE) • Sem 2';
+      if (/^te[-_ ]?1$/i.test(t)) return 'Third Year (TE) • Sem 1';
+      if (/^te[-_ ]?2$/i.test(t)) return 'Third Year (TE) • Sem 2';
+      if (/^be[-_ ]?1$/i.test(t)) return 'Final Year (BE) • Sem 1';
+      if (/^be[-_ ]?2$/i.test(t)) return 'Final Year (BE) • Sem 2';
+      if (/^fe$/i.test(t)) return 'First Year (FE)';
+      if (/^se$/i.test(t)) return 'Second Year (SE)';
+      if (/^te$/i.test(t)) return 'Third Year (TE)';
+      if (/^be$/i.test(t)) return 'Final Year (BE)';
+      return '';
+    };
+
+    if (rawSubject) {
+      const parsed = parseText(rawSubject.trim());
+      if (parsed) return parsed;
+    }
+    if (rawCourse) {
+      const parsed = parseText(rawCourse.trim());
+      if (parsed) return parsed;
+    }
+    return rawCourse || rawSubject || 'Pune University';
   };
 
   return (
