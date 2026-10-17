@@ -2,6 +2,7 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { UserRole, User } from '../types';
 import { useNavigate } from 'react-router-dom';
+import { api } from '../services/api';
 
 type AuthView = 'LOGIN' | 'SIGNUP' | 'FORGOT_PASSWORD';
 
@@ -266,9 +267,19 @@ const LoginModal: React.FC = () => {
     }
 
     try {
-      await login(email, password);
-      const u = JSON.parse(localStorage.getItem('user') || '{}');
-      handleSuccess(u);
+      const trimmed = email.trim();
+      const isDigits = /^[0-9]{10}$/.test(trimmed.replace(/\D/g, '')) && !trimmed.includes('@');
+      if (isDigits) {
+        const phone = trimmed.replace(/\D/g, '');
+        const res = await api.loginWithPhone(phone, password);
+        localStorage.setItem('token', res.token);
+        localStorage.setItem('user', JSON.stringify(res.user));
+        handleSuccess(res.user);
+      } else {
+        await login(trimmed, password);
+        const u = JSON.parse(localStorage.getItem('user') || '{}');
+        handleSuccess(u);
+      }
     } catch { /* handled in context */ }
   };
 
@@ -376,9 +387,9 @@ const LoginModal: React.FC = () => {
           </svg>
         </button>
 
-        <div className="p-8 sm:p-10">
+        <div className="p-6 sm:p-10">
           {/* Header */}
-          <div className="flex flex-col items-center mb-8 text-center">
+          <div className="flex flex-col items-center mb-6 sm:mb-8 text-center">
             <div className="bg-indigo-600 rounded-lg p-2 shadow-lg shadow-indigo-200 mb-4">
               <svg className="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
@@ -406,9 +417,9 @@ const LoginModal: React.FC = () => {
           {view === 'LOGIN' && (
             <form className="space-y-5" onSubmit={handleLogin}>
               <div className="space-y-1.5">
-                <label className="block text-sm font-semibold text-gray-700">Email Address</label>
-                <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)}
-                  placeholder="name@university.edu"
+                <label className="block text-sm font-semibold text-gray-700">Email Address or Mobile Number</label>
+                <input type="text" inputMode="email" required value={email} onChange={(e) => setEmail(e.target.value)}
+                  placeholder="name@university.edu or 10-digit mobile"
                   className="block w-full px-4 py-3 rounded-xl border-gray-200 border bg-gray-50 focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all outline-none text-sm" />
               </div>
 

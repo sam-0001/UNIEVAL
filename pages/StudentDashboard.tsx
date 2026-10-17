@@ -235,33 +235,54 @@ const StudentDashboard: React.FC = () => {
     <div className="min-h-screen bg-slate-50 flex flex-col md:flex-row font-sans">
         {/* Mobile Header */}
         <div className="md:hidden bg-[#131A3F] text-white p-4 flex items-center justify-between shadow-md z-20 sticky top-0">
-            <div className="flex items-center gap-2">
-                <GraduationCap className="w-6 h-6 text-[#1F81FC]" />
-                <span className="font-bold text-lg tracking-tight">Student Dashboard</span>
+            <div className="flex items-center gap-2.5">
+                <img src="/img/logo.jpeg" alt="UNIEVAL" className="w-7 h-7 rounded-lg object-cover shadow-sm" />
+                <span className="font-bold text-base tracking-tight">Student Dashboard</span>
             </div>
-            <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="p-2">
+            <button 
+                onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} 
+                className="p-2 -mr-2 text-slate-300 hover:text-white rounded-lg active:bg-white/10"
+                aria-label="Toggle navigation drawer"
+            >
                 {isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
             </button>
         </div>
 
+        {/* Mobile Drawer Backdrop */}
+        {isMobileMenuOpen && (
+            <div 
+                className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-40 md:hidden animate-in fade-in duration-200"
+                onClick={() => setIsMobileMenuOpen(false)}
+            />
+        )}
+
         {/* Sidebar */}
         <aside className={`
-            fixed inset-y-0 left-0 z-10 w-64 bg-[#131A3F] text-slate-300 transition-transform duration-300 ease-in-out md:translate-x-0 md:static md:flex-shrink-0
-            ${isMobileMenuOpen ? 'translate-x-0 pt-20 md:pt-0' : '-translate-x-full'}
-            flex flex-col shadow-xl
+            fixed inset-y-0 left-0 z-50 w-72 md:w-64 bg-[#131A3F] text-slate-300 transition-transform duration-300 ease-in-out md:translate-x-0 md:static md:flex-shrink-0
+            ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}
+            flex flex-col shadow-2xl md:shadow-xl
         `}>
-            {/* Logo Area */}
-            <div className="p-6 hidden md:flex items-center gap-3 border-b border-white/10 shrink-0">
-                <img src="/img/logo.jpeg" alt="UNIEVAL" className="w-10 h-10 rounded-lg object-cover shadow-lg" />
-                <div className="flex flex-col">
-                    <span className="font-extrabold text-white tracking-tight leading-none text-lg">UNIEVAL</span>
-                    <span className="text-[10px] text-[#1F81FC] font-bold uppercase tracking-widest mt-0.5">Student Dashboard</span>
+            {/* Logo / Header Area */}
+            <div className="p-5 md:p-6 flex items-center justify-between border-b border-white/10 shrink-0">
+                <div className="flex items-center gap-3">
+                    <img src="/img/logo.jpeg" alt="UNIEVAL" className="w-9 h-9 md:w-10 md:h-10 rounded-lg object-cover shadow-lg" />
+                    <div className="flex flex-col">
+                        <span className="font-extrabold text-white tracking-tight leading-none text-lg">UNIEVAL</span>
+                        <span className="text-[10px] text-[#1F81FC] font-bold uppercase tracking-widest mt-0.5">Student Dashboard</span>
+                    </div>
                 </div>
+                <button 
+                    onClick={() => setIsMobileMenuOpen(false)} 
+                    className="md:hidden text-slate-400 hover:text-white p-1 rounded-lg"
+                    aria-label="Close menu"
+                >
+                    <X className="w-5 h-5" />
+                </button>
             </div>
 
             {/* Profile Area */}
-            <div className="p-6 hidden md:flex items-center gap-3 border-b border-white/10 shrink-0">
-                <div className="w-10 h-10 rounded-xl bg-slate-800 flex items-center justify-center text-white font-bold text-xl shadow-inner border border-slate-700">
+            <div className="p-4 md:p-6 flex items-center gap-3 border-b border-white/10 shrink-0 bg-white/[0.02]">
+                <div className="w-10 h-10 rounded-xl bg-slate-800 flex items-center justify-center text-white font-bold text-xl shadow-inner border border-slate-700 shrink-0">
                     {user.name.charAt(0)}
                 </div>
                 <div className="min-w-0 flex-1">
@@ -328,7 +349,7 @@ const StudentDashboard: React.FC = () => {
         </aside>
 
         {/* Main Content */}
-        <main className="flex-1 p-6 lg:p-10 overflow-y-auto w-full max-w-7xl mx-auto h-screen relative">
+        <main className="flex-1 p-4 sm:p-6 lg:p-10 overflow-y-auto w-full max-w-7xl mx-auto min-h-screen md:h-screen relative">
             {loading ? (
                 <div className="flex flex-col items-center justify-center h-64 space-y-4">
                     <div className="w-10 h-10 border-4 border-slate-200 border-t-[#1F81FC] rounded-full animate-spin"></div>
@@ -1182,7 +1203,7 @@ const StudentDashboard: React.FC = () => {
                             return (
                              <div className="space-y-8 relative z-10">
                                  {/* Filter Tabs */}
-                                 <div className="flex items-center gap-3 overflow-x-auto pb-2 md:pb-0">
+                                 <div className="flex items-center gap-2.5 sm:gap-3 overflow-x-auto pb-2 md:pb-0 -mx-4 px-4 sm:mx-0 sm:px-0 no-scrollbar">
                                      <button 
                                          onClick={() => setLiveTabFilter('upcoming')} 
                                          className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold whitespace-nowrap transition-colors border ${

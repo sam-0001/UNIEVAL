@@ -213,24 +213,24 @@ const TeacherLiveClasses: React.FC = () => {
 
     return (
         <div className={`min-h-screen bg-slate-50 dark:bg-[#161925] text-slate-900 dark:text-white flex flex-col ${isDarkMode ? 'dark' : ''}`}>
-            <header className="bg-white dark:bg-[#1C1F2E] px-6 py-4 flex items-center justify-between border-b border-slate-200 dark:border-[#2A2E3D]">
-                <div className="flex items-center gap-3">
-                    <img src="/img/logo.jpeg" alt="UNIEVAL Logo" className="w-9 h-9 rounded-lg object-cover shadow-md" />
-                    <h1 className="text-xl font-bold tracking-tight">UniEval Live Class</h1>
+            <header className="bg-white dark:bg-[#1C1F2E] px-4 sm:px-6 py-3.5 sm:py-4 flex items-center justify-between border-b border-slate-200 dark:border-[#2A2E3D]">
+                <div className="flex items-center gap-2.5 sm:gap-3">
+                    <img src="/img/logo.jpeg" alt="UNIEVAL Logo" className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg object-cover shadow-md" />
+                    <h1 className="text-lg sm:text-xl font-bold tracking-tight">UniEval Live Class</h1>
                 </div>
-                <div className="flex items-center gap-4">
-                    <button onClick={() => setIsDarkMode(!isDarkMode)} className="p-2 rounded-full bg-slate-100 dark:bg-[#252A41] text-slate-600 dark:text-gray-300 hover:bg-slate-200 dark:hover:bg-[#2A2E3D] transition-colors">
+                <div className="flex items-center gap-2 sm:gap-4">
+                    <button onClick={() => setIsDarkMode(!isDarkMode)} className="p-2 rounded-full bg-slate-100 dark:bg-[#252A41] text-slate-600 dark:text-gray-300 hover:bg-slate-200 dark:hover:bg-[#2A2E3D] transition-colors" title="Toggle theme">
                         {isDarkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
                     </button>
-                    <button onClick={() => navigate('/teacher/upload')} className="text-sm text-slate-500 dark:text-gray-400 hover:text-indigo-600 dark:text-blue-400 flex items-center gap-2 transition-colors font-medium">
-                        <ArrowLeft className="w-4 h-4" /> Back to App
+                    <button onClick={() => navigate('/teacher/upload')} className="text-xs sm:text-sm text-slate-500 dark:text-gray-400 hover:text-indigo-600 dark:text-blue-400 flex items-center gap-1.5 transition-colors font-medium">
+                        <ArrowLeft className="w-4 h-4" /> <span className="hidden xs:inline">Back to App</span><span className="xs:hidden">Back</span>
                     </button>
                 </div>
             </header>
 
             <div className="flex-1 flex overflow-hidden">
-                {/* Sidebar */}
-                <aside className="w-72 bg-white dark:bg-[#1C1F2E] p-6 flex flex-col border-r border-slate-200 dark:border-[#2A2E3D]">
+                {/* Desktop Sidebar */}
+                <aside className="hidden md:flex w-72 bg-white dark:bg-[#1C1F2E] p-6 flex-col border-r border-slate-200 dark:border-[#2A2E3D] shrink-0">
                     <div className="mb-6">
                         <label className="text-xs font-bold text-slate-500 dark:text-gray-400 uppercase tracking-wider mb-2 block">Select Course</label>
                         <select 
@@ -256,22 +256,37 @@ const TeacherLiveClasses: React.FC = () => {
                 </aside>
 
                 {/* Main Content */}
-                <main className="flex-1 p-6 md:p-10 overflow-y-auto">
+                <main className="flex-1 p-4 sm:p-6 md:p-10 overflow-y-auto">
+                    {/* Mobile Course Selector */}
+                    <div className="md:hidden mb-6 bg-white dark:bg-[#1C1F2E] p-4 rounded-xl border border-slate-200 dark:border-[#2A2E3D] shadow-sm">
+                        <label className="text-xs font-bold text-slate-500 dark:text-gray-400 uppercase tracking-wider mb-1.5 block">Select Course</label>
+                        <select 
+                            value={selectedCourse} 
+                            onChange={(e) => setSelectedCourse(e.target.value)}
+                            className="w-full bg-slate-50 dark:bg-[#161925] text-slate-900 dark:text-white rounded-lg p-2.5 outline-none border border-slate-200 dark:border-[#2A2E3D] focus:border-indigo-500 text-sm"
+                        >
+                            <option value="all">-- All My Courses --</option>
+                            {courses.map(c => (
+                                <option key={c.id} value={c.id}>{c.title}</option>
+                            ))}
+                        </select>
+                    </div>
+
                     {/* Hero Banner */}
-                    <div className="h-64 rounded-[20px] bg-gradient-to-br from-indigo-600 to-purple-700 p-8 flex flex-col justify-between mb-10 shadow-xl relative overflow-hidden text-white">
+                    <div className="min-h-[160px] sm:h-64 rounded-2xl sm:rounded-[20px] bg-gradient-to-br from-indigo-600 to-purple-700 p-5 sm:p-8 flex flex-col justify-between mb-6 sm:mb-10 shadow-xl relative overflow-hidden text-white">
                         <div className="absolute top-0 right-0 w-96 h-96 bg-white/10 rounded-full blur-3xl -mr-20 -mt-20 pointer-events-none"></div>
-                        <h2 className="relative z-10 bg-white/20 text-white w-fit px-4 py-1.5 rounded-full text-sm font-bold border border-white/20 backdrop-blur-md shadow-sm">
+                        <h2 className="relative z-10 bg-white/20 text-white w-fit px-3 py-1 sm:px-4 sm:py-1.5 rounded-full text-xs sm:text-sm font-bold border border-white/20 backdrop-blur-md shadow-sm">
                             Upcoming Meeting at: {liveClasses.length > 0 ? new Date(liveClasses[0].scheduledAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'None'}
                         </h2>
-                        <div className="relative z-10">
-                            <h1 className="text-5xl md:text-7xl font-extrabold tracking-tighter drop-shadow-md">{timeString}</h1>
-                            <p className="text-indigo-100 text-lg md:text-xl font-medium mt-2 drop-shadow-sm">{dateString}</p>
+                        <div className="relative z-10 my-auto sm:my-0">
+                            <h1 className="text-4xl sm:text-6xl md:text-7xl font-extrabold tracking-tighter drop-shadow-md">{timeString}</h1>
+                            <p className="text-indigo-100 text-sm sm:text-lg md:text-xl font-medium mt-1 sm:mt-2 drop-shadow-sm">{dateString}</p>
                         </div>
                     </div>
 
                     {/* Action Cards */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-12">
-                        <div onClick={startInstantMeeting} className={`bg-white dark:bg-[#1C1F2E] border border-slate-200 dark:border-[#2A2E3D] rounded-2xl p-6 min-h-[140px] flex flex-col justify-between ${isCreatingInstant ? 'opacity-70 cursor-not-allowed' : 'cursor-pointer hover:border-orange-500 hover:shadow-md'} transition-all`}>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 mb-8 sm:mb-12">
+                        <div onClick={startInstantMeeting} className={`bg-white dark:bg-[#1C1F2E] border border-slate-200 dark:border-[#2A2E3D] rounded-2xl p-5 sm:p-6 min-h-[130px] sm:min-h-[140px] flex flex-col justify-between ${isCreatingInstant ? 'opacity-70 cursor-not-allowed' : 'cursor-pointer hover:border-orange-500 hover:shadow-md'} transition-all`}>
                             <div className="w-10 h-10 rounded-[10px] bg-orange-100 dark:bg-orange-500/20 flex items-center justify-center">
                                 {isCreatingInstant ? (
                                     <Loader2 className="w-5 h-5 text-orange-600 dark:text-orange-400 animate-spin" />
@@ -279,42 +294,42 @@ const TeacherLiveClasses: React.FC = () => {
                                     <Plus className="w-5 h-5 text-orange-600 dark:text-orange-400" />
                                 )}
                             </div>
-                            <div className="mt-4">
-                                <h3 className="text-lg font-bold text-slate-900 dark:text-white">New Meeting</h3>
-                                <p className="text-slate-500 dark:text-gray-400 text-sm">
+                            <div className="mt-3 sm:mt-4">
+                                <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">New Meeting</h3>
+                                <p className="text-slate-500 dark:text-gray-400 text-xs sm:text-sm">
                                     {isCreatingInstant ? 'Starting...' : 'Start an instant meeting'}
                                 </p>
                             </div>
                         </div>
 
-                        <div onClick={() => setShowScheduleModal(true)} className="bg-white dark:bg-[#1C1F2E] border border-slate-200 dark:border-[#2A2E3D] rounded-2xl p-6 min-h-[140px] flex flex-col justify-between cursor-pointer hover:border-blue-500 hover:shadow-md transition-all">
+                        <div onClick={() => setShowScheduleModal(true)} className="bg-white dark:bg-[#1C1F2E] border border-slate-200 dark:border-[#2A2E3D] rounded-2xl p-5 sm:p-6 min-h-[130px] sm:min-h-[140px] flex flex-col justify-between cursor-pointer hover:border-blue-500 hover:shadow-md transition-all">
                             <div className="w-10 h-10 rounded-[10px] bg-blue-100 dark:bg-blue-500/20 flex items-center justify-center">
                                 <Calendar className="w-5 h-5 text-blue-600 dark:text-blue-400" />
                             </div>
-                            <div className="mt-4">
-                                <h3 className="text-lg font-bold text-slate-900 dark:text-white">Schedule Meeting</h3>
-                                <p className="text-slate-500 dark:text-gray-400 text-sm">Plan your meeting</p>
+                            <div className="mt-3 sm:mt-4">
+                                <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">Schedule Meeting</h3>
+                                <p className="text-slate-500 dark:text-gray-400 text-xs sm:text-sm">Plan your meeting</p>
                             </div>
                         </div>
 
-                        <div onClick={() => setViewMode(viewMode === 'upcoming' ? 'completed' : 'upcoming')} className="bg-white dark:bg-[#1C1F2E] border border-slate-200 dark:border-[#2A2E3D] rounded-2xl p-6 min-h-[140px] flex flex-col justify-between cursor-pointer hover:border-indigo-500 hover:shadow-md transition-all">
+                        <div onClick={() => setViewMode(viewMode === 'upcoming' ? 'completed' : 'upcoming')} className="bg-white dark:bg-[#1C1F2E] border border-slate-200 dark:border-[#2A2E3D] rounded-2xl p-5 sm:p-6 min-h-[130px] sm:min-h-[140px] flex flex-col justify-between cursor-pointer hover:border-indigo-500 hover:shadow-md transition-all">
                             <div className="w-10 h-10 rounded-[10px] bg-indigo-100 dark:bg-indigo-500/20 flex items-center justify-center">
                                 <Video className="w-5 h-5 text-indigo-600 dark:text-blue-400" />
                             </div>
-                            <div className="mt-4">
-                                <h3 className="text-lg font-bold text-slate-900 dark:text-white">View Recordings</h3>
-                                <p className="text-slate-500 dark:text-gray-400 text-sm">Check out your recordings</p>
+                            <div className="mt-3 sm:mt-4">
+                                <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">View Recordings</h3>
+                                <p className="text-slate-500 dark:text-gray-400 text-xs sm:text-sm">Check out your recordings</p>
                             </div>
                         </div>
                     </div>
 
                     {/* Upcoming Meetings List */}
                     <div>
-                        <div className="flex items-center justify-between mb-6">
-                            <h2 className="text-2xl font-bold flex items-center gap-2">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
+                            <h2 className="text-xl sm:text-2xl font-bold flex items-center gap-2">
                                 {viewMode === 'upcoming' ? 'Upcoming Classes' : 'Completed Classes / Recordings'}
                             </h2>
-                            <button onClick={() => setViewMode(viewMode === 'upcoming' ? 'completed' : 'upcoming')} className="text-sm font-bold text-indigo-600 dark:text-blue-400 bg-indigo-50 dark:bg-[#252A41] hover:bg-indigo-100 dark:hover:bg-[#3A3F58] px-4 py-2 rounded-lg transition-colors border border-indigo-100">
+                            <button onClick={() => setViewMode(viewMode === 'upcoming' ? 'completed' : 'upcoming')} className="text-xs sm:text-sm font-bold text-indigo-600 dark:text-blue-400 bg-indigo-50 dark:bg-[#252A41] hover:bg-indigo-100 dark:hover:bg-[#3A3F58] px-3.5 sm:px-4 py-2 rounded-lg transition-colors border border-indigo-100 self-start sm:self-auto">
                                 Switch to {viewMode === 'upcoming' ? 'Completed' : 'Upcoming'}
                             </button>
                         </div>
@@ -326,7 +341,7 @@ const TeacherLiveClasses: React.FC = () => {
                                 <p className="text-slate-500 dark:text-gray-400">No {viewMode} meetings for this course.</p>
                             </div>
                         ) : (
-                            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-5">
+                            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-5">
                                 {liveClasses.map(lc => (
                                     <div key={lc.id} className="bg-white dark:bg-[#1C1F2E] border border-slate-200 dark:border-[#2A2E3D] shadow-sm rounded-2xl p-6 hover:border-indigo-300 dark:hover:border-[#3A3F58] hover:shadow-md transition-all flex flex-col justify-between min-h-[200px]">
                                         <div>

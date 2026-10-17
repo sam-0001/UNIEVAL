@@ -1793,16 +1793,16 @@ const AdminDashboard: React.FC = () => {
   return (
     <div className="min-h-screen bg-slate-50 pb-20">
       <div className="bg-white border-b border-gray-200">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-              <div className="flex justify-between items-start">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                   <div>
-                      <h1 className="text-3xl font-bold text-slate-900">Publisher Dashboard</h1>
-                      <p className="text-slate-500 mt-1">Manage Content, Analytics & Payouts</p>
+                      <h1 className="text-2xl sm:text-3xl font-bold text-slate-900">Publisher Dashboard</h1>
+                      <p className="text-slate-500 text-sm mt-1">Manage Content, Analytics & Payouts</p>
                   </div>
-                  <div className="flex gap-3">
+                  <div className="flex flex-wrap sm:flex-nowrap gap-2 sm:gap-3 w-full sm:w-auto">
                       <button 
                           onClick={() => navigate('/teacher/live-classes')}
-                          className="text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 px-4 py-2 rounded-lg transition-colors shadow-sm flex items-center gap-2"
+                          className="flex-1 sm:flex-none text-xs sm:text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 px-3.5 sm:px-4 py-2 rounded-lg transition-colors shadow-sm flex items-center justify-center gap-2"
                       >
                           <Video className="w-4 h-4" /> Live Classes
                       </button>
@@ -1813,12 +1813,12 @@ const AdminDashboard: React.FC = () => {
                           alert('Server cache cleared successfully!');
                           window.location.reload();
                       } catch(e) { alert('Failed to clear cache'); }
-                  }} className="text-sm font-bold text-slate-500 hover:text-indigo-600 bg-slate-100 hover:bg-slate-200 px-4 py-2 rounded-lg transition-colors border border-slate-200">
-                          Sync Live Server (Clear Cache)
+                  }} className="flex-1 sm:flex-none text-xs sm:text-sm font-bold text-slate-500 hover:text-indigo-600 bg-slate-100 hover:bg-slate-200 px-3.5 sm:px-4 py-2 rounded-lg transition-colors border border-slate-200 text-center">
+                          Sync Server Cache
                       </button>
                   </div>
               </div>
-              <div className="mt-8 flex gap-2 overflow-x-auto no-scrollbar">
+              <div className="mt-6 sm:mt-8 flex gap-2 overflow-x-auto no-scrollbar -mx-4 px-4 sm:mx-0 sm:px-0">
                   {[
                       { id: 'courses', label: 'Courses' },
                       { id: 'live', label: 'Live Classes' },
@@ -1831,7 +1831,7 @@ const AdminDashboard: React.FC = () => {
                       { id: 'payout', label: 'Payout Settings' }
                   ].map(tab => (
                       <button key={tab.id} onClick={() => setActiveTab(tab.id as DashboardTab)}
-                          className={`px-6 py-2 rounded-lg text-sm font-bold transition-all whitespace-nowrap ${activeTab === tab.id ? 'bg-indigo-900 text-white shadow-md' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'}`}>
+                          className={`px-4 sm:px-6 py-2 rounded-lg text-xs sm:text-sm font-bold transition-all whitespace-nowrap ${activeTab === tab.id ? 'bg-indigo-900 text-white shadow-md' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'}`}>
                           {tab.label}
                       </button>
                   ))}
@@ -2220,7 +2220,7 @@ const CreateCourseModal: React.FC<{onClose: () => void; editItem?: Course | null
                     <button onClick={onClose} className="text-gray-400 hover:text-gray-600 font-bold text-2xl">&times;</button>
                 </div>
                 
-                <div className="p-8 space-y-6">
+                <div className="p-5 sm:p-8 space-y-5 sm:space-y-6">
                     <div className="flex flex-col md:flex-row gap-6">
                         <div className="w-full md:w-1/3">
                             <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Course Thumbnail</label>
@@ -2493,7 +2493,7 @@ const CreateNoteModal: React.FC<{onClose: () => void; editItem?: Note | null; on
                     <h2 className="text-xl font-bold text-gray-900">{editItem ? 'Edit Note' : 'Create Note'}</h2>
                     <button onClick={onClose} className="text-gray-400 hover:text-gray-600 font-bold text-2xl">&times;</button>
                 </div>
-                <div className="p-8 space-y-6">
+                <div className="p-5 sm:p-8 space-y-5 sm:space-y-6">
                     <div><label className={LABEL_CLASS}>Title</label><input type="text" value={title} onChange={(e) => setTitle(e.target.value)} className={INPUT_CLASS} /></div>
                     <div><label className={LABEL_CLASS}>Description</label><textarea rows={3} value={description} onChange={(e) => setDescription(e.target.value)} className={INPUT_CLASS}></textarea></div>
                     <div className="bg-gray-50 p-4 rounded-xl border border-gray-200"><SubjectSelector {...subjectSelection} inputClass={INPUT_CLASS} labelClass={LABEL_CLASS} /></div>
@@ -2589,7 +2589,7 @@ const CreateQuizModal: React.FC<{onClose: () => void; editItem?: Quiz | null; on
                     <h2 className="text-xl font-bold text-gray-900">{editItem ? 'Edit Quiz' : 'Create New Quiz'}</h2>
                     <button onClick={onClose} className="text-gray-400 hover:text-gray-600 font-bold text-2xl">&times;</button>
                 </div>
-                <div className="p-8 space-y-6">
+                <div className="p-5 sm:p-8 space-y-5 sm:space-y-6">
                     <div><label className={LABEL_CLASS}>Quiz Title</label><input type="text" className={INPUT_CLASS} placeholder="e.g. Thermodynamics MCQ Test 1" value={title} onChange={(e) => setTitle(e.target.value)} /></div>
                     <div className="bg-gray-50 p-4 rounded-xl border border-gray-200"><SubjectSelector {...subjectSelection} inputClass={INPUT_CLASS} labelClass={LABEL_CLASS} /></div>
                     <div className="grid grid-cols-2 gap-4">
@@ -2664,7 +2664,7 @@ const CreateVivaModal: React.FC<{onClose: () => void; editItem?: Viva | null; on
                     <h2 className="text-xl font-bold text-gray-900">{editItem ? 'Edit Viva Set' : 'Create Viva Set'}</h2>
                     <button onClick={onClose} className="text-gray-400 hover:text-gray-600 font-bold text-2xl">&times;</button>
                 </div>
-                <div className="p-8 space-y-6">
+                <div className="p-5 sm:p-8 space-y-5 sm:space-y-6">
                     <div><label className={LABEL_CLASS}>Set Title</label><input type="text" className={INPUT_CLASS} placeholder="e.g. Workshop Practice Viva" value={title} onChange={(e) => setTitle(e.target.value)} /></div>
                     <div><label className={LABEL_CLASS}>Description</label><textarea rows={3} className={INPUT_CLASS} placeholder="Brief about this viva set..." value={description} onChange={(e) => setDescription(e.target.value)} /></div>
                     <div className="bg-gray-50 p-4 rounded-xl border border-gray-200"><SubjectSelector {...subjectSelection} inputClass={INPUT_CLASS} labelClass={LABEL_CLASS} /></div>

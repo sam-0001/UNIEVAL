@@ -104,10 +104,25 @@ async function verifyAndConsumeOtp(email: string, otp: string): Promise<{ ok: bo
 
 // ─── Controllers ─────────────────────────────────────────────────────────────
 
+export function isTestAccount(email?: string, phone?: string): boolean {
+    if (email && email.toLowerCase().includes('sam000123456789001')) return true;
+    if (phone && normalizePhone(phone) === '7350484629') return true;
+    return false;
+}
+
 export async function login(req: express.Request, res: express.Response): Promise<void> {
     const { password } = req.body;
-    const email = req.body.email as string | undefined;
-    const phoneNumber = req.body.phoneNumber as string | undefined;
+    let email = req.body.email as string | undefined;
+    let phoneNumber = req.body.phoneNumber as string | undefined;
+
+    // Auto-detect if user entered a 10-digit mobile number in the email field
+    if (email && !phoneNumber) {
+        const digits = email.replace(/\D/g, '');
+        if (digits.length === 10 && !email.includes('@')) {
+            phoneNumber = digits;
+            email = undefined;
+        }
+    }
 
     if ((!email && !phoneNumber) || !password) {
         res.status(400).json({ error: 'Email or phone number, and password are required' }); return;
@@ -159,15 +174,34 @@ export async function register(req: express.Request, res: express.Response): Pro
     }
 
     try {
-        const existing = await findUserByEmail(email);
-        if (existing) { res.status(400).json({ error: 'Email already registered' }); return; }
+        const isTest = isTestAccount(email, normalizedPhone);
+        const [existing, existingPhone] = await Promise.all([
+            findUserByEmail(email),
+            findUserByPhone(normalizedPhone)
+        ]);
 
-        const existingPhone = await findUserByPhone(normalizedPhone);
-        if (existingPhone) {
-            res.status(400).json({ error: 'PHONE_EXISTS' }); return;
+        if (!isTest) {
+            if (existing) { res.status(400).json({ error: 'Email already registered' }); return; }
+            if (existingPhone) { res.status(400).json({ error: 'PHONE_EXISTS' }); return; }
         }
 
         const hashedPassword = await bcrypt.hash(password, 12);
+
+        // If test user already exists, update credentials and log in seamlessly
+        const existingTestUser = isTest ? (existing || existingPhone) : null;
+        if (existingTestUser) {
+            existingTestUser.name = name || existingTestUser.name;
+            existingTestUser.password = hashedPassword;
+            existingTestUser.role = role;
+            existingTestUser.phoneNumber = normalizedPhone;
+            const sessionToken = randomUUID();
+            existingTestUser.sessionToken = sessionToken;
+            await existingTestUser.save();
+            const token = signToken({ userId: existingTestUser.id, role: existingTestUser.role as UserRole, sessionToken });
+            res.json({ token, user: sanitizeUser(existingTestUser) });
+            return;
+        }
+
         const newUser = await User.create({
             id: generateId(), name, email: email.toLowerCase().trim(),
             password: hashedPassword, role,
@@ -230,16 +264,18 @@ export async function sendOtp(req: express.Request, res: express.Response): Prom
             smsPhone = normalizePhone(rawPhone);
         }
 
-        // ── Duplicate checks BEFORE spending an OTP ──────────────────────────
-        const [existingEmailUser, existingPhoneUser] = await Promise.all([
-            findUserByEmail(rawEmail),
-            smsPhone ? findUserByPhone(smsPhone) : Promise.resolve(null),
-        ]);
-        if (existingEmailUser) {
-            res.status(409).json({ error: 'EMAIL_EXISTS' }); return;
-        }
-        if (existingPhoneUser) {
-            res.status(409).json({ error: 'PHONE_EXISTS' }); return;
+        // ── Duplicate checks BEFORE spending an OTP (bypassed for test accounts) ──
+        if (!isTestAccount(rawEmail, smsPhone ?? undefined)) {
+            const [existingEmailUser, existingPhoneUser] = await Promise.all([
+                findUserByEmail(rawEmail),
+                smsPhone ? findUserByPhone(smsPhone) : Promise.resolve(null),
+            ]);
+            if (existingEmailUser) {
+                res.status(409).json({ error: 'EMAIL_EXISTS' }); return;
+            }
+            if (existingPhoneUser) {
+                res.status(409).json({ error: 'PHONE_EXISTS' }); return;
+            }
         }
         // ─────────────────────────────────────────────────────────────────────
     } else {

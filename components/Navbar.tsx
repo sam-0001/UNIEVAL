@@ -120,68 +120,78 @@ const Navbar: React.FC = () => {
         </div>
       </div>
 
+      {/* Mobile Menu Backdrop */}
+      {isMobileMenuOpen && (
+        <div 
+          className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-40 md:hidden animate-in fade-in duration-200" 
+          onClick={closeMobileMenu} 
+        />
+      )}
+
       {/* Mobile Menu */}
       {isMobileMenuOpen && (
-        <div className="md:hidden bg-white border-t border-gray-100 absolute w-full left-0 shadow-lg animate-in slide-in-from-top-5 duration-200">
-          <div className="px-4 pt-2 pb-6 space-y-2">
+        <div className="md:hidden bg-white border-t border-gray-100 absolute w-full left-0 shadow-2xl z-50 animate-in slide-in-from-top-5 duration-200 max-h-[calc(100dvh-80px)] overflow-y-auto">
+          <div className="px-4 pt-3 pb-8 space-y-1.5">
             {user ? (
               <>
-                <Link to={dashboardPath} onClick={closeMobileMenu} className="flex items-center gap-3 px-3 py-3 border-b border-gray-100 mb-2 hover:bg-gray-50 transition-colors">
-                  <div className="h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold">
+                <Link to={dashboardPath} onClick={closeMobileMenu} className="flex items-center gap-3 px-3 py-3 border-b border-gray-100 mb-2 hover:bg-gray-50 transition-colors rounded-xl">
+                  <div className="h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold shrink-0">
                     {user.name[0]}
                   </div>
-                  <div className="flex-grow">
-                    <p className="text-sm font-bold text-gray-900">{user.name}</p>
+                  <div className="flex-grow min-w-0">
+                    <p className="text-sm font-bold text-gray-900 truncate">{user.name}</p>
                     <p className="text-xs text-gray-500">View Profile</p>
                   </div>
                   {isStudent && (
-                    <div className="flex flex-col gap-1 items-end">
-                      <span className="flex items-center gap-1 bg-rose-50 border border-rose-200 px-2 py-1 rounded-full text-xs font-extrabold text-rose-700">
+                    <div className="flex flex-col gap-1 items-end shrink-0">
+                      <span className="flex items-center gap-1 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded-full text-xs font-extrabold text-rose-700">
                         <span className="animate-pulse">🔴</span> Live
                       </span>
-                      <span className="flex items-center gap-1 bg-indigo-50 border border-indigo-200 px-2 py-1 rounded-full text-xs font-extrabold text-indigo-700">
+                      <span className="flex items-center gap-1 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded-full text-xs font-extrabold text-indigo-700">
                         {isUnlimited ? '⚡ ∞' : `🪙 ${credits}`}
                       </span>
                     </div>
                   )}
                 </Link>
                 {isStudent && (
-                  <Link to="/dashboard?tab=live" onClick={closeMobileMenu} className="flex items-center gap-2 px-3 py-2 rounded-md text-base font-bold text-rose-600 hover:bg-rose-50">
+                  <Link to="/dashboard?tab=live" onClick={closeMobileMenu} className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-base font-bold text-rose-600 hover:bg-rose-50">
                     <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse"></span> Live Classes
                   </Link>
                 )}
-                <Link to="/browse" onClick={closeMobileMenu} className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-indigo-600 hover:bg-gray-50">Browse Content</Link>
-                <Link to="/notes" onClick={closeMobileMenu} className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-indigo-600 hover:bg-gray-50">Notes Library</Link>
-                <Link to="/exam-intelligence" onClick={closeMobileMenu} className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-indigo-600 hover:bg-gray-50">Exam Prep</Link>
-                <Link to="/be-toolkit" onClick={closeMobileMenu} className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-indigo-600 hover:bg-gray-50">BE Toolkit</Link>
+                <Link to="/browse" onClick={closeMobileMenu} className="block px-3.5 py-2.5 rounded-xl text-base font-medium text-gray-700 hover:text-indigo-600 hover:bg-gray-50">Browse Content</Link>
+                <Link to="/notes" onClick={closeMobileMenu} className="block px-3.5 py-2.5 rounded-xl text-base font-medium text-gray-700 hover:text-indigo-600 hover:bg-gray-50">Notes Library</Link>
+                <Link to="/exam-intelligence" onClick={closeMobileMenu} className="block px-3.5 py-2.5 rounded-xl text-base font-medium text-gray-700 hover:text-indigo-600 hover:bg-gray-50">Exam Prep</Link>
+                <Link to="/be-toolkit" onClick={closeMobileMenu} className="block px-3.5 py-2.5 rounded-xl text-base font-medium text-gray-700 hover:text-indigo-600 hover:bg-gray-50">BE Toolkit</Link>
                 {user.role === UserRole.TEACHER && (
                   <>
-                    <Link to="/teacher/live-classes" onClick={closeMobileMenu} className="flex items-center gap-2 px-3 py-2 rounded-md text-base font-bold text-rose-600 hover:bg-rose-50">
+                    <Link to="/teacher/live-classes" onClick={closeMobileMenu} className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-base font-bold text-rose-600 hover:bg-rose-50">
                       <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse"></span> Live Classes
                     </Link>
-                    <Link to="/teacher/upload" onClick={closeMobileMenu} className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-indigo-600 hover:bg-gray-50">Upload Content</Link>
+                    <Link to="/teacher/upload" onClick={closeMobileMenu} className="block px-3.5 py-2.5 rounded-xl text-base font-medium text-gray-700 hover:text-indigo-600 hover:bg-gray-50">Upload Content</Link>
                   </>
                 )}
                 {user.role === UserRole.ADMIN && (
                   <>
-                    <Link to="/teacher/live-classes" onClick={closeMobileMenu} className="flex items-center gap-2 px-3 py-2 rounded-md text-base font-bold text-rose-600 hover:bg-rose-50">
+                    <Link to="/teacher/live-classes" onClick={closeMobileMenu} className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-base font-bold text-rose-600 hover:bg-rose-50">
                       <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse"></span> Live Classes
                     </Link>
-                    <Link to="/admin" onClick={closeMobileMenu} className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-indigo-600 hover:bg-gray-50">Admin Dashboard</Link>
+                    <Link to="/admin" onClick={closeMobileMenu} className="block px-3.5 py-2.5 rounded-xl text-base font-medium text-gray-700 hover:text-indigo-600 hover:bg-gray-50">Admin Dashboard</Link>
                   </>
                 )}
-                <button onClick={handleLogout} className="w-full text-left px-3 py-2 rounded-md text-base font-medium text-red-600 hover:bg-red-50 mt-2">
-                  Logout
-                </button>
+                <div className="pt-2 border-t border-gray-100 mt-2">
+                  <button onClick={handleLogout} className="w-full text-left px-3.5 py-2.5 rounded-xl text-base font-medium text-red-600 hover:bg-red-50">
+                    Logout
+                  </button>
+                </div>
               </>
             ) : (
               <>
-                <Link to="/browse" onClick={closeMobileMenu} className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-indigo-600 hover:bg-gray-50">Courses</Link>
-                <Link to="/notes" onClick={closeMobileMenu} className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-indigo-600 hover:bg-gray-50">Notes Library</Link>
-                <Link to="/exam-intelligence" onClick={closeMobileMenu} className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-indigo-600 hover:bg-gray-50">Exam Prep</Link>
-                <Link to="/about" onClick={closeMobileMenu} className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-indigo-600 hover:bg-gray-50">About Us</Link>
+                <Link to="/browse" onClick={closeMobileMenu} className="block px-3.5 py-2.5 rounded-xl text-base font-medium text-gray-700 hover:text-indigo-600 hover:bg-gray-50">Courses</Link>
+                <Link to="/notes" onClick={closeMobileMenu} className="block px-3.5 py-2.5 rounded-xl text-base font-medium text-gray-700 hover:text-indigo-600 hover:bg-gray-50">Notes Library</Link>
+                <Link to="/exam-intelligence" onClick={closeMobileMenu} className="block px-3.5 py-2.5 rounded-xl text-base font-medium text-gray-700 hover:text-indigo-600 hover:bg-gray-50">Exam Prep</Link>
+                <Link to="/about" onClick={closeMobileMenu} className="block px-3.5 py-2.5 rounded-xl text-base font-medium text-gray-700 hover:text-indigo-600 hover:bg-gray-50">About Us</Link>
                 <div className="pt-4 mt-2 border-t border-gray-100">
-                  <Link to="/login" onClick={closeMobileMenu} className="block w-full text-center bg-[#0f172a] text-white px-4 py-3 rounded-lg text-base font-medium hover:bg-slate-800 shadow-sm">
+                  <Link to="/login" onClick={closeMobileMenu} className="block w-full text-center bg-[#0f172a] text-white px-4 py-3.5 rounded-xl text-base font-semibold hover:bg-slate-800 shadow-sm active:scale-98">
                     Login / Sign Up
                   </Link>
                 </div>

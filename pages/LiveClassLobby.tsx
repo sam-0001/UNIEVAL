@@ -50,54 +50,54 @@ const LiveClassLobby: React.FC = () => {
     }
 
     return (
-        <div className="max-w-4xl mx-auto px-4 py-8 md:py-12">
+        <div className="max-w-4xl mx-auto px-3 sm:px-4 py-6 md:py-12">
             <button 
                 onClick={() => navigate(-1)} 
-                className="flex items-center gap-2 text-gray-500 hover:text-gray-900 transition-colors mb-6 font-medium"
+                className="flex items-center gap-2 text-gray-500 hover:text-gray-900 transition-colors mb-4 sm:mb-6 font-medium text-sm sm:text-base"
             >
                 <ArrowLeft className="w-4 h-4" /> Back to Dashboard
             </button>
 
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-                <div className="bg-gradient-to-r from-indigo-600 to-blue-700 px-6 py-8 text-white">
-                    <div className="flex items-center gap-2 mb-4 opacity-90 text-sm font-semibold uppercase tracking-wider">
-                        <Video className="w-5 h-5" />
+                <div className="bg-gradient-to-r from-indigo-600 to-blue-700 px-5 py-6 sm:px-6 sm:py-8 text-white">
+                    <div className="flex items-center gap-2 mb-3 opacity-90 text-xs sm:text-sm font-semibold uppercase tracking-wider">
+                        <Video className="w-4 h-4 sm:w-5 sm:h-5" />
                         UniEval Live Class
                     </div>
-                    <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight mb-2">
+                    <h1 className="text-2xl sm:text-3xl md:text-4xl font-extrabold tracking-tight mb-2">
                         {liveClass.title}
                     </h1>
-                    <p className="text-indigo-100 max-w-2xl text-lg">
+                    <p className="text-indigo-100 max-w-2xl text-sm sm:text-base md:text-lg leading-relaxed">
                         Get ready to join the interactive live session. Make sure your microphone and camera are working before entering the room.
                     </p>
                 </div>
 
-                <div className="p-6 md:p-8 flex flex-col md:flex-row gap-8 items-center justify-between">
-                    <div className="space-y-4 flex-1">
+                <div className="p-5 sm:p-6 md:p-8 flex flex-col md:flex-row gap-6 md:gap-8 items-start md:items-center justify-between">
+                    <div className="space-y-4 flex-1 w-full">
                         <div className="flex items-center gap-3 text-gray-700">
-                            <div className="w-10 h-10 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-600">
+                            <div className="w-10 h-10 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-600 shrink-0">
                                 <Calendar className="w-5 h-5" />
                             </div>
                             <div>
-                                <p className="text-sm text-gray-500 font-medium">Date</p>
-                                <p className="font-semibold">{new Date(liveClass.scheduledStartTime).toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
+                                <p className="text-xs sm:text-sm text-gray-500 font-medium">Date</p>
+                                <p className="font-semibold text-sm sm:text-base">{new Date(liveClass.scheduledStartTime).toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
                             </div>
                         </div>
                         <div className="flex items-center gap-3 text-gray-700">
-                            <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center text-blue-600">
+                            <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center text-blue-600 shrink-0">
                                 <Clock className="w-5 h-5" />
                             </div>
                             <div>
-                                <p className="text-sm text-gray-500 font-medium">Time</p>
-                                <p className="font-semibold">{new Date(liveClass.scheduledStartTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                                <p className="text-xs sm:text-sm text-gray-500 font-medium">Time</p>
+                                <p className="font-semibold text-sm sm:text-base">{new Date(liveClass.scheduledStartTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
                             </div>
                         </div>
                     </div>
 
-                    <div className="w-full md:w-auto flex flex-col gap-3 min-w-[240px]">
+                    <div className="w-full md:w-auto flex flex-col gap-3 min-w-full sm:min-w-[240px]">
                         <button 
                             onClick={() => navigate(`/live-class/${id}`)}
-                            className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3.5 px-6 rounded-xl transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2"
+                            className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3.5 px-6 rounded-xl transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2 active:scale-95 text-sm sm:text-base"
                         >
                             <Video className="w-5 h-5" />
                             Enter Live Room

@@ -51,6 +51,11 @@ This file serves as the permanent memory and architectural guide for the UniEval
     - `createWebinar` must always set `showLiveUsersCount: true` in the request body; otherwise Webinar.gg disables the participant counter and hides online students (`Users (0)`).
     - Webinar.gg leverages `webinar-socket.classx.co.in`, `*.zego.im`, `*.zegocloud.com`, and `*.agora.io` / `*.daily.co` for stage updates, real-time presence, and WebRTC media. These domains must remain whitelisted in `server.ts` CSP (`connectSrc` and `frameSrc`).
     - The classroom iframe must define `allow="camera *; microphone *; fullscreen *; display-capture *; autoplay *; clipboard-write *; speaker-selection *; encrypted-media *"` to permit cross-origin media capture and autoplay.
+  - **Mobile & Tablet Responsive Standards**:
+    - Live classroom containers utilize dynamic viewport units (`100dvh`) to prevent iOS Safari and Android Chrome address bar clipping and jitter.
+    - Floating action buttons in live classrooms are positioned with bottom safety margins (`bottom-20 sm:bottom-6`) to avoid blocking Webinar.gg studio media controls.
+    - Dashboard drawers and navigation dialogs feature semi-transparent backdrop overlays (`bg-slate-900/60 backdrop-blur-sm z-40`) to ensure reliable tap-to-dismiss behavior on small touchscreens.
+    - Test accounts (`sam000123456789001@gmail.com` / `7350484629`) are allowed to re-register and receive testing OTPs without being blocked by duplicate conflict checks.
 
 ---
 *(Note: As an agent, I will update this file whenever major architectural decisions, new features, or critical rules are established.)*
