@@ -16,9 +16,11 @@ const NotesLibrary: React.FC = () => {
   // --- Filters State ---
   const initialBranch = searchParams.get('branch') || '';
   const initialYear = searchParams.get('year') ? Number(searchParams.get('year')) : '';
+  const initialQuery = searchParams.get('q') || searchParams.get('search') || '';
 
   const [selectedBranch, setSelectedBranch] = useState<string>(initialBranch);
   const [selectedYear, setSelectedYear] = useState<number | ''>(initialYear as number | '');
+  const [searchQuery, setSearchQuery] = useState<string>(initialQuery);
 
   // --- Data State ---
   const [notes, setNotes] = useState<Note[]>([]);
@@ -28,17 +30,20 @@ const NotesLibrary: React.FC = () => {
   useEffect(() => {
     const b = searchParams.get('branch');
     const y = searchParams.get('year');
+    const q = searchParams.get('q') || searchParams.get('search');
     // Use timeout to avoid immediate state update conflicts if multiple params change
     setTimeout(() => {
         if (b !== null && b !== selectedBranch) setSelectedBranch(b);
         if (y !== null && Number(y) !== selectedYear) setSelectedYear(Number(y));
+        if (q !== null && q !== searchQuery) setSearchQuery(q);
     }, 0);
-  }, [searchParams, selectedBranch, selectedYear]);
+  }, [searchParams, selectedBranch, selectedYear, searchQuery]);
 
-  const updateParams = (branch: string, year: number | '') => {
+  const updateParams = (branch: string, year: number | '', q: string = searchQuery) => {
     const params: Record<string, string> = {};
     if (branch) params.branch = branch;
     if (year) params.year = year.toString();
+    if (q) params.q = q;
     setSearchParams(params);
   };
 
@@ -50,6 +55,11 @@ const NotesLibrary: React.FC = () => {
   const handleBranchChange = (branch: string) => {
     setSelectedBranch(branch);
     updateParams(branch, selectedYear);
+  };
+
+  const handleSearchChange = (query: string) => {
+    setSearchQuery(query);
+    updateParams(selectedBranch, selectedYear, query);
   };
 
   const toggleFirstYearMode = () => {
@@ -74,10 +84,17 @@ const NotesLibrary: React.FC = () => {
           selectedYear ? Number(selectedYear) : undefined
         ).catch(() => []);
 
-        // 2. Fetch all notes and filter by the subjects we found
+        // 2. Fetch all notes
         const allNotes = await api.getNotes().catch(() => []);
-        const subjectIds = new Set(fetchedSubjects.map(s => s.id));
-        setNotes(allNotes.filter(n => subjectIds.has(n.subjectId)));
+
+        // If a branch or year filter is explicitly active, filter by subjects
+        if (selectedBranch || selectedYear) {
+          const subjectIds = new Set(fetchedSubjects.map(s => s.id));
+          setNotes(allNotes.filter(n => subjectIds.has(n.subjectId)));
+        } else {
+          // If no branch/year chosen, display all notes
+          setNotes(allNotes);
+        }
       } catch (err) {
         console.error('Failed to load notes data:', err);
       } finally {
@@ -86,6 +103,17 @@ const NotesLibrary: React.FC = () => {
     };
     fetchData();
   }, [selectedBranch, selectedYear]);
+
+  const displayedNotes = React.useMemo(() => {
+    if (!searchQuery.trim()) return notes;
+    const q = searchQuery.toLowerCase().trim();
+    return notes.filter(n => {
+      if (q === 'sppu' || q === 'notes' || q === 'sppu notes' || q === 'sppu note') return true;
+      const matchTitle = (n.title || '').toLowerCase().includes(q);
+      const matchDesc = (n.description || '').toLowerCase().includes(q);
+      return matchTitle || matchDesc;
+    });
+  }, [notes, searchQuery]);
 
   const isFirstYearMode = selectedYear === 1;
   const availableYears = isFirstYearMode ? [1] : [2, 3, 4];
@@ -116,8 +144,23 @@ const NotesLibrary: React.FC = () => {
          </div>
       </div>
 
-      {/* Filters Section */}
+      {/* Filters & Search Section */}
       <div className="flex flex-col sm:flex-row flex-wrap gap-4 items-start sm:items-end mb-6 sm:mb-8">
+            {/* Search Input */}
+            <div className="relative w-full sm:w-72">
+                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                 </div>
+                 <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => handleSearchChange(e.target.value)}
+                    placeholder="Search SPPU notes, subjects..."
+                    className="block w-full pl-10 pr-4 py-2.5 text-sm bg-white border border-gray-200 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-cobalt text-gray-700 min-h-[44px]"
+                 />
+            </div>
             {/* Year Selector */}
             <div className="flex space-x-2 overflow-x-auto pb-2 no-scrollbar w-full sm:w-auto -mx-3 px-3 sm:mx-0 sm:px-0">
                 {availableYears.map(y => (
@@ -171,8 +214,8 @@ const NotesLibrary: React.FC = () => {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {notes.length > 0 ? (
-                notes.map(note => (
+            {displayedNotes.length > 0 ? (
+                displayedNotes.map(note => (
                     <Link to={`/note/${note.id}`} key={note.id} className="block h-full">
                         <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5 hover:-translate-y-1 hover:shadow-lg hover:border-brand-indigo transition-all duration-300 flex flex-col relative overflow-hidden group h-full">
                             {/* Gradient Top Border Accent */}

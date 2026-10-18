@@ -16,9 +16,11 @@ const BrowseCourses: React.FC = () => {
   // --- Filters State ---
   const initialBranch = searchParams.get('branch') || '';
   const initialYear = searchParams.get('year') ? Number(searchParams.get('year')) : '';
+  const initialQuery = searchParams.get('q') || searchParams.get('search') || '';
 
   const [selectedBranch, setSelectedBranch] = useState<string>(initialBranch);
   const [selectedYear, setSelectedYear] = useState<number | ''>(initialYear as number | '');
+  const [searchQuery, setSearchQuery] = useState<string>(initialQuery);
 
   // --- Data State ---
   const [subjects, setSubjects] = useState<Subject[]>([]);
@@ -36,16 +38,19 @@ const BrowseCourses: React.FC = () => {
   useEffect(() => {
     const b = searchParams.get('branch');
     const y = searchParams.get('year');
+    const q = searchParams.get('q') || searchParams.get('search');
     setTimeout(() => {
         if (b !== null && b !== selectedBranch) setSelectedBranch(b);
         if (y !== null && Number(y) !== selectedYear) setSelectedYear(Number(y));
+        if (q !== null && q !== searchQuery) setSearchQuery(q);
     }, 0);
-  }, [searchParams, selectedBranch, selectedYear]);
+  }, [searchParams, selectedBranch, selectedYear, searchQuery]);
 
-  const updateParams = (branch: string, year: number | '') => {
+  const updateParams = (branch: string, year: number | '', q: string = searchQuery) => {
     const params: Record<string, string> = {};
     if (branch) params.branch = branch;
     if (year) params.year = year.toString();
+    if (q) params.q = q;
     setSearchParams(params);
   };
 
@@ -57,6 +62,11 @@ const BrowseCourses: React.FC = () => {
   const handleBranchChange = (branch: string) => {
     setSelectedBranch(branch);
     updateParams(branch, selectedYear);
+  };
+
+  const handleSearchChange = (query: string) => {
+    setSearchQuery(query);
+    updateParams(selectedBranch, selectedYear, query);
   };
 
   const toggleFirstYearMode = () => {
@@ -95,10 +105,17 @@ const BrowseCourses: React.FC = () => {
         const dedup = <T extends { id: string }>(arr: T[]) =>
           arr.filter((item, idx, self) => self.findIndex(x => x.id === item.id) === idx);
 
-        setCourses(dedup(allCourses.filter(c => subjectIds.has(c.subjectId))));
-        setNotes(dedup(allNotes.filter(n => subjectIds.has(n.subjectId))));
-        setQuizzes(dedup(allQuizzes.filter(q => subjectIds.has(q.subjectId))));
-        setViva(dedup(allViva.filter(v => subjectIds.has(v.subjectId))));
+        if (selectedBranch || selectedYear) {
+          setCourses(dedup(allCourses.filter(c => subjectIds.has(c.subjectId))));
+          setNotes(dedup(allNotes.filter(n => subjectIds.has(n.subjectId))));
+          setQuizzes(dedup(allQuizzes.filter(q => subjectIds.has(q.subjectId))));
+          setViva(dedup(allViva.filter(v => subjectIds.has(v.subjectId))));
+        } else {
+          setCourses(dedup(allCourses));
+          setNotes(dedup(allNotes));
+          setQuizzes(dedup(allQuizzes));
+          setViva(dedup(allViva));
+        }
       } catch (err) {
         console.error('Failed to load courses data:', err);
       } finally {
@@ -111,12 +128,29 @@ const BrowseCourses: React.FC = () => {
   const isFirstYearMode = selectedYear === 1;
   const availableYears = isFirstYearMode ? [1] : [2, 3, 4];
 
+  // Helper to filter items by keyword search query
+  const filterByQuery = <T extends { title?: string; name?: string; description?: string }>(items: T[]) => {
+    if (!searchQuery.trim()) return items;
+    const q = searchQuery.toLowerCase().trim();
+    if (q === 'sppu' || q === 'notes' || q === 'courses' || q === 'sppu notes' || q === 'sppu courses') return items;
+    return items.filter(item => {
+      const title = (item.title || item.name || '').toLowerCase();
+      const desc = (item.description || '').toLowerCase();
+      return title.includes(q) || desc.includes(q);
+    });
+  };
+
+  const displayedCourses = React.useMemo(() => filterByQuery(courses), [courses, searchQuery]);
+  const displayedNotes = React.useMemo(() => filterByQuery(notes), [notes, searchQuery]);
+  const displayedQuizzes = React.useMemo(() => filterByQuery(quizzes), [quizzes, searchQuery]);
+  const displayedViva = React.useMemo(() => filterByQuery(viva), [viva, searchQuery]);
+
   // Helper to get counts for tabs
   const counts = {
-      courses: courses.length,
-      notes: notes.length,
-      quizzes: quizzes.length,
-      viva: viva.length
+      courses: displayedCourses.length,
+      notes: displayedNotes.length,
+      quizzes: displayedQuizzes.length,
+      viva: displayedViva.length
   };
 
   // --- Render Functions ---
@@ -124,7 +158,7 @@ const BrowseCourses: React.FC = () => {
   const renderCourses = () => (
      <div className="grid grid-cols-1 gap-8">
             {subjects.map(subject => {
-                const subjectCourses = courses.filter(c => c.subjectId === subject.id);
+                const subjectCourses = displayedCourses.filter(c => c.subjectId === subject.id);
                 if (subjectCourses.length === 0) return null;
 
                 return (
@@ -184,7 +218,66 @@ const BrowseCourses: React.FC = () => {
                     </div>
                 );
             })}
-            {courses.length === 0 && <div className="text-center py-10 text-gray-500">No courses found.</div>}
+            {(() => {
+                const otherCourses = displayedCourses.filter(c => !subjects.some(s => s.id === c.subjectId));
+                if (otherCourses.length === 0) return null;
+                return (
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition-shadow duration-300">
+                        <div className="bg-gradient-to-r from-gray-50 to-white px-6 py-4 border-b border-gray-100 flex justify-between items-center">
+                            <div>
+                                <h3 className="text-xl font-bold text-gray-800">Other Courses</h3>
+                                <p className="text-sm text-gray-500 font-mono mt-1">General Curriculum</p>
+                            </div>
+                        </div>
+                        <div className="p-6">
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                {otherCourses.map(course => (
+                                    <Link to={`/course/${course.id}`} key={course.id} className="group block h-full">
+                                        <div className="bg-white rounded-lg border border-gray-200 overflow-hidden group-hover:border-indigo-300 transition-colors h-full flex flex-col">
+                                            <div className="aspect-video bg-gray-200 relative overflow-hidden">
+                                                <img 
+                                                    src={course.thumbnailUrl} 
+                                                    alt={course.title} 
+                                                    className="absolute inset-0 object-contain w-full h-full transform group-hover:scale-105 transition-transform duration-500 cursor-pointer"
+                                                    onError={(e) => { e.currentTarget.src = 'https://picsum.photos/800/600?random=' + course.id; }}
+                                                />
+                                                <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-10 transition-opacity flex items-center justify-center">
+                                                    <svg className="w-12 h-12 text-white opacity-0 group-hover:opacity-100 transition-opacity drop-shadow-lg" fill="currentColor" viewBox="0 0 20 20">
+                                                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
+                                                    </svg>
+                                                </div>
+                                            </div>
+                                            <div className="p-4 flex flex-col flex-grow">
+                                                <h4 className="font-semibold text-gray-900 group-hover:text-indigo-600 transition-colors line-clamp-1">{course.title}</h4>
+                                                <p className="text-sm text-gray-500 mt-1 line-clamp-2">{course.description}</p>
+                                                <div className="mt-auto pt-4 flex items-center justify-between">
+                                                    <div className="text-xs text-gray-400 flex items-center">
+                                                        <svg className="w-3 h-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                        </svg>
+                                                        {course.modules.length} Modules
+                                                    </div>
+                                                    {course.price ? (
+                                                        <div className="flex flex-col items-end">
+                                                            {course.originalPrice && course.originalPrice > course.price && (
+                                                                <span className="text-xs text-red-400 line-through">₹{course.originalPrice}</span>
+                                                            )}
+                                                            <span className="font-bold text-gray-900">₹{course.price}</span>
+                                                        </div>
+                                                    ) : (
+                                                        <span className="text-xs font-semibold text-green-600 bg-green-50 px-2 py-1 rounded">FREE</span>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </Link>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                );
+            })()}
+            {displayedCourses.length === 0 && <div className="text-center py-10 text-gray-500">No courses found.</div>}
      </div>
   );
 
@@ -301,6 +394,22 @@ const BrowseCourses: React.FC = () => {
 
       {/* Filters Section */}
       <div className="flex flex-col sm:flex-row flex-wrap gap-4 items-start sm:items-end mb-6 sm:mb-8">
+            {/* Search Input */}
+            <div className="relative w-full sm:w-72">
+                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                 </div>
+                 <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => handleSearchChange(e.target.value)}
+                    placeholder="Search courses, notes, topics..."
+                    className="block w-full pl-10 pr-4 py-2.5 text-sm bg-white border border-gray-200 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 text-gray-700 min-h-[44px]"
+                 />
+            </div>
+
             {/* Year Selector */}
             <div className="flex space-x-2 overflow-x-auto pb-2 no-scrollbar w-full sm:w-auto -mx-3 px-3 sm:mx-0 sm:px-0">
                 {availableYears.map(y => (
@@ -383,20 +492,20 @@ const BrowseCourses: React.FC = () => {
               {activeTab === 'courses' && renderCourses()}
               
               {activeTab === 'notes' && (
-                  notes.length > 0 
-                  ? renderProductGrid(notes, 'note') 
+                  displayedNotes.length > 0 
+                  ? renderProductGrid(displayedNotes, 'note') 
                   : <div className="text-center py-12 bg-gray-50 rounded-lg text-gray-500">No notes found for this selection.</div>
               )}
 
               {activeTab === 'quizzes' && (
-                   quizzes.length > 0
-                   ? renderProductGrid(quizzes, 'quiz')
+                   displayedQuizzes.length > 0
+                   ? renderProductGrid(displayedQuizzes, 'quiz')
                    : <div className="text-center py-12 bg-gray-50 rounded-lg text-gray-500">No quizzes available for this selection.</div>
               )}
 
               {activeTab === 'viva' && (
-                   viva.length > 0
-                   ? renderProductGrid(viva, 'viva')
+                   displayedViva.length > 0
+                   ? renderProductGrid(displayedViva, 'viva')
                    : <div className="text-center py-12 bg-gray-50 rounded-lg text-gray-500">No viva preparation material available for this selection.</div>
               )}
           </div>
