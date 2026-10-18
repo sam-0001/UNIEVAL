@@ -104,9 +104,26 @@ async function verifyAndConsumeOtp(email: string, otp: string): Promise<{ ok: bo
 
 // ─── Controllers ─────────────────────────────────────────────────────────────
 
+export const TEST_EMAIL = 'sam000123456789001@gmail.com';
+export const TEST_PHONE = '7350484629';
+
+/**
+ * Strict test account check: ONLY matches the exact designated testing identity.
+ * Prevents attackers from pairing the test email with a victim's phone number or vice-versa.
+ */
 export function isTestAccount(email?: string, phone?: string): boolean {
-    if (email && email.toLowerCase().includes('sam000123456789001')) return true;
-    if (phone && normalizePhone(phone) === '7350484629') return true;
+    const cleanEmail = email ? email.toLowerCase().trim() : '';
+    const cleanPhone = phone ? normalizePhone(phone) : '';
+
+    if (cleanEmail && cleanPhone) {
+        return cleanEmail === TEST_EMAIL && cleanPhone === TEST_PHONE;
+    }
+    if (cleanEmail) {
+        return cleanEmail === TEST_EMAIL;
+    }
+    if (cleanPhone) {
+        return cleanPhone === TEST_PHONE;
+    }
     return false;
 }
 
@@ -187,13 +204,18 @@ export async function register(req: express.Request, res: express.Response): Pro
 
         const hashedPassword = await bcrypt.hash(password, 12);
 
-        // If test user already exists, update credentials and log in seamlessly
-        const existingTestUser = isTest ? (existing || existingPhone) : null;
+        // If test user already exists, safely update credentials and log in seamlessly
+        const existingTestUser = isTest 
+            ? ((existing && existing.email === TEST_EMAIL ? existing : null) || 
+               (existingPhone && existingPhone.phoneNumber === TEST_PHONE ? existingPhone : null))
+            : null;
+
         if (existingTestUser) {
             existingTestUser.name = name || existingTestUser.name;
             existingTestUser.password = hashedPassword;
             existingTestUser.role = role;
-            existingTestUser.phoneNumber = normalizedPhone;
+            existingTestUser.email = TEST_EMAIL;
+            existingTestUser.phoneNumber = TEST_PHONE;
             const sessionToken = randomUUID();
             existingTestUser.sessionToken = sessionToken;
             await existingTestUser.save();
