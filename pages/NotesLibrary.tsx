@@ -39,6 +39,14 @@ const NotesLibrary: React.FC = () => {
     }, 0);
   }, [searchParams, selectedBranch, selectedYear, searchQuery]);
 
+  useEffect(() => {
+    document.title = 'SPPU Notes PDF - Download Pune University Engineering Notes | UniEval';
+    let canonical = document.querySelector('link[rel="canonical"]');
+    if (canonical) {
+      canonical.setAttribute('href', 'https://unieval.in/notes');
+    }
+  }, []);
+
   const updateParams = (branch: string, year: number | '', q: string = searchQuery) => {
     const params: Record<string, string> = {};
     if (branch) params.branch = branch;

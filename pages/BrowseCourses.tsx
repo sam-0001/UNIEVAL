@@ -46,6 +46,14 @@ const BrowseCourses: React.FC = () => {
     }, 0);
   }, [searchParams, selectedBranch, selectedYear, searchQuery]);
 
+  useEffect(() => {
+    document.title = 'SPPU Engineering Courses, Video Lectures & Syllabus | Pune University - UniEval';
+    let canonical = document.querySelector('link[rel="canonical"]');
+    if (canonical) {
+      canonical.setAttribute('href', 'https://unieval.in/browse');
+    }
+  }, []);
+
   const updateParams = (branch: string, year: number | '', q: string = searchQuery) => {
     const params: Record<string, string> = {};
     if (branch) params.branch = branch;

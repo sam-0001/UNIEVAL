@@ -314,6 +314,12 @@ async function startServer() {
                 let html = cachedIndexHtml;
                 const urlPath = req.path;
 
+                // Dynamically inject accurate canonical & OpenGraph URL for the requested route
+                const canonicalUrl = `https://unieval.in${urlPath === '/' ? '/' : urlPath.replace(/\/+$/, '')}`;
+                html = html
+                    .replace(/<link\s+rel="canonical"\s+href="[^"]*"\s*\/?>/i, `<link rel="canonical" href="${canonicalUrl}" />`)
+                    .replace(/<meta\s+property="og:url"\s+content="[^"]*"\s*\/?>/i, `<meta property="og:url" content="${canonicalUrl}" />`);
+
                 if (urlPath === '/notes') {
                     html = html
                         .replace(/<title>.*?<\/title>/i, '<title>SPPU Notes PDF - Download Pune University Engineering Notes | UniEval</title>')
