@@ -5,6 +5,7 @@ import { Course, CourseModule, CourseVideo, User } from '../types';
 import { useAuth } from '../context/AuthContext';
 import CustomVideoPlayer from '../components/CustomVideoPlayer';
 import { useSEO } from '../hooks/useSEO';
+import { Clock } from 'lucide-react';
 
 // Extend window object to support Cashfree
 declare global {
@@ -81,7 +82,9 @@ const CourseDetail: React.FC = () => {
   const isPurchased = user?.purchasedCourseIds.includes(course?.id || '') || false;
   const isCollegeFree = React.useMemo(() => {
     if (!user || !course || !course.collegeConfig?.emailDomain) return false;
-    return user.email.endsWith(course.collegeConfig.emailDomain.trim());
+    const domain = course.collegeConfig.emailDomain.trim();
+    if (!domain || domain.length < 3) return false;
+    return user.email.toLowerCase().endsWith(domain.toLowerCase());
   }, [user, course]);
   const hasAccess = !!user && isPurchased;
   const displayPrice = appliedCoupon ? appliedCoupon.discountedPrice : (course?.price || 0);
@@ -279,12 +282,20 @@ const CourseDetail: React.FC = () => {
                   <h1 className="text-2xl sm:text-3xl font-bold text-brand-navy">{course.title}</h1>
                 </div>
                 
-                {course.collegeConfig && !hasAccess && (
-                  <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-green-50 text-green-700 text-xs font-bold rounded-full mb-4 border border-green-200">
-                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" /></svg>
-                    Free for {course.collegeConfig.name} students
+                <div className="flex flex-wrap items-center gap-2 mb-4">
+                  {course.collegeConfig && !hasAccess && (
+                    <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-green-50 text-green-700 text-xs font-bold rounded-full border border-green-200">
+                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" /></svg>
+                      Free for {course.collegeConfig.name} students
+                    </div>
+                  )}
+                  <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-indigo-50 text-indigo-700 text-xs font-semibold rounded-full border border-indigo-200">
+                    <Clock className="w-3.5 h-3.5" />
+                    {course.validityType === 'date' && course.validityDate
+                      ? `Access Valid Until ${new Date(course.validityDate).toLocaleDateString()}`
+                      : `${course.validityMonths || 6} Months Access`}
                   </div>
-                )}
+                </div>
 
                 <div className="prose prose-slate prose-sm max-w-none">
                   <p className="text-slate-600 whitespace-pre-line leading-relaxed">{course.description}</p>

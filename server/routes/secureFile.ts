@@ -16,7 +16,7 @@
 
 import express, { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
-import { Note, User } from '../models/index.js';
+import { Note, User, Purchase } from '../models/index.js';
 import { JwtPayload } from '../middleware/auth.js';
 import { readAndDecryptFile, readAndDecryptBundleAsset, getBundleIdForFile } from './upload.js';
 
@@ -81,11 +81,38 @@ async function resolveFileAccess(
     }
     if (!targetFile) return { ok: false, status: 404, error: 'File not found' };
 
-    const isPurchased   = Array.isArray(currentUser.purchasedNoteIds) && currentUser.purchasedNoteIds.includes(noteId);
-    const isCollegeFree = note.collegeConfig?.emailDomain && currentUser.email?.endsWith(note.collegeConfig.emailDomain.trim());
+    const isPurchased   = Array.isArray(currentUser?.purchasedNoteIds) && currentUser.purchasedNoteIds.includes(noteId);
+    let activePurchased = isPurchased;
+    if (isPurchased && currentUser?.id) {
+        const now = new Date();
+        const sixMonthsAgo = new Date(now);
+        sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+
+        const activeRecord = await Purchase.findOne({
+            userId: currentUser.id,
+            productId: noteId,
+            $or: [
+                { expiresAt: { $gt: now } },
+                { expiresAt: null, createdAt: { $gt: sixMonthsAgo } }
+            ]
+        }).lean();
+
+        if (!activeRecord) {
+            activePurchased = false;
+            await User.updateOne({ id: currentUser.id }, { $pull: { purchasedNoteIds: noteId } });
+        }
+    }
+
+    const collegeDomain = note.collegeConfig?.emailDomain?.trim().toLowerCase();
+    const isCollegeFree = !!collegeDomain && collegeDomain.length >= 3 && currentUser.email?.toLowerCase().endsWith(collegeDomain);
     const isFreeNote    = !note.price || note.price === 0;
-    const hasAccess     = isPurchased || isCollegeFree || isFreeNote || targetFile.isFree;
-    if (!hasAccess) return { ok: false, status: 403, error: 'Purchase required to access this file' };
+    const hasAccess     = activePurchased || isCollegeFree || isFreeNote || targetFile.isFree;
+    if (!hasAccess) {
+        if (isPurchased && !activePurchased) {
+            return { ok: false, status: 403, error: 'Your access to this note has expired. Please renew your purchase.' };
+        }
+        return { ok: false, status: 403, error: 'Purchase required to access this file' };
+    }
 
     return { ok: true, targetFile };
 }

@@ -4,6 +4,7 @@ import { randomUUID } from 'crypto';
 import { User, Course, Note, Purchase } from '../models/index.js';
 import logger from '../logger.js';
 import { incrementCouponUsage } from '../controllers/coupon.controller.js';
+import { calculateItemExpiryDate } from '../services/validity.service.js';
 
 const router = express.Router();
 
@@ -75,6 +76,7 @@ router.post('/cashfree', async (req, res) => {
                 
                 const course = await Course.findOne({ id: courseId }).lean();
                 const teacherId = (course as any)?.teacherId || 'admin';
+                const expiresAt = calculateItemExpiryDate(course as any);
                 await Purchase.create({
                     id: randomUUID(),
                     userId,
@@ -85,6 +87,7 @@ router.post('/cashfree', async (req, res) => {
                     cashfreeOrderId: orderId,
                     couponId: couponId || undefined,
                     discountAmount: discountAmount ? Number(discountAmount) : 0,
+                    expiresAt,
                 }).catch(err => { logger.warn('[Webhook] Purchase record creation non-fatal error:', err); });
 
                 if (couponId) await incrementCouponUsage(couponId);
@@ -102,6 +105,7 @@ router.post('/cashfree', async (req, res) => {
                 
                 const note = await Note.findOne({ id: noteId }).lean();
                 const teacherId = (note as any)?.teacherId || 'admin';
+                const expiresAt = calculateItemExpiryDate(note as any);
                 await Purchase.create({
                     id: randomUUID(),
                     userId,
@@ -112,6 +116,7 @@ router.post('/cashfree', async (req, res) => {
                     cashfreeOrderId: orderId,
                     couponId: couponId || undefined,
                     discountAmount: discountAmount ? Number(discountAmount) : 0,
+                    expiresAt,
                 }).catch(err => { logger.warn('[Webhook] Purchase record creation non-fatal error:', err); });
 
                 if (couponId) await incrementCouponUsage(couponId);

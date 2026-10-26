@@ -7,6 +7,7 @@ import { sendSmsOtp } from '../sms.js';
 import { signToken } from '../middleware/auth.js';
 import { UserRole } from '../../types.js';
 import logger from '../logger.js';
+import { syncUserExpiredPurchases } from '../services/validity.service.js';
 
 // ─── Helpers (private to this module) ────────────────────────────────────────
 
@@ -255,6 +256,12 @@ export async function sessionCheck(req: express.Request, res: express.Response):
 export async function getMe(req: express.Request, res: express.Response): Promise<void> {
     try {
         const user = (req as any).currentUser;
+        if (user?.id) {
+            await syncUserExpiredPurchases(user.id);
+            const freshUser = await User.findOne({ id: user.id });
+            res.json(sanitizeUser(freshUser || user));
+            return;
+        }
         res.json(sanitizeUser(user));
     } catch (err) {
         logger.error('[Auth] getMe:', err);

@@ -49,7 +49,10 @@ export interface Course {
   modules: CourseModule[];
   price?: number; // Added for store view
   originalPrice?: number; // Price before discount
-  collegeConfig?: CollegeConfig; // College specific free access
+  collegeConfig?: CollegeConfig | null; // College specific free access
+  validityType?: 'months' | 'date'; // 'months' (relative) or 'date' (fixed expiration)
+  validityMonths?: number; // Duration in months (default 6)
+  validityDate?: string; // Exact expiry date (ISO format string)
 }
 
 export interface CourseResource {
@@ -111,7 +114,10 @@ export interface Note {
   price?: number;
   originalPrice?: number; // Price before discount
   sections: NoteSection[]; 
-  collegeConfig?: CollegeConfig; // College specific free access
+  collegeConfig?: CollegeConfig | null; // College specific free access
+  validityType?: 'months' | 'date'; // 'months' (relative) or 'date' (fixed expiration)
+  validityMonths?: number; // Duration in months (default 6)
+  validityDate?: string; // Exact expiry date (ISO format string)
 }
 
 export interface Question {
@@ -208,4 +214,17 @@ export interface BEToolkitItem {
   source: string;
   link: string;
   createdAt?: string;
+}
+
+export interface PurchaseRecord {
+  id: string;
+  userId: string;
+  productId: string;
+  teacherId: string;
+  productType: 'note' | 'course' | 'quiz' | 'viva' | 'free';
+  amountPaid: number;
+  createdAt: string;
+  expiresAt: string | null;
+  isExpired?: boolean;
+  daysRemaining?: number | null;
 }

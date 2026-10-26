@@ -4,17 +4,15 @@ import { Course, Note, Quiz, Viva, User } from '../models/index.js';
 import { UserRole } from '../../types.js';
 import { cache } from '../services/cache.service.js';
 import logger from '../logger.js';
-import { deleteFileFromR2 } from '../routes/upload.js';
-
-function extractR2Key(fileUrl?: string): string | null {
-    if (!fileUrl) return null;
-    try {
-        const u = new URL(fileUrl);
-        let key = u.pathname;
-        if (key.startsWith('/')) key = key.substring(1);
-        return key;
-    } catch { return null; }
-}
+import { 
+    deleteFileFromR2, 
+    deleteDirectoryFromR2, 
+    deleteVideoAssets, 
+    deleteNoteFileAssets, 
+    deleteNoteAssets, 
+    deleteCourseAssets, 
+    extractR2KeyFromUrl 
+} from '../routes/upload.js';
 
 export function generateId(): string { return randomUUID(); }
 
@@ -91,6 +89,25 @@ export async function createCourse(req: express.Request, res: express.Response):
     const courseData = req.body;
     if (!courseData.title || !courseData.subjectId || !courseData.teacherId) { res.status(400).json({ error: 'Title, subjectId, and teacherId are required' }); return; }
     if (Array.isArray(courseData.modules)) courseData.modules = sanitizeModules(courseData.modules);
+    if (!courseData.collegeConfig || !courseData.collegeConfig.name?.trim() || !courseData.collegeConfig.emailDomain?.trim()) {
+        delete courseData.collegeConfig;
+    } else {
+        courseData.collegeConfig = {
+            name: courseData.collegeConfig.name.trim(),
+            emailDomain: courseData.collegeConfig.emailDomain.trim().toLowerCase()
+        };
+    }
+
+    const validityType = courseData.validityType === 'date' ? 'date' : 'months';
+    courseData.validityType = validityType;
+    if (validityType === 'date' && courseData.validityDate) {
+        courseData.validityDate = new Date(courseData.validityDate);
+        courseData.validityMonths = 6;
+    } else {
+        courseData.validityType = 'months';
+        courseData.validityMonths = Number(courseData.validityMonths) > 0 ? Number(courseData.validityMonths) : 6;
+        courseData.validityDate = null;
+    }
     try {
         const course = await Course.create({ ...courseData, id: generateId() });
         await cache.invalidate('courses:*');
@@ -103,8 +120,87 @@ export async function updateCourse(req: express.Request, res: express.Response):
     const updates = req.body;
     if (Array.isArray(updates.modules)) updates.modules = sanitizeModules(updates.modules);
     try {
-        const course = await Course.findOneAndUpdate({ id }, { $set: updates }, { new: true, runValidators: false });
-        if (!course) { res.status(404).json({ error: 'Course not found' }); return; }
+        const existingCourse = await Course.findOne({ id }).lean() as any;
+        if (!existingCourse) { res.status(404).json({ error: 'Course not found' }); return; }
+
+        // Clean up removed videos and resources from R2
+        if (Array.isArray(updates.modules) && Array.isArray(existingCourse.modules)) {
+            const newVideoIds = new Set<string>();
+            const newVideoKeys = new Set<string>();
+            const newResourceUrls = new Set<string>();
+
+            updates.modules.forEach((m: any) => {
+                if (Array.isArray(m.videos)) {
+                    m.videos.forEach((v: any) => {
+                        if (v.id) newVideoIds.add(String(v.id));
+                        if (v.videoId) newVideoIds.add(String(v.videoId));
+                        if (v.videoKey) newVideoKeys.add(String(v.videoKey));
+                        if (Array.isArray(v.resources)) {
+                            v.resources.forEach((r: any) => { if (r?.url && r.url !== '#') newResourceUrls.add(String(r.url)); });
+                        }
+                    });
+                }
+            });
+
+            // Find old videos that are no longer present
+            const videosToDelete: any[] = [];
+            existingCourse.modules.forEach((oldMod: any) => {
+                if (Array.isArray(oldMod.videos)) {
+                    oldMod.videos.forEach((oldVid: any) => {
+                        const hasId = oldVid.id && newVideoIds.has(String(oldVid.id));
+                        const hasVideoId = oldVid.videoId && newVideoIds.has(String(oldVid.videoId));
+                        const hasVideoKey = oldVid.videoKey && newVideoKeys.has(String(oldVid.videoKey));
+                        if (!hasId && !hasVideoId && !hasVideoKey) {
+                            videosToDelete.push(oldVid);
+                        } else {
+                            // Video remains, but check if any of its resources were deleted
+                            if (Array.isArray(oldVid.resources)) {
+                                oldVid.resources.forEach((oldRes: any) => {
+                                    if (oldRes?.url && !newResourceUrls.has(String(oldRes.url))) {
+                                        deleteFileFromR2(oldRes.url).catch(e => logger.error('[R2] Error deleting removed resource:', e));
+                                    }
+                                });
+                            }
+                        }
+                    });
+                }
+            });
+
+            for (const v of videosToDelete) {
+                await deleteVideoAssets(v);
+            }
+        }
+
+        // If thumbnail was replaced
+        if (updates.thumbnailUrl && existingCourse.thumbnailUrl && updates.thumbnailUrl !== existingCourse.thumbnailUrl) {
+            deleteFileFromR2(existingCourse.thumbnailUrl).catch(e => logger.error('[R2] Error deleting old course thumbnail:', e));
+        }
+
+        const updateDoc: any = { $set: updates };
+        if (updates.validityType !== undefined) {
+            const validityType = updates.validityType === 'date' ? 'date' : 'months';
+            updateDoc.$set.validityType = validityType;
+            if (validityType === 'date' && updates.validityDate) {
+                updateDoc.$set.validityDate = new Date(updates.validityDate);
+                updateDoc.$set.validityMonths = 6;
+            } else {
+                updateDoc.$set.validityType = 'months';
+                updateDoc.$set.validityMonths = Number(updates.validityMonths) > 0 ? Number(updates.validityMonths) : 6;
+                updateDoc.$set.validityDate = null;
+            }
+        }
+
+        if (!updates.collegeConfig || !updates.collegeConfig.name?.trim() || !updates.collegeConfig.emailDomain?.trim()) {
+            delete updateDoc.$set.collegeConfig;
+            updateDoc.$unset = { ...(updateDoc.$unset || {}), collegeConfig: 1 };
+        } else {
+            updateDoc.$set.collegeConfig = {
+                name: updates.collegeConfig.name.trim(),
+                emailDomain: updates.collegeConfig.emailDomain.trim().toLowerCase()
+            };
+        }
+
+        const course = await Course.findOneAndUpdate({ id }, updateDoc, { new: true, runValidators: false });
         await Promise.all([cache.invalidate('courses:*'), cache.invalidate(`course:${id}`)]);
         res.json(course);
     } catch (err) { logger.error('[Courses] updateCourse:', err); res.status(500).json({ error: 'An internal error occurred' }); }
@@ -116,31 +212,8 @@ export async function deleteCourse(req: express.Request, res: express.Response):
         const course = await Course.findOneAndDelete({ id }) as any;
         if (!course) { res.status(404).json({ error: 'Course not found' }); return; }
 
-        // Extract and delete files from R2
-        const keysToDelete: string[] = [];
-        const thumbKey = extractR2Key(course.thumbnailUrl);
-        if (thumbKey) keysToDelete.push(thumbKey);
-
-        if (Array.isArray(course.modules)) {
-            course.modules.forEach((mod: any) => {
-                if (Array.isArray(mod.videos)) {
-                    mod.videos.forEach((vid: any) => {
-                        const vKey = extractR2Key(vid.videoUrl) || vid.videoKey;
-                        if (vKey) keysToDelete.push(vKey);
-                        if (Array.isArray(vid.resources)) {
-                            vid.resources.forEach((resItem: any) => {
-                                const rKey = extractR2Key(resItem.url);
-                                if (rKey) keysToDelete.push(rKey);
-                            });
-                        }
-                    });
-                }
-            });
-        }
-        
-        Promise.all(keysToDelete.map(k => deleteFileFromR2(k))).catch(e => {
-            logger.error('[Courses] Failed to delete some R2 files during course deletion:', e);
-        });
+        // Permanently delete all associated video folders, raw uploads, thumbnails and resources
+        await deleteCourseAssets(course);
 
         await Promise.all([cache.invalidate('courses:*'), cache.invalidate(`course:${id}`)]);
         res.json({ success: true });
@@ -208,6 +281,25 @@ export async function getNoteById(req: express.Request, res: express.Response): 
 export async function createNote(req: express.Request, res: express.Response): Promise<void> {
     const noteData = req.body;
     if (!noteData.title || !noteData.subjectId || !noteData.teacherId) { res.status(400).json({ error: 'Title, subjectId, and teacherId are required' }); return; }
+    if (!noteData.collegeConfig || !noteData.collegeConfig.name?.trim() || !noteData.collegeConfig.emailDomain?.trim()) {
+        delete noteData.collegeConfig;
+    } else {
+        noteData.collegeConfig = {
+            name: noteData.collegeConfig.name.trim(),
+            emailDomain: noteData.collegeConfig.emailDomain.trim().toLowerCase()
+        };
+    }
+
+    const validityType = noteData.validityType === 'date' ? 'date' : 'months';
+    noteData.validityType = validityType;
+    if (validityType === 'date' && noteData.validityDate) {
+        noteData.validityDate = new Date(noteData.validityDate);
+        noteData.validityMonths = 6;
+    } else {
+        noteData.validityType = 'months';
+        noteData.validityMonths = Number(noteData.validityMonths) > 0 ? Number(noteData.validityMonths) : 6;
+        noteData.validityDate = null;
+    }
     try {
         const note = await Note.create({ ...noteData, id: generateId(), uploadedAt: new Date().toISOString(), sections: safeSections(noteData.sections) });
         await cache.invalidate('notes:*');
@@ -220,8 +312,71 @@ export async function updateNote(req: express.Request, res: express.Response): P
     const updates = req.body;
     if (Array.isArray(updates.sections)) updates.sections = safeSections(updates.sections);
     try {
-        const note = await Note.findOneAndUpdate({ id }, { $set: updates }, { new: true, runValidators: false });
-        if (!note) { res.status(404).json({ error: 'Note not found' }); return; }
+        const existingNote = await Note.findOne({ id }).lean() as any;
+        if (!existingNote) { res.status(404).json({ error: 'Note not found' }); return; }
+
+        // Clean up removed files from R2 and MongoDB
+        if (Array.isArray(updates.sections) && Array.isArray(existingNote.sections)) {
+            const newFileUrls = new Set<string>();
+            const newFileIds = new Set<string>();
+
+            updates.sections.forEach((s: any) => {
+                if (Array.isArray(s.files)) {
+                    s.files.forEach((f: any) => {
+                        if (f.url && f.url !== '#') newFileUrls.add(String(f.url));
+                        if (f.id) newFileIds.add(String(f.id));
+                    });
+                }
+            });
+
+            const filesToDelete: { url?: string; id?: string }[] = [];
+            existingNote.sections.forEach((oldSec: any) => {
+                if (Array.isArray(oldSec.files)) {
+                    oldSec.files.forEach((oldFile: any) => {
+                        const hasUrl = oldFile.url && newFileUrls.has(String(oldFile.url));
+                        const hasId = oldFile.id && newFileIds.has(String(oldFile.id));
+                        if (!hasUrl && !hasId && oldFile.url && oldFile.url !== '#') {
+                            filesToDelete.push(oldFile);
+                        }
+                    });
+                }
+            });
+
+            for (const f of filesToDelete) {
+                await deleteNoteFileAssets(f.url, f.id);
+            }
+        }
+
+        // If thumbnail was replaced
+        if (updates.thumbnailUrl && existingNote.thumbnailUrl && updates.thumbnailUrl !== existingNote.thumbnailUrl) {
+            deleteFileFromR2(existingNote.thumbnailUrl).catch(e => logger.error('[R2] Error deleting old note thumbnail:', e));
+        }
+
+        const updateDoc: any = { $set: updates };
+        if (updates.validityType !== undefined) {
+            const validityType = updates.validityType === 'date' ? 'date' : 'months';
+            updateDoc.$set.validityType = validityType;
+            if (validityType === 'date' && updates.validityDate) {
+                updateDoc.$set.validityDate = new Date(updates.validityDate);
+                updateDoc.$set.validityMonths = 6;
+            } else {
+                updateDoc.$set.validityType = 'months';
+                updateDoc.$set.validityMonths = Number(updates.validityMonths) > 0 ? Number(updates.validityMonths) : 6;
+                updateDoc.$set.validityDate = null;
+            }
+        }
+
+        if (!updates.collegeConfig || !updates.collegeConfig.name?.trim() || !updates.collegeConfig.emailDomain?.trim()) {
+            delete updateDoc.$set.collegeConfig;
+            updateDoc.$unset = { ...(updateDoc.$unset || {}), collegeConfig: 1 };
+        } else {
+            updateDoc.$set.collegeConfig = {
+                name: updates.collegeConfig.name.trim(),
+                emailDomain: updates.collegeConfig.emailDomain.trim().toLowerCase()
+            };
+        }
+
+        const note = await Note.findOneAndUpdate({ id }, updateDoc, { new: true, runValidators: false });
         await Promise.all([cache.invalidate('notes:*'), cache.invalidate(`note:${id}`)]);
         res.json(note);
     } catch (err) { logger.error('[Notes] updateNote:', err); res.status(500).json({ error: 'An internal error occurred' }); }
@@ -233,26 +388,8 @@ export async function deleteNote(req: express.Request, res: express.Response): P
         const note = await Note.findOneAndDelete({ id }) as any;
         if (!note) { res.status(404).json({ error: 'Note not found' }); return; }
         
-        // Extract and delete files from R2
-        const keysToDelete: string[] = [];
-        const thumbKey = extractR2Key(note.thumbnailUrl);
-        if (thumbKey) keysToDelete.push(thumbKey);
-        
-        if (Array.isArray(note.sections)) {
-            note.sections.forEach((sec: any) => {
-                if (Array.isArray(sec.files)) {
-                    sec.files.forEach((f: any) => {
-                        const fk = extractR2Key(f.url);
-                        if (fk) keysToDelete.push(fk);
-                    });
-                }
-            });
-        }
-        
-        // Delete all extracted keys asynchronously
-        Promise.all(keysToDelete.map(k => deleteFileFromR2(k))).catch(e => {
-            logger.error('[Notes] Failed to delete some R2 files during note deletion:', e);
-        });
+        // Permanently delete all associated encrypted files, bundles, and thumbnails from R2 and MongoDB
+        await deleteNoteAssets(note);
 
         await Promise.all([cache.invalidate('notes:*'), cache.invalidate(`note:${id}`)]);
         res.json({ success: true });

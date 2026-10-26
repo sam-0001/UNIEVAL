@@ -18,7 +18,13 @@ async function main() {
         {
           AllowedHeaders: ['*'],
           AllowedMethods: ['GET', 'HEAD', 'PUT', 'POST', 'DELETE'],
-          AllowedOrigins: ['http://localhost:3000', 'https://unieval.in', 'https://www.unieval.in'],
+          AllowedOrigins: [
+            'http://localhost:3000',
+            'http://localhost:5173',
+            'https://unieval.in',
+            'https://www.unieval.in',
+            'https://app.unieval.in'
+          ],
           ExposeHeaders: ['ETag', 'Content-Type', 'Content-Length', 'Content-Range', 'Accept-Ranges'],
           MaxAgeSeconds: 3600
         }

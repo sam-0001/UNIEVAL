@@ -25,7 +25,10 @@ const courseSchema = new mongoose.Schema({
       resources: [{ title: String, url: String, type: { type: String } }]
     }]
   }],
-  collegeConfig: { name: String, emailDomain: String }
+  collegeConfig: { name: String, emailDomain: String },
+  validityType: { type: String, enum: ['months', 'date'], default: 'months' },
+  validityMonths: { type: Number, default: 6 },
+  validityDate: { type: Date, default: null }
 }, { timestamps: true });
 
 courseSchema.index({ subjectId: 1, teacherId: 1 });

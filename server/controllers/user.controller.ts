@@ -7,6 +7,7 @@ import { sanitizeUser, generateId, findUserByEmail } from './auth.controller.js'
 import { applyDiscount, incrementCouponUsage } from './coupon.controller.js';
 import { cache } from '../services/cache.service.js';
 import logger from '../logger.js';
+import { calculateItemExpiryDate, isPurchaseExpired, syncUserExpiredPurchases } from '../services/validity.service.js';
 
 // ─── Users ────────────────────────────────────────────────────────────────────
 
@@ -235,12 +236,14 @@ export async function createNoteOrder(req: express.Request, res: express.Respons
                     user.purchasedNoteIds.push(noteId);
                     await user.save();
                     const teacherId = (note as any).teacherId || 'admin';
+                    const expiresAt = calculateItemExpiryDate(note as any);
                     await Purchase.create({
                         id: randomUUID(), userId, productId: noteId,
                         teacherId, productType: couponPricing.discountedPrice <= 0 ? 'free' : 'note',
                         amountPaid: couponPricing.discountedPrice,
                         couponId: couponPricing.couponId,
                         discountAmount: couponPricing.discountAmount,
+                        expiresAt,
                     }).catch(err => { logger.warn('[Notes] Purchase record creation non-fatal error:', err); });
                     if (couponPricing.couponId) await incrementCouponUsage(couponPricing.couponId);
                 }
@@ -298,6 +301,7 @@ export async function verifyNotePurchase(req: express.Request, res: express.Resp
                 user.purchasedNoteIds.push(noteId);
                 await user.save();
                 const teacherId = (note as any).teacherId || 'admin';
+                const expiresAt = calculateItemExpiryDate(note as any);
                 await Purchase.create({
                     id: randomUUID(), userId, productId: noteId,
                     teacherId, productType: 'note',
@@ -306,6 +310,7 @@ export async function verifyNotePurchase(req: express.Request, res: express.Resp
                     discountAmount: couponPricing.discountAmount,
                     cashfreeOrderId: cashfree_order_id,
                     cashfreePaymentId: cashfree_payment_session_id,
+                    expiresAt,
                 }).catch(err => { logger.warn('[Notes] Purchase record creation non-fatal error:', err); });
                 if (couponPricing.couponId) await incrementCouponUsage(couponPricing.couponId);
             }
@@ -334,7 +339,8 @@ export async function purchaseNoteFree(req: express.Request, res: express.Respon
         if (!user) { res.status(404).json({ error: 'User not found' }); return; }
         
         // Security Check: Ensure note is free or user is from college
-        const isCollegeFree = !!note.collegeConfig?.emailDomain && user.email.endsWith(note.collegeConfig.emailDomain.trim());
+        const collegeDomain = note.collegeConfig?.emailDomain?.trim().toLowerCase();
+        const isCollegeFree = !!collegeDomain && collegeDomain.length >= 3 && user.email.toLowerCase().endsWith(collegeDomain);
         if ((note.price ?? 0) > 0 && !isCollegeFree) {
             res.status(403).json({ error: 'This note requires payment' }); return;
         }
@@ -350,13 +356,15 @@ export async function purchaseNoteFree(req: express.Request, res: express.Respon
         await user.save();
 
         const teacherId = (note as any).teacherId || 'admin';
+        const expiresAt = calculateItemExpiryDate(note as any);
         await Purchase.create({
             id: randomUUID(),
             userId,
             productId: noteId,
             teacherId,
             productType: 'free',
-            amountPaid: 0
+            amountPaid: 0,
+            expiresAt,
         }).catch(err => {
             logger.warn('[Notes] Purchase record creation non-fatal error:', err);
         });
@@ -416,12 +424,14 @@ export async function createCourseOrder(req: express.Request, res: express.Respo
                     user.purchasedCourseIds.push(courseId);
                     await user.save();
                     const teacherId = (course as any).teacherId || 'admin';
+                    const expiresAt = calculateItemExpiryDate(course as any);
                     await Purchase.create({
                         id: randomUUID(), userId, productId: courseId,
                         teacherId, productType: couponPricing.discountedPrice <= 0 ? 'free' : 'course',
                         amountPaid: couponPricing.discountedPrice,
                         couponId: couponPricing.couponId,
                         discountAmount: couponPricing.discountAmount,
+                        expiresAt,
                     }).catch(err => { logger.warn('[Courses] Purchase record creation non-fatal error:', err); });
                     if (couponPricing.couponId) await incrementCouponUsage(couponPricing.couponId);
                 }
@@ -479,6 +489,7 @@ export async function verifyCoursePayment(req: express.Request, res: express.Res
                 user.purchasedCourseIds.push(courseId);
                 await user.save();
                 const teacherId = (course as any).teacherId || 'admin';
+                const expiresAt = calculateItemExpiryDate(course as any);
                 await Purchase.create({
                     id: randomUUID(), userId, productId: courseId,
                     teacherId, productType: 'course',
@@ -487,6 +498,7 @@ export async function verifyCoursePayment(req: express.Request, res: express.Res
                     discountAmount: couponPricing.discountAmount,
                     cashfreeOrderId: cashfree_order_id,
                     cashfreePaymentId: cashfree_payment_session_id,
+                    expiresAt,
                 }).catch(err => { logger.warn('[Courses] Purchase record creation non-fatal error:', err); });
                 if (couponPricing.couponId) await incrementCouponUsage(couponPricing.couponId);
             }
@@ -515,7 +527,8 @@ export async function enrollCourseFree(req: express.Request, res: express.Respon
         if (!user) { res.status(404).json({ error: 'User not found' }); return; }
 
         // Security Check: Ensure course is free or user is from college
-        const isCollegeFree = !!course.collegeConfig?.emailDomain && user.email.endsWith(course.collegeConfig.emailDomain.trim());
+        const collegeDomain = course.collegeConfig?.emailDomain?.trim().toLowerCase();
+        const isCollegeFree = !!collegeDomain && collegeDomain.length >= 3 && user.email.toLowerCase().endsWith(collegeDomain);
         if ((course.price ?? 0) > 0 && !isCollegeFree) {
             res.status(403).json({ error: 'This course requires payment' }); return;
         }
@@ -532,13 +545,15 @@ export async function enrollCourseFree(req: express.Request, res: express.Respon
         await user.save();
 
         const teacherId = (course as any).teacherId || 'admin';
+        const expiresAt = calculateItemExpiryDate(course as any);
         await Purchase.create({
             id: randomUUID(),
             userId,
             productId: courseId,
             teacherId,
             productType: 'free',
-            amountPaid: 0
+            amountPaid: 0,
+            expiresAt,
         }).catch(err => {
             logger.warn('[Courses] Purchase record creation non-fatal error:', err);
         });
@@ -708,6 +723,28 @@ export async function getVideoKey(req: express.Request, res: express.Response): 
             res.status(403).send('Forbidden: Enrollment required'); return;
         }
 
+        if (hasPurchased && !isOwner && !isAdmin && !isPreviewVideo) {
+            const courseId = (course as any).id;
+            const now = new Date();
+            const sixMonthsAgo = new Date(now);
+            sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+
+            const activePurchase = await Purchase.findOne({
+                userId: user.id,
+                productId: courseId,
+                $or: [
+                    { expiresAt: { $gt: now } },
+                    { expiresAt: null, createdAt: { $gt: sixMonthsAgo } }
+                ]
+            }).lean();
+
+            if (!activePurchase) {
+                await User.updateOne({ id: user.id }, { $pull: { purchasedCourseIds: courseId } });
+                res.status(403).send('Forbidden: Course access has expired');
+                return;
+            }
+        }
+
         const record = await VideoKey.findOne({ videoId });
         if (!record) { res.status(404).send('Encryption key not found'); return; }
 
@@ -717,6 +754,49 @@ export async function getVideoKey(req: express.Request, res: express.Response): 
         res.send(Buffer.from(record.keyHex, 'hex'));
     } catch (err) {
         logger.error('[Video] getVideoKey:', err);
+        res.status(500).json({ error: 'An internal error occurred' });
+    }
+}
+
+export async function getMyPurchases(req: express.Request, res: express.Response): Promise<void> {
+    const userId = (req as any).currentUser?.id as string;
+    if (!userId) {
+        res.status(401).json({ error: 'Unauthorized' });
+        return;
+    }
+
+    try {
+        await syncUserExpiredPurchases(userId);
+
+        const purchases = await Purchase.find({ userId }).sort({ createdAt: -1 }).lean();
+        const now = new Date();
+
+        const result = purchases.map((p: any) => {
+            const isExpired = isPurchaseExpired(p);
+            let daysRemaining: number | null = null;
+            if (!isExpired) {
+                const expiryDate = p.expiresAt ? new Date(p.expiresAt) : new Date(new Date(p.createdAt).setMonth(new Date(p.createdAt).getMonth() + 6));
+                const diffTime = expiryDate.getTime() - now.getTime();
+                daysRemaining = Math.max(0, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
+            }
+
+            return {
+                id: p.id,
+                userId: p.userId,
+                productId: p.productId,
+                teacherId: p.teacherId,
+                productType: p.productType,
+                amountPaid: p.amountPaid,
+                createdAt: p.createdAt,
+                expiresAt: p.expiresAt || null,
+                isExpired,
+                daysRemaining
+            };
+        });
+
+        res.json(result);
+    } catch (err) {
+        logger.error('[User] getMyPurchases:', err);
         res.status(500).json({ error: 'An internal error occurred' });
     }
 }

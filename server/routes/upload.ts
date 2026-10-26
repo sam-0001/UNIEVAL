@@ -5,10 +5,11 @@ import ffmpegInstaller from '@ffmpeg-installer/ffmpeg';
 import path from 'path';
 import fs from 'fs';
 import crypto, { randomUUID } from 'crypto';
-import { S3Client, PutObjectCommand, DeleteObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
+import { S3Client, PutObjectCommand, DeleteObjectCommand, DeleteObjectsCommand, GetObjectCommand, ListObjectsV2Command } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { Course, VideoKey, FileKey } from '../models/index.js'; 
-import { requireAuth } from '../middleware/auth.js';
+import { requireAuth, requireRole } from '../middleware/auth.js';
+import { UserRole } from '../../types.js';
 import { uploadRateLimit, presignedUrlLimit } from '../middleware/userRateLimit.js';
 import logger from '../logger.js';
 import { enqueueVideoJob, isQueueAvailable } from '../services/queue.service.js';
@@ -119,12 +120,251 @@ const s3Client = new S3Client({
   responseChecksumValidation: "WHEN_REQUIRED",
 });
 
-export async function deleteFileFromR2(key: string): Promise<void> {
+export function extractR2KeyFromUrl(urlOrKey?: string): string | null {
+  if (!urlOrKey || typeof urlOrKey !== 'string') return null;
+  const trimmed = urlOrKey.trim();
+  if (!trimmed || trimmed === '#') return null;
+
+  // Don't touch external placeholder images
+  if (trimmed.includes('picsum.photos') || trimmed.includes('placeholder')) return null;
+
+  let pathStr = trimmed;
+  if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+    try {
+      const u = new URL(trimmed);
+      pathStr = u.pathname;
+    } catch {
+      return null;
+    }
+  }
+
+  // Strip query/hash if any
+  pathStr = pathStr.split('?')[0].split('#')[0];
+
+  // Remove leading slashes
+  pathStr = pathStr.replace(/^\/+/, '');
+
+  // Strip /uploads/ or uploads/ prefix if present
+  if (pathStr.startsWith('uploads/')) {
+    pathStr = pathStr.substring('uploads/'.length);
+  }
+
+  try {
+    pathStr = decodeURIComponent(pathStr);
+  } catch {
+    // ignore decode error
+  }
+
+  return pathStr || null;
+}
+
+export async function deleteFileFromR2(keyOrUrl: string): Promise<void> {
+  const key = extractR2KeyFromUrl(keyOrUrl);
+  if (!key) return;
+
+  // If local uploads file exists, delete it
+  const localPath = path.join(process.cwd(), 'uploads', key);
+  if (fs.existsSync(localPath)) {
+    try { fs.unlinkSync(localPath); } catch {}
+  }
+
   if (!R2_BUCKET_NAME) return;
   try {
     await s3Client.send(new DeleteObjectCommand({ Bucket: R2_BUCKET_NAME, Key: key }));
+    logger.info(`[R2] Deleted file: ${key}`);
   } catch (err) {
-    console.error(`[R2] Failed to delete ${key}:`, err);
+    logger.error(`[R2] Failed to delete ${key}:`, err);
+  }
+}
+
+export async function deleteDirectoryFromR2(prefix: string): Promise<void> {
+  if (!prefix) return;
+  const cleanPrefix = prefix.replace(/^\/+/, '').replace(/\/+$/, '') + '/';
+
+  // Clean local directory if exists
+  const localDir = path.join(process.cwd(), 'uploads', cleanPrefix);
+  if (fs.existsSync(localDir)) {
+    try { fs.rmSync(localDir, { recursive: true, force: true }); } catch {}
+  }
+  const folderName = cleanPrefix.replace(/^videos\//, '').replace(/\/$/, '');
+  const tempDir = path.join(TEMP_DIR, folderName);
+  if (fs.existsSync(tempDir)) {
+    try { fs.rmSync(tempDir, { recursive: true, force: true }); } catch {}
+  }
+
+  if (!R2_BUCKET_NAME) return;
+  try {
+    let continuationToken: string | undefined = undefined;
+    let totalDeleted = 0;
+    do {
+      const listCommand = new ListObjectsV2Command({
+        Bucket: R2_BUCKET_NAME,
+        Prefix: cleanPrefix,
+        ContinuationToken: continuationToken,
+      });
+      const listResult: any = await s3Client.send(listCommand);
+      const objects: any[] = listResult.Contents || [];
+      if (objects.length > 0) {
+        await s3Client.send(new DeleteObjectsCommand({
+          Bucket: R2_BUCKET_NAME,
+          Delete: {
+            Objects: objects.map((o: any) => ({ Key: o.Key! })),
+            Quiet: true,
+          },
+        }));
+        totalDeleted += objects.length;
+      }
+      continuationToken = listResult.IsTruncated ? listResult.NextContinuationToken : undefined;
+    } while (continuationToken);
+
+    if (totalDeleted > 0) {
+      logger.info(`[R2] Deleted ${totalDeleted} files under directory prefix: ${cleanPrefix}`);
+    }
+  } catch (err) {
+    logger.error(`[R2] Failed to delete directory prefix ${cleanPrefix}:`, err);
+  }
+}
+
+export async function deleteVideoAssets(video: {
+  id?: string;
+  videoId?: string;
+  videoKey?: string;
+  videoUrl?: string;
+  thumbnailUrl?: string;
+  resources?: any[];
+}): Promise<void> {
+  try {
+    // 1. Identify videoId
+    let vidId = video.videoId;
+    if (!vidId && video.videoUrl) {
+      const match = video.videoUrl.match(/videos\/(vid-[a-zA-Z0-9_-]+)/);
+      if (match) vidId = match[1];
+    }
+
+    if (vidId) {
+      // Delete HLS directory
+      await deleteDirectoryFromR2(`videos/${vidId}`);
+      // Delete video key record from MongoDB
+      await VideoKey.deleteOne({ videoId: vidId });
+      videoJobStore.delete(vidId);
+    }
+
+    // 2. Delete raw video upload (videoKey)
+    if (video.videoKey) {
+      await deleteFileFromR2(video.videoKey);
+    }
+
+    // 3. If videoUrl points directly to a file (not playlist.m3u8)
+    if (video.videoUrl && !video.videoUrl.includes('.m3u8')) {
+      await deleteFileFromR2(video.videoUrl);
+    }
+
+    // 4. Delete video thumbnail
+    if (video.thumbnailUrl) {
+      await deleteFileFromR2(video.thumbnailUrl);
+    }
+
+    // 5. Delete attached resources
+    if (Array.isArray(video.resources)) {
+      for (const resItem of video.resources) {
+        if (resItem?.url) {
+          await deleteFileFromR2(resItem.url);
+        }
+      }
+    }
+  } catch (err) {
+    logger.error('[R2] Error deleting video assets:', err);
+  }
+}
+
+export async function deleteNoteFileAssets(urlOrId?: string, fileIdFallback?: string): Promise<void> {
+  if (!urlOrId || urlOrId === '#') return;
+  try {
+    let fileId: string | null = null;
+    const match = urlOrId.match(/\/api\/secure-file-raw\/([a-zA-Z0-9-]+)/);
+    if (match) {
+      fileId = match[1];
+    } else if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(urlOrId)) {
+      fileId = urlOrId;
+    } else if (fileIdFallback && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(fileIdFallback)) {
+      const exists = await FileKey.exists({ fileId: fileIdFallback });
+      if (exists) fileId = fileIdFallback;
+    }
+
+    if (fileId) {
+      const record = await FileKey.findOne({ fileId }).lean() as any;
+      if (record) {
+        if (record.bundleId) {
+          const bundleRecords = await FileKey.find({ bundleId: record.bundleId }).lean() as any[];
+          for (const bRecord of bundleRecords) {
+            if (bRecord.storageKey) {
+              await deleteFileFromR2(bRecord.storageKey);
+            }
+          }
+          await FileKey.deleteMany({ bundleId: record.bundleId });
+        } else {
+          if (record.storageKey) {
+            await deleteFileFromR2(record.storageKey);
+          }
+          await FileKey.deleteOne({ fileId });
+        }
+        return;
+      }
+    }
+
+    // Direct R2 / public URL or path
+    await deleteFileFromR2(urlOrId);
+  } catch (err) {
+    logger.error('[R2] Error deleting note file assets:', err);
+  }
+}
+
+export async function deleteNoteAssets(note: {
+  id?: string;
+  thumbnailUrl?: string;
+  sections?: any[];
+}): Promise<void> {
+  try {
+    if (note.thumbnailUrl) {
+      await deleteFileFromR2(note.thumbnailUrl);
+    }
+    if (Array.isArray(note.sections)) {
+      for (const section of note.sections) {
+        if (Array.isArray(section.files)) {
+          for (const file of section.files) {
+            await deleteNoteFileAssets(file.url, file.id);
+          }
+        }
+      }
+    }
+  } catch (err) {
+    logger.error('[R2] Error deleting note assets:', err);
+  }
+}
+
+export async function deleteCourseAssets(course: any): Promise<void> {
+  try {
+    if (course.thumbnailUrl) {
+      await deleteFileFromR2(course.thumbnailUrl);
+    }
+    if (Array.isArray(course.modules)) {
+      for (const mod of course.modules) {
+        if (mod.videoUrl) await deleteFileFromR2(mod.videoUrl);
+        if (mod.videoKey) await deleteFileFromR2(mod.videoKey);
+        if (Array.isArray(mod.resources)) {
+          for (const r of mod.resources) {
+            if (r?.url) await deleteFileFromR2(r.url);
+          }
+        }
+        if (Array.isArray(mod.videos)) {
+          for (const vid of mod.videos) {
+            await deleteVideoAssets(vid);
+          }
+        }
+      }
+    }
+  } catch (err) {
+    logger.error('[R2] Error deleting course assets:', err);
   }
 }
 
@@ -215,6 +455,45 @@ async function updateCourseVideoStatus(videoId: string, status: string, finalUrl
 }
 
 // --- ROUTES ---
+
+router.post('/delete-files', requireAuth, requireRole(UserRole.TEACHER, UserRole.ADMIN, UserRole.SUPER_ADMIN), async (req: Request, res: Response): Promise<void> => {
+    const { urls } = req.body;
+    if (!Array.isArray(urls) || urls.length === 0) {
+        res.status(400).json({ error: 'urls array is required' });
+        return;
+    }
+    try {
+        for (const item of urls) {
+            if (!item || typeof item !== 'string' || item === '#') continue;
+
+            // 1. Video URL or ID
+            if (item.includes('/videos/') || item.startsWith('vid-') || item.includes('playlist.m3u8')) {
+                let vidId: string | undefined;
+                const match = item.match(/videos\/(vid-[a-zA-Z0-9_-]+)/);
+                if (match) vidId = match[1];
+                else if (item.startsWith('vid-')) vidId = item;
+
+                if (vidId) {
+                    await deleteVideoAssets({ videoId: vidId });
+                    continue;
+                }
+            }
+
+            // 2. Secure file proxy URL or file ID
+            if (item.includes('/api/secure-file-raw/') || /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(item)) {
+                await deleteNoteFileAssets(item);
+                continue;
+            }
+
+            // 3. Direct R2 key/URL
+            await deleteFileFromR2(item);
+        }
+        res.json({ success: true, message: 'Files deleted successfully' });
+    } catch (err) {
+        logger.error('[delete-files] Error deleting files:', err);
+        res.status(500).json({ error: 'Failed to delete files' });
+    }
+});
 
 router.get('/video/key/:videoId', async (req: Request, res: Response): Promise<void> => {
     try {

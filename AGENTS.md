@@ -37,7 +37,11 @@ This file serves as the permanent memory and architectural guide for the UniEval
 - **Image Cropping**: ALWAYS use `object-contain` for user-uploaded thumbnails (Course Covers, Video Thumbnails). Never use `object-cover` as it will crop the user's uploaded image.
 
 ## 6. Critical Rules & Recent Fixes
-- **Permanent Deletion**: When an Admin deletes a Course, Note, or Quiz, the backend actively reaches out to Cloudflare R2 to permanently delete all associated `.m3u8`, `.ts`, `.pdf`, and image files to save storage space. The UI must always warn the user explicitly about this.
+- **Permanent Deletion**: When an Admin deletes a Course, Note, or Quiz (or removes individual videos/files while editing):
+  - **Video Assets**: Videos are stored as HLS directories (`videos/${videoId}/*`) plus raw uploads (`raw-uploads/*`), thumbnails, and resources. Single-file S3 deletion is insufficient for HLS; `deleteDirectoryFromR2` recursively iterates all segments (`.m3u8` and `.ts`) via `ListObjectsV2Command` and bulk-purges them using `DeleteObjectsCommand`. Raw uploads (`videoKey`), thumbnails, resources, and MongoDB `VideoKey` encryption keys are all deleted.
+  - **Note & Document Assets**: Notes store files either as direct R2 uploads (`raw-uploads/*`) or encrypted-at-rest files/bundles (`secure-files/*` mapped via `FileKey` in MongoDB). Deletion properly resolves both raw R2 keys and `FileKey` entries (including full HTML bundle assets under the same `bundleId`) and removes both storage files and database records.
+  - **Course & Note Updates**: When an Admin edits a Course or Note and removes videos, modules, resources, or document sections, the backend compares existing items against incoming updates and immediately purges removed assets from R2.
+  - **Delete Files API**: `POST /api/delete-files` is authenticated and handles polymorphic asset cleanup (HLS directories, secure files, raw uploads, and thumbnails).
 - **Video Status Polling**: The frontend polls the backend for video processing status. If the local machine is bogged down by FFmpeg and the request times out (>15s), the frontend marks it as an "error". **Do not attempt to fix or shorten this timeout**, as it does not affect the actual background processing.
 - **Presigned URLs**: File uploads directly from the frontend to Cloudflare R2 must always use securely generated presigned URLs fetched from the backend (with correct auth headers).
 - **Live Classroom End & Recording Synchronization**: Webinar.gg manages live WebRTC streams and recordings within the studio iframe. Webinar.gg does not postMessage cross-origin completion events to the parent window; instead, UniEval actively syncs with Webinar.gg's REST API (`GET https://webinar-api.webinar.gg/api/v1/webinar/:id`) and recording playback status (`/api/webinar-recording/:id/playback`). When the instructor ends the session via Webinar.gg's studio toolbar:
@@ -61,6 +65,23 @@ This file serves as the permanent memory and architectural guide for the UniEval
     - In fullscreen mode, all buttons (header, banners, floating controls) are hidden to provide an unobstructed 100% video stream.
     - A discreet minimal pill `[Exit Fullscreen]` appears only when the user taps or moves the mouse, auto-disappearing after 2.5s.
     - Upon exiting fullscreen, orientation is automatically unlocked via `screen.orientation.unlock()`.
+
+  - **Course & Notes Access Expiry / Validity**:
+    - Teachers and Admins can configure student access validity when creating or editing any Course or Note Package.
+    - Two validity modes are supported:
+      - **Duration in Months**: Relative validity from the date student purchases or enrolls (default is **6 months**).
+      - **Exact Expiry Date**: Absolute calendar date (access expires at 11:59 PM on that date).
+    - `validity.service.ts` calculates `expiresAt` during order creation, payment verification, free college enrollment, and webhook processing.
+    - **Real-Time Revocation**:
+      - Upon `getMe` (/api/auth/me) and streaming key requests (`getVideoKey`), expired products are pruned immediately from the student's `purchasedCourseIds` and `purchasedNoteIds`.
+      - Secure file proxy (`/api/secure-file/:noteId/:fileId`) rejects expired note access with 403 Forbidden.
+      - Daily scheduler (`scheduler.service.ts`) runs at midnight to clean up expired purchases across all users.
+      - Student dashboard displays real-time countdown badges (`Xd access left` / `Expires today`).
+  - **College-Specific Free Access Toggle & Domain Hardening**:
+    - College-specific free access is completely optional and disabled by default.
+    - Teachers and Admins have a dedicated toggle switch and a "Remove College Access" button in `AdminDashboard.tsx` and `TeacherUpload.tsx`.
+    - When disabled or removed, the backend explicitly executes `$unset: { collegeConfig: 1 }` in MongoDB.
+    - Domain matching requires `collegeDomain.length >= 3` and strict case-insensitive suffix matching (`email.toLowerCase().endsWith(collegeDomain)`), completely preventing accidental free access for student emails.
 
 ---
 *(Note: As an agent, I will update this file whenever major architectural decisions, new features, or critical rules are established.)*

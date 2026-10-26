@@ -25,7 +25,10 @@ const noteSchema = new mongoose.Schema({
       isFree: Boolean
     }]
   }],
-  collegeConfig: { name: String, emailDomain: String }
+  collegeConfig: { name: String, emailDomain: String },
+  validityType: { type: String, enum: ['months', 'date'], default: 'months' },
+  validityMonths: { type: Number, default: 6 },
+  validityDate: { type: Date, default: null }
 }, { timestamps: true });
 
 noteSchema.index({ subjectId: 1, teacherId: 1 });

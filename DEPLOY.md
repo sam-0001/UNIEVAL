@@ -60,7 +60,7 @@ Fill in every value in `.env`:
 - `GEMINI_API_KEY` — from Google AI Studio
 - `AWS_*` — from your AWS IAM user (needs S3 read/write on your bucket)
 - `SMTP_*` — SMTP credentials for transactional email
-- `CORS_ORIGINS=https://unieval.in,https://www.unieval.in`
+- `CORS_ORIGINS=https://unieval.in,https://www.unieval.in,https://app.unieval.in`
 - `FORCE_HTTPS=true`
 - `NODE_ENV=production`
 
@@ -203,8 +203,8 @@ Enable CORS on the bucket so the browser can upload directly:
 [
   {
     "AllowedHeaders": ["*"],
-    "AllowedMethods": ["GET", "PUT", "POST", "DELETE"],
-    "AllowedOrigins": ["https://unieval.in"],
+    "AllowedMethods": ["GET", "PUT", "POST", "DELETE", "HEAD"],
+    "AllowedOrigins": ["https://unieval.in", "https://www.unieval.in", "https://app.unieval.in"],
     "ExposeHeaders": ["ETag"]
   }
 ]

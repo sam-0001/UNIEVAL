@@ -1,4 +1,4 @@
-import { User, UserRole, Subject, Course, Note, Quiz, Viva } from '../types';
+import { User, UserRole, Subject, Course, Note, Quiz, Viva, PurchaseRecord } from '../types';
 
 const API_BASE = '/api';
 
@@ -527,6 +527,11 @@ export const api = {
       headers: { 'Content-Type': 'application/json', ...authHeaders() },
       body: JSON.stringify({ urls })
     });
+  },
+
+  // ── User Purchases & Validity ──
+  getMyPurchases: async (): Promise<PurchaseRecord[]> => {
+    return fetchJson<PurchaseRecord[]>('/users/my-purchases', { headers: authHeaders() }).catch(() => []);
   },
 
   // ── Credit System ──

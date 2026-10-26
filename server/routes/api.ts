@@ -36,6 +36,7 @@ router.post('/auth/password/reset-by-phone', AuthCtrl.resetPasswordByPhone);
 router.post('/auth/super-admin/login', AdminCtrl.superAdminLogin);
 
 // ─── Users ────────────────────────────────────────────────────────────────────
+router.get('/users/my-purchases',    requireAuth, UserCtrl.getMyPurchases);
 router.get('/users/teachers',        UserCtrl.getTeachers);
 router.put('/users/:id',             requireAuth, UserCtrl.updateUser);
 router.get('/teachers/:id/stats',    requireAuth, UserCtrl.getTeacherStats);

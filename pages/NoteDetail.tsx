@@ -6,6 +6,7 @@ import { useAuth } from '../context/AuthContext';
 import SecurePdfViewer from '../components/SecurePdfViewer';
 import SecureHtmlViewer from '../components/SecureHtmlViewer';
 import { useSEO } from '../hooks/useSEO';
+import { Clock } from 'lucide-react';
 
 declare global {
   interface Window {
@@ -96,8 +97,10 @@ const NoteDetail: React.FC = () => {
   // Access logic
   const isPurchased = user?.purchasedNoteIds.includes(note?.id || '') || false;
   const isCollegeFree = React.useMemo(() => {
-    if (!user || !note || !note.collegeConfig) return false;
-    return user.email.endsWith(note.collegeConfig.emailDomain.trim());
+    if (!user || !note || !note.collegeConfig?.emailDomain) return false;
+    const domain = note.collegeConfig.emailDomain.trim();
+    if (!domain || domain.length < 3) return false;
+    return user.email.toLowerCase().endsWith(domain.toLowerCase());
   }, [user, note]);
   const hasAccess = !!user && isPurchased;
   const displayPrice = appliedCoupon ? appliedCoupon.discountedPrice : (note?.price || 0);
@@ -140,7 +143,8 @@ const NoteDetail: React.FC = () => {
     if (!note) return;
     setPaymentError('');
     const userIsPurchased = currentUser?.purchasedNoteIds.includes(note.id) || false;
-    const userIsCollegeFree = !!currentUser && !!note.collegeConfig && currentUser.email.endsWith(note.collegeConfig.emailDomain.trim());
+    const collegeDomain = note.collegeConfig?.emailDomain?.trim();
+    const userIsCollegeFree = !!currentUser && !!collegeDomain && collegeDomain.length >= 3 && currentUser.email.toLowerCase().endsWith(collegeDomain.toLowerCase());
     const userHasAccess = !!currentUser && userIsPurchased;
     if (userHasAccess) return;
     if (!currentUser) {
@@ -366,6 +370,20 @@ const NoteDetail: React.FC = () => {
                 ) : (
                   <span className="text-xl font-bold text-green-600">Free</span>
                 )}
+              </div>
+              <div className="flex flex-wrap items-center gap-2 mt-2">
+                {note.collegeConfig && !hasAccess && (
+                  <span className="inline-flex items-center gap-1.5 px-3 py-0.5 bg-green-50 text-green-700 text-xs font-bold rounded-full border border-green-200">
+                    <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" /></svg>
+                    Free for {note.collegeConfig.name} students
+                  </span>
+                )}
+                <span className="inline-flex items-center gap-1.5 px-3 py-0.5 bg-indigo-50 text-indigo-700 text-xs font-semibold rounded-full border border-indigo-200">
+                  <Clock className="w-3.5 h-3.5" />
+                  {note.validityType === 'date' && note.validityDate
+                    ? `Access Valid Until ${new Date(note.validityDate).toLocaleDateString()}`
+                    : `${note.validityMonths || 6} Months Access`}
+                </span>
               </div>
             </div>
           </div>

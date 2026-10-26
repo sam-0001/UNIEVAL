@@ -47,11 +47,16 @@ async function runDailyReset(): Promise<void> {
             }
         );
 
-        // Revoke access for purchases older than 6 months
+        // Revoke access for expired purchases (custom teacher expiry or default 6 months)
         const sixMonthsAgo = new Date(now);
         sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
 
-        const expiredPurchases = await Purchase.find({ createdAt: { $lt: sixMonthsAgo } }).lean();
+        const expiredPurchases = await Purchase.find({
+            $or: [
+                { expiresAt: { $ne: null, $lt: now } },
+                { expiresAt: null, createdAt: { $lt: sixMonthsAgo } }
+            ]
+        }).lean();
         
         let expiredNotesCount = 0;
         let expiredCoursesCount = 0;

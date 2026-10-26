@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth, useCredits } from '../context/AuthContext';
 import { api } from '../services/api';
-import { Course, Note, UserRole } from '../types';
+import { Course, Note, UserRole, PurchaseRecord } from '../types';
 import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import { io } from 'socket.io-client';
 import { 
@@ -46,6 +46,7 @@ const StudentDashboard: React.FC = () => {
   const [notes, setNotes] = useState<Note[]>([]);
   const [liveClasses, setLiveClasses] = useState<any[]>([]);
   const [subjects, setSubjects] = useState<any[]>([]);
+  const [myPurchases, setMyPurchases] = useState<Record<string, PurchaseRecord>>({});
   const [loading, setLoading] = useState(true);
   const [showBuyModal, setShowBuyModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -100,11 +101,12 @@ const StudentDashboard: React.FC = () => {
     if (user && user.role === UserRole.STUDENT) {
       const fetchPurchases = async () => {
         try {
-          const [allCourses, allNotes, scheduleRes, allSubjects] = await Promise.all([
+          const [allCourses, allNotes, scheduleRes, allSubjects, purchasesList] = await Promise.all([
               api.getCourses(), 
               api.getNotes(), 
               api.getMyLiveClassSchedule().catch(() => ({ liveClasses: [] })),
-              api.getSubjects()
+              api.getSubjects(),
+              api.getMyPurchases().catch(() => [])
           ]);
           setAllCoursesState(allCourses);
           setCourses(allCourses.filter(c => user.purchasedCourseIds?.includes(c.id)));
@@ -112,6 +114,12 @@ const StudentDashboard: React.FC = () => {
           setNotes(allNotes.filter(n => user.purchasedNoteIds?.includes(n.id)));
           setLiveClasses(scheduleRes.liveClasses || []);
           setSubjects(allSubjects || []);
+
+          const pMap: Record<string, PurchaseRecord> = {};
+          if (Array.isArray(purchasesList)) {
+            purchasesList.forEach(p => { pMap[p.productId] = p; });
+          }
+          setMyPurchases(pMap);
         } catch (error) {
           console.error('Failed to fetch purchases', error);
         } finally {
@@ -460,9 +468,23 @@ const StudentDashboard: React.FC = () => {
                                                             <FileText className="w-6 h-6" />
                                                         </div>
                                                         <div>
-                                                            <div className="text-xs font-bold text-[#1F81FC] mb-1 uppercase tracking-wide">
-                                                                {getSubjectBadge(n.subjectId)}
-                                                                {getSubjectName(n.subjectId) && <span className="text-slate-400 font-medium ml-1 tracking-normal normal-case">• {getSubjectName(n.subjectId)}</span>}
+                                                            <div className="flex flex-wrap items-center gap-2 mb-1">
+                                                                <div className="text-xs font-bold text-[#1F81FC] uppercase tracking-wide">
+                                                                    {getSubjectBadge(n.subjectId)}
+                                                                    {getSubjectName(n.subjectId) && <span className="text-slate-400 font-medium ml-1 tracking-normal normal-case">• {getSubjectName(n.subjectId)}</span>}
+                                                                </div>
+                                                                {myPurchases[n.id] && (
+                                                                    <span className={`text-[10px] font-semibold px-2 py-0.5 rounded flex items-center gap-1 ${
+                                                                        (myPurchases[n.id].daysRemaining ?? 999) <= 7 
+                                                                            ? 'bg-amber-50 text-amber-700 border border-amber-200' 
+                                                                            : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                                                    }`}>
+                                                                        <Clock className="w-2.5 h-2.5" />
+                                                                        {myPurchases[n.id].daysRemaining !== null 
+                                                                            ? `${myPurchases[n.id].daysRemaining}d left` 
+                                                                            : 'Active'}
+                                                                    </span>
+                                                                )}
                                                             </div>
                                                             <h3 className="font-bold text-slate-900 line-clamp-2">{n.title}</h3>
                                                         </div>
@@ -826,9 +848,23 @@ const StudentDashboard: React.FC = () => {
                                             <div className="flex-1 flex flex-col py-1">
                                                 <div className="flex justify-between items-start mb-2">
                                                     <div>
-                                                        <span className="text-xs font-bold text-blue-600 bg-blue-50 px-2.5 py-1 rounded-md uppercase tracking-wide">
-                                                            {getSubjectBadge(c.subjectId)}
-                                                        </span>
+                                                        <div className="flex flex-wrap items-center gap-2">
+                                                            <span className="text-xs font-bold text-blue-600 bg-blue-50 px-2.5 py-1 rounded-md uppercase tracking-wide">
+                                                                {getSubjectBadge(c.subjectId)}
+                                                            </span>
+                                                            {myPurchases[c.id] && (
+                                                                <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-md flex items-center gap-1 ${
+                                                                    (myPurchases[c.id].daysRemaining ?? 999) <= 7 
+                                                                        ? 'bg-amber-50 text-amber-700 border border-amber-200' 
+                                                                        : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                                                }`}>
+                                                                    <Clock className="w-3 h-3" />
+                                                                    {myPurchases[c.id].daysRemaining !== null 
+                                                                        ? `${myPurchases[c.id].daysRemaining}d access left` 
+                                                                        : 'Access active'}
+                                                                </span>
+                                                            )}
+                                                        </div>
                                                         <h3 className="font-bold text-slate-900 text-xl mt-3 mb-4">{c.title}</h3>
                                                     </div>
                                                     <button onClick={() => alert('Feature coming soon!')} className="text-slate-400 hover:text-slate-600 p-1">

@@ -1131,11 +1131,13 @@ const AdminDashboard: React.FC = () => {
               m.videos?.forEach(v => {
                   if (v.videoUrl && v.videoUrl !== '#') urlsToDelete.push(v.videoUrl);
                   if (v.videoKey) urlsToDelete.push(v.videoKey);
+                  if (v.videoId) urlsToDelete.push(v.videoId);
+                  if ((v as any).thumbnailUrl) urlsToDelete.push((v as any).thumbnailUrl);
                   v.resources?.forEach(r => { if (r.url) urlsToDelete.push(r.url); });
               });
           });
           if (urlsToDelete.length > 0) {
-              await fetch('/api/delete-files', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ urls: urlsToDelete }) });
+              try { await api.deleteFiles(urlsToDelete); } catch (e) { console.warn('deleteFiles warning:', e); }
           }
           if (api.deleteCourse) { await api.deleteCourse(course.id); } else { await fetch(`/api/courses/${course.id}`, { method: 'DELETE' }); }
           setCourses(courses.filter(c => c.id !== course.id));
@@ -1146,9 +1148,10 @@ const AdminDashboard: React.FC = () => {
       if (!window.confirm(`WARNING: Are you sure you want to delete the note package "${note.title}"?\n\nThis will permanently delete all associated PDF files from the database and Cloudflare R2 storage. This action CANNOT be undone and data CANNOT be restored.`)) return;
       try {
           const urlsToDelete: string[] = [];
+          if (note.thumbnailUrl) urlsToDelete.push(note.thumbnailUrl);
           note.sections?.forEach(s => { s.files?.forEach(f => { if (f.url && f.url !== '#') urlsToDelete.push(f.url); }); });
           if (urlsToDelete.length > 0) {
-              await fetch('/api/delete-files', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ urls: urlsToDelete }) });
+              try { await api.deleteFiles(urlsToDelete); } catch (e) { console.warn('deleteFiles warning:', e); }
           }
           if (api.deleteNote) { await api.deleteNote(note.id); } else { await fetch(`/api/notes/${note.id}`, { method: 'DELETE' }); }
           setNotes(notes.filter(n => n.id !== note.id));
@@ -1459,7 +1462,12 @@ const AdminDashboard: React.FC = () => {
                            <span className="absolute top-2 right-2 bg-black/60 text-white text-[10px] font-bold px-2 py-1 rounded">COMPUTER ENGINEERING</span>
                       </div>
                       <div className="p-4">
-                          <h3 className="font-bold text-gray-900 mb-1">{course.title}</h3>
+                          <div className="flex items-center gap-2 flex-wrap mb-1">
+                              <h3 className="font-bold text-gray-900">{course.title}</h3>
+                              {course.collegeConfig?.name && course.collegeConfig?.emailDomain && (
+                                  <span className="bg-purple-100 text-purple-700 text-[10px] font-bold px-2 py-0.5 rounded">Free for {course.collegeConfig.name}</span>
+                              )}
+                          </div>
                           <div className="flex justify-between items-center mt-4 pt-4 border-t border-gray-100">
                               <div>
                                 {course.originalPrice && course.originalPrice > (course.price || 0) ? (
@@ -1565,12 +1573,12 @@ const AdminDashboard: React.FC = () => {
                   <div key={note.id} className="bg-white rounded-xl border border-indigo-100 overflow-hidden shadow-sm hover:shadow-md transition-shadow relative">
                       <div className="absolute top-0 w-full h-1 bg-indigo-600"></div>
                       <div className="p-6">
-                          <h3 className="font-bold text-gray-900 text-lg mb-2">{note.title}</h3>
-                          {note.collegeConfig ? (
-                              <span className="bg-purple-100 text-purple-700 text-[10px] font-bold px-2 py-1 rounded">Free for {note.collegeConfig.name}</span>
-                          ) : note.price === 49 ? (
-                             <span className="bg-purple-100 text-purple-700 text-[10px] font-bold px-2 py-1 rounded">Free for Sinhgad</span>
-                          ) : null}
+                          <div className="flex items-center gap-2 flex-wrap mb-2">
+                              <h3 className="font-bold text-gray-900 text-lg">{note.title}</h3>
+                              {note.collegeConfig?.name && note.collegeConfig?.emailDomain && (
+                                  <span className="bg-purple-100 text-purple-700 text-[10px] font-bold px-2 py-1 rounded">Free for {note.collegeConfig.name}</span>
+                              )}
+                          </div>
                           <div className="flex justify-between items-center mt-6">
                               <div>
                                 {note.originalPrice && note.originalPrice > (note.price || 0) ? (
@@ -1883,8 +1891,14 @@ const CreateCourseModal: React.FC<{onClose: () => void; editItem?: Course | null
     const [price, setPrice] = useState(editItem?.price?.toString() || '499');
     const [originalPrice, setOriginalPrice] = useState(editItem?.originalPrice?.toString() || '');
     const [discountMode, setDiscountMode] = useState(!!editItem?.originalPrice);
+    const [enableCollegeFree, setEnableCollegeFree] = useState(!!(editItem?.collegeConfig?.name && editItem?.collegeConfig?.emailDomain));
     const [collegeName, setCollegeName] = useState(editItem?.collegeConfig?.name || '');
     const [collegeDomain, setCollegeDomain] = useState(editItem?.collegeConfig?.emailDomain || '');
+    const [validityType, setValidityType] = useState<'months' | 'date'>(editItem?.validityType || 'months');
+    const [validityMonths, setValidityMonths] = useState<number>(editItem?.validityMonths || 6);
+    const [validityDate, setValidityDate] = useState<string>(
+        editItem?.validityDate ? new Date(editItem.validityDate).toISOString().split('T')[0] : ''
+    );
     
     const [modules, setModules] = useState<{
         id: number;
@@ -2191,7 +2205,12 @@ const CreateCourseModal: React.FC<{onClose: () => void; editItem?: Course | null
             createdAt: editItem?.createdAt || new Date().toISOString(),
             price: parseFloat(price) || 0,
             originalPrice: originalPrice ? parseFloat(originalPrice) : undefined,
-            collegeConfig: collegeName ? { name: collegeName, emailDomain: collegeDomain } : undefined,
+            collegeConfig: (enableCollegeFree && collegeName.trim() && collegeDomain.trim()) 
+                ? { name: collegeName.trim(), emailDomain: collegeDomain.trim().toLowerCase() } 
+                : null,
+            validityType,
+            validityMonths: validityType === 'months' ? validityMonths : 6,
+            validityDate: validityType === 'date' && validityDate ? validityDate : undefined,
             modules: modules.map(m => ({
                 id: m.id.toString(), 
                 title: m.title,
@@ -2272,19 +2291,138 @@ const CreateCourseModal: React.FC<{onClose: () => void; editItem?: Course | null
                             </div>
                         )}
                     </div>
-                    <div className="p-6 border border-purple-100 bg-purple-50/50 rounded-xl">
-                        <h4 className="text-sm font-bold text-purple-800 mb-4">College-Specific Free Access (Optional)</h4>
-                        <div className="grid grid-cols-2 gap-4">
-                            <div>
-                                <label className="block text-xs font-bold text-purple-600 uppercase mb-1">College Name</label>
-                                <input type="text" placeholder="e.g. COEP" value={collegeName} onChange={(e) => setCollegeName(e.target.value)} className={`${INPUT_CLASS} border-purple-200 focus:ring-purple-500 focus:border-purple-500`} />
-                            </div>
-                            <div>
-                                <label className="block text-xs font-bold text-purple-600 uppercase mb-1">Email Domain</label>
-                                <input type="text" placeholder="@coep.ac.in" value={collegeDomain} onChange={(e) => setCollegeDomain(e.target.value)} className={`${INPUT_CLASS} border-purple-200 focus:ring-purple-500 focus:border-purple-500`} />
-                            </div>
+                    <div className="p-5 border border-indigo-100 bg-indigo-50/50 rounded-xl space-y-3">
+                        <div>
+                            <h4 className="text-sm font-bold text-indigo-950 flex items-center gap-1.5">
+                                <Clock className="w-4 h-4 text-indigo-600" />
+                                Student Access Expiry / Validity
+                            </h4>
+                            <p className="text-xs text-indigo-700/80 mt-0.5">
+                                Set when student access expires after enrolling. Default is 6 months.
+                            </p>
                         </div>
-                        <p className="text-xs text-purple-600 mt-2">Students logging in with emails ending in this domain will get free access.</p>
+                        <div className="flex flex-wrap items-center gap-4 pt-1">
+                            <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold text-gray-700">
+                                <input 
+                                    type="radio" 
+                                    name="courseValidityType" 
+                                    value="months" 
+                                    checked={validityType === 'months'} 
+                                    onChange={() => setValidityType('months')}
+                                    className="text-indigo-600 focus:ring-indigo-500" 
+                                />
+                                Duration in Months
+                            </label>
+                            <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold text-gray-700">
+                                <input 
+                                    type="radio" 
+                                    name="courseValidityType" 
+                                    value="date" 
+                                    checked={validityType === 'date'} 
+                                    onChange={() => setValidityType('date')}
+                                    className="text-indigo-600 focus:ring-indigo-500" 
+                                />
+                                Exact Expiry Date
+                            </label>
+                        </div>
+                        {validityType === 'months' ? (
+                            <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
+                                <div className="w-32">
+                                    <input 
+                                        type="number" 
+                                        min="1" 
+                                        max="60"
+                                        value={validityMonths} 
+                                        onChange={(e) => setValidityMonths(Math.max(1, parseInt(e.target.value) || 1))} 
+                                        className={INPUT_CLASS} 
+                                        placeholder="6" 
+                                    />
+                                </div>
+                                <span className="text-xs text-gray-600 font-medium">Month(s) access from purchase/enrollment date (Default: 6 months). After this, student access is revoked.</span>
+                            </div>
+                        ) : (
+                            <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
+                                <div className="w-48">
+                                    <input 
+                                        type="date" 
+                                        min={new Date().toISOString().split('T')[0]}
+                                        value={validityDate} 
+                                        onChange={(e) => setValidityDate(e.target.value)} 
+                                        className={INPUT_CLASS} 
+                                    />
+                                </div>
+                                <span className="text-xs text-gray-600 font-medium">Access will automatically expire for all students at 11:59 PM on this exact date.</span>
+                            </div>
+                        )}
+                    </div>
+                    <div className="p-6 border border-purple-100 bg-purple-50/50 rounded-xl space-y-4">
+                        <div className="flex items-center justify-between gap-4">
+                            <div>
+                                <h4 className="text-sm font-bold text-purple-900">College-Specific Free Access</h4>
+                                <p className="text-xs text-purple-600 mt-0.5">Allow students from a specific college email domain to access this course for free.</p>
+                            </div>
+                            <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                                <input 
+                                    type="checkbox" 
+                                    checked={enableCollegeFree} 
+                                    onChange={(e) => {
+                                        setEnableCollegeFree(e.target.checked);
+                                        if (!e.target.checked) {
+                                            setCollegeName('');
+                                            setCollegeDomain('');
+                                        }
+                                    }} 
+                                    className="sr-only peer" 
+                                />
+                                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
+                            </label>
+                        </div>
+
+                        {enableCollegeFree ? (
+                            <div className="space-y-3 pt-3 border-t border-purple-100 animate-in fade-in slide-in-from-top-1">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-xs font-bold text-purple-700 uppercase mb-1">College Name</label>
+                                        <input 
+                                            type="text" 
+                                            placeholder="e.g. COEP Tech, VJTI" 
+                                            value={collegeName} 
+                                            onChange={(e) => setCollegeName(e.target.value)} 
+                                            className={`${INPUT_CLASS} border-purple-200 focus:ring-purple-500 focus:border-purple-500`} 
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-bold text-purple-700 uppercase mb-1">Email Domain</label>
+                                        <input 
+                                            type="text" 
+                                            placeholder="@coep.ac.in" 
+                                            value={collegeDomain} 
+                                            onChange={(e) => setCollegeDomain(e.target.value)} 
+                                            className={`${INPUT_CLASS} border-purple-200 focus:ring-purple-500 focus:border-purple-500`} 
+                                        />
+                                    </div>
+                                </div>
+                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-purple-700 pt-1">
+                                    <span>Students logging in with emails ending in this domain will bypass payment and enroll for free.</span>
+                                    <button 
+                                        type="button" 
+                                        onClick={() => { setEnableCollegeFree(false); setCollegeName(''); setCollegeDomain(''); }} 
+                                        className="text-red-600 hover:text-red-700 font-bold hover:underline shrink-0 text-left"
+                                    >
+                                        Remove College Access
+                                    </button>
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="text-xs text-slate-500 flex items-center justify-between">
+                                <span>Standard mode: All students must purchase this course.</span>
+                                {editItem?.collegeConfig && (
+                                    <span className="text-xs font-semibold text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+                                        College free access will be removed upon saving
+                                    </span>
+                                )}
+                            </div>
+                        )}
                     </div>
                     <div className="border-t border-gray-200 pt-6">
                         <div className="flex justify-between items-center mb-4">
@@ -2409,6 +2547,12 @@ const CreateNoteModal: React.FC<{onClose: () => void; editItem?: Note | null; on
     const [originalPrice, setOriginalPrice] = useState(editItem?.originalPrice?.toString() || '');
     const [collegeName, setCollegeName] = useState(editItem?.collegeConfig?.name || '');
     const [collegeDomain, setCollegeDomain] = useState(editItem?.collegeConfig?.emailDomain || '');
+    const [enableCollegeFree, setEnableCollegeFree] = useState(!!(editItem?.collegeConfig?.name && editItem?.collegeConfig?.emailDomain));
+    const [validityType, setValidityType] = useState<'months' | 'date'>(editItem?.validityType || 'months');
+    const [validityMonths, setValidityMonths] = useState<number>(editItem?.validityMonths || 6);
+    const [validityDate, setValidityDate] = useState<string>(
+        editItem?.validityDate ? new Date(editItem.validityDate).toISOString().split('T')[0] : ''
+    );
     const subjectSelection = useSubjectSelection(editItem?.subjectId);
     const [sections, setSections] = useState<{id: number, title: string, files: {name: string, content?: string}[]}[]>(() => 
         editItem?.sections.map(s => ({ id: Math.random(), title: s.title, files: s.files.map(f => ({ name: f.title, content: f.url })) })) || [{id: 1, title: 'Notes', files: []}]
@@ -2477,13 +2621,18 @@ const CreateNoteModal: React.FC<{onClose: () => void; editItem?: Note | null; on
             uploadedAt: editItem?.uploadedAt || new Date().toISOString(),
             price: parseFloat(price) || 0,
             originalPrice: originalPrice ? parseFloat(originalPrice) : undefined,
-            collegeConfig: collegeName ? { name: collegeName, emailDomain: collegeDomain } : undefined,
+            collegeConfig: (enableCollegeFree && collegeName.trim() && collegeDomain.trim()) 
+                ? { name: collegeName.trim(), emailDomain: collegeDomain.trim().toLowerCase() } 
+                : null,
+            validityType,
+            validityMonths: validityType === 'months' ? validityMonths : 6,
+            validityDate: validityType === 'date' && validityDate ? validityDate : undefined,
             sections: sections.map(s => ({
                 id: s.id.toString(), title: s.title,
                 files: s.files.map((f) => ({ id: crypto.randomUUID(), title: f.name, url: f.content || '#', isFree: false }))
             }))
         };
-        onSave(noteData);
+        onSave(noteData as unknown as Note);
     };
 
     return (
@@ -2505,12 +2654,140 @@ const CreateNoteModal: React.FC<{onClose: () => void; editItem?: Note | null; on
                         </div>
                         <p className="text-xs text-gray-400 mt-1">If Original Price is set, it will show as crossed out.</p>
                     </div>
-                    <div className="p-6 border border-purple-100 bg-purple-50/50 rounded-xl">
-                        <h4 className="text-sm font-bold text-purple-800 mb-4">College-Specific Free Access (Optional)</h4>
-                        <div className="grid grid-cols-2 gap-4">
-                            <div><label className="block text-xs font-bold text-purple-600 uppercase mb-1">College Name</label><input type="text" placeholder="e.g. VJTI" value={collegeName} onChange={(e) => setCollegeName(e.target.value)} className={`${INPUT_CLASS} border-purple-200 focus:ring-purple-500 focus:border-purple-500`} /></div>
-                            <div><label className="block text-xs font-bold text-purple-600 uppercase mb-1">Email Domain</label><input type="text" placeholder="@vjti.ac.in" value={collegeDomain} onChange={(e) => setCollegeDomain(e.target.value)} className={`${INPUT_CLASS} border-purple-200 focus:ring-purple-500 focus:border-purple-500`} /></div>
+
+                    <div className="p-5 border border-indigo-100 bg-indigo-50/50 rounded-xl space-y-3">
+                        <div>
+                            <h4 className="text-sm font-bold text-indigo-950 flex items-center gap-1.5">
+                                <Clock className="w-4 h-4 text-indigo-600" />
+                                Student Access Expiry / Validity
+                            </h4>
+                            <p className="text-xs text-indigo-700/80 mt-0.5">
+                                Set when student access expires after purchasing or unlocking. Default is 6 months.
+                            </p>
                         </div>
+                        <div className="flex flex-wrap items-center gap-4 pt-1">
+                            <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold text-gray-700">
+                                <input 
+                                    type="radio" 
+                                    name="noteValidityType" 
+                                    value="months" 
+                                    checked={validityType === 'months'} 
+                                    onChange={() => setValidityType('months')}
+                                    className="text-indigo-600 focus:ring-indigo-500" 
+                                />
+                                Duration in Months
+                            </label>
+                            <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold text-gray-700">
+                                <input 
+                                    type="radio" 
+                                    name="noteValidityType" 
+                                    value="date" 
+                                    checked={validityType === 'date'} 
+                                    onChange={() => setValidityType('date')}
+                                    className="text-indigo-600 focus:ring-indigo-500" 
+                                />
+                                Exact Expiry Date
+                            </label>
+                        </div>
+                        {validityType === 'months' ? (
+                            <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
+                                <div className="w-32">
+                                    <input 
+                                        type="number" 
+                                        min="1" 
+                                        max="60"
+                                        value={validityMonths} 
+                                        onChange={(e) => setValidityMonths(Math.max(1, parseInt(e.target.value) || 1))} 
+                                        className={INPUT_CLASS} 
+                                        placeholder="6" 
+                                    />
+                                </div>
+                                <span className="text-xs text-gray-600 font-medium">Month(s) access from purchase/unlock date (Default: 6 months). After this, student access is revoked.</span>
+                            </div>
+                        ) : (
+                            <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
+                                <div className="w-48">
+                                    <input 
+                                        type="date" 
+                                        min={new Date().toISOString().split('T')[0]}
+                                        value={validityDate} 
+                                        onChange={(e) => setValidityDate(e.target.value)} 
+                                        className={INPUT_CLASS} 
+                                    />
+                                </div>
+                                <span className="text-xs text-gray-600 font-medium">Access will automatically expire for all students at 11:59 PM on this exact date.</span>
+                            </div>
+                        )}
+                    </div>
+
+                    <div className="p-6 border border-purple-100 bg-purple-50/50 rounded-xl space-y-4">
+                        <div className="flex items-center justify-between gap-4">
+                            <div>
+                                <h4 className="text-sm font-bold text-purple-900">College-Specific Free Access</h4>
+                                <p className="text-xs text-purple-600 mt-0.5">Allow students from a specific college email domain to access these notes for free.</p>
+                            </div>
+                            <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                                <input 
+                                    type="checkbox" 
+                                    checked={enableCollegeFree} 
+                                    onChange={(e) => {
+                                        setEnableCollegeFree(e.target.checked);
+                                        if (!e.target.checked) {
+                                            setCollegeName('');
+                                            setCollegeDomain('');
+                                        }
+                                    }} 
+                                    className="sr-only peer" 
+                                />
+                                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
+                            </label>
+                        </div>
+
+                        {enableCollegeFree ? (
+                            <div className="space-y-3 pt-3 border-t border-purple-100 animate-in fade-in slide-in-from-top-1">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-xs font-bold text-purple-700 uppercase mb-1">College Name</label>
+                                        <input 
+                                            type="text" 
+                                            placeholder="e.g. COEP Tech, VJTI" 
+                                            value={collegeName} 
+                                            onChange={(e) => setCollegeName(e.target.value)} 
+                                            className={`${INPUT_CLASS} border-purple-200 focus:ring-purple-500 focus:border-purple-500`} 
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-bold text-purple-700 uppercase mb-1">Email Domain</label>
+                                        <input 
+                                            type="text" 
+                                            placeholder="@coep.ac.in" 
+                                            value={collegeDomain} 
+                                            onChange={(e) => setCollegeDomain(e.target.value)} 
+                                            className={`${INPUT_CLASS} border-purple-200 focus:ring-purple-500 focus:border-purple-500`} 
+                                        />
+                                    </div>
+                                </div>
+                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-purple-700 pt-1">
+                                    <span>Students logging in with emails ending in this domain will bypass payment and access for free.</span>
+                                    <button 
+                                        type="button" 
+                                        onClick={() => { setEnableCollegeFree(false); setCollegeName(''); setCollegeDomain(''); }} 
+                                        className="text-red-600 hover:text-red-700 font-bold hover:underline shrink-0 text-left"
+                                    >
+                                        Remove College Access
+                                    </button>
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="text-xs text-slate-500 flex items-center justify-between">
+                                <span>Standard mode: All students must purchase these notes.</span>
+                                {editItem?.collegeConfig && (
+                                    <span className="text-xs font-semibold text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+                                        College free access will be removed upon saving
+                                    </span>
+                                )}
+                            </div>
+                        )}
                     </div>
                     <div className="border-t border-gray-200 pt-6">
                         <div className="flex justify-between items-center mb-6">

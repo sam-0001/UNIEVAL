@@ -72,7 +72,10 @@ const courseSchema = new mongoose.Schema({
   collegeConfig: {
     name: String,
     emailDomain: String
-  }
+  },
+  validityType: { type: String, enum: ['months', 'date'], default: 'months' },
+  validityMonths: { type: Number, default: 6 },
+  validityDate: { type: Date, default: null }
 }, { timestamps: true });
 
 courseSchema.index({ subjectId: 1, teacherId: 1 });
@@ -101,7 +104,10 @@ const noteSchema = new mongoose.Schema({
   collegeConfig: {
     name: String,
     emailDomain: String
-  }
+  },
+  validityType: { type: String, enum: ['months', 'date'], default: 'months' },
+  validityMonths: { type: Number, default: 6 },
+  validityDate: { type: Date, default: null }
 }, { timestamps: true });
 
 noteSchema.index({ subjectId: 1, teacherId: 1 });
@@ -126,7 +132,10 @@ const quizSchema = new mongoose.Schema({
   collegeConfig: {
     name: String,
     emailDomain: String
-  }
+  },
+  validityType: { type: String, enum: ['months', 'date'], default: 'months' },
+  validityMonths: { type: Number, default: 6 },
+  validityDate: { type: Date, default: null }
 }, { timestamps: true });
 
 quizSchema.index({ subjectId: 1, teacherId: 1 });
@@ -148,7 +157,10 @@ const vivaSchema = new mongoose.Schema({
   collegeConfig: {
     name: String,
     emailDomain: String
-  }
+  },
+  validityType: { type: String, enum: ['months', 'date'], default: 'months' },
+  validityMonths: { type: Number, default: 6 },
+  validityDate: { type: Date, default: null }
 }, { timestamps: true });
 
 vivaSchema.index({ subjectId: 1, teacherId: 1 });
@@ -293,8 +305,9 @@ const purchaseSchema = new mongoose.Schema({
   teacherId:         { type: String, required: true, index: true },
   productType:       { type: String, enum: ['note', 'course', 'quiz', 'viva', 'free'], required: true },
   amountPaid:        { type: Number, required: true },
-  cashfreeOrderId:   { type: String, default: null },
-  cashfreePaymentId: { type: String, default: null },
+  cashfreeOrderId:   { type: String, default: undefined },
+  cashfreePaymentId: { type: String, default: undefined },
+  expiresAt:         { type: Date, default: null, index: true },
 }, { timestamps: true });
  
 purchaseSchema.index({ teacherId: 1, createdAt: -1 });
