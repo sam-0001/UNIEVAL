@@ -79,7 +79,7 @@ const CourseDetail: React.FC = () => {
     }
   }, [user?.id]);
 
-  const isPurchased = user?.purchasedCourseIds.includes(course?.id || '') || false;
+  const isPurchased = user?.purchasedCourseIds?.includes(course?.id || '') || false;
   const isCollegeFree = React.useMemo(() => {
     if (!user || !course || !course.collegeConfig?.emailDomain) return false;
     const domain = course.collegeConfig.emailDomain.trim();
@@ -129,8 +129,8 @@ const CourseDetail: React.FC = () => {
   const handlePayment = (currentUser = user) => {
     if (!course) return;
 
-    const userIsPurchased = currentUser?.purchasedCourseIds.includes(course.id) || false;
-    const userHasAccess = !!currentUser && userIsPurchased;
+    const userIsPurchased = currentUser?.purchasedCourseIds?.includes(course.id) || false;
+    const userHasAccess = !!currentUser && (userIsPurchased || isAdmin || isTeacherOwner);
     if (userHasAccess) return;
 
     if (!currentUser) {

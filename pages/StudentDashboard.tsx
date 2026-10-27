@@ -1180,7 +1180,7 @@ const StudentDashboard: React.FC = () => {
                                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                                                 {recommendedCourses.map((c, i) => (
                                                     <div key={c.id} className="bg-white rounded-xl border border-slate-100 shadow-sm overflow-hidden flex flex-col group">
-                                                        <div className="aspect-[4/3] bg-slate-900 relative">
+                                                        <div className="aspect-video bg-slate-900 relative">
                                                             {c.thumbnailUrl && <img src={c.thumbnailUrl} className="w-full h-full object-contain opacity-90 group-hover:opacity-100 transition-opacity" />}
                                                             <div className="absolute top-3 left-3 bg-white/20 backdrop-blur-md text-white text-[10px] font-bold px-2 py-0.5 rounded">
                                                                 {getSubjectBadge(c.subjectId)}
@@ -1600,7 +1600,7 @@ const StudentDashboard: React.FC = () => {
                                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                                                 {recommendedNotes.map((n, i) => (
                                                     <Link key={n.id} to={`/note/${n.id}`} className="bg-white rounded-xl border border-slate-100 shadow-sm overflow-hidden flex flex-col group">
-                                                        <div className="aspect-[4/3] bg-slate-900 relative">
+                                                        <div className="aspect-video bg-slate-900 relative">
                                                             {n.thumbnailUrl ? <img src={n.thumbnailUrl} className="w-full h-full object-contain opacity-90 group-hover:opacity-100 transition-opacity" /> : <div className="w-full h-full bg-purple-900"></div>}
                                                             <div className="absolute top-3 left-3 bg-white/20 backdrop-blur-md text-white text-[10px] font-bold px-2 py-0.5 rounded">
                                                                 {getSubjectBadge(n.subjectId)}

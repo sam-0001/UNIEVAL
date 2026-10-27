@@ -84,4 +84,37 @@ describe('Security & Validity Audit Unit Tests', () => {
             expect(isPurchaseExpired({ expiresAt: null, createdAt: sevenMonthsAgo })).toBe(true);
         });
     });
+
+    describe('Year resolution & academic segmentation logic', () => {
+        const resolveYear = (subjectId: string, subjectsList: Array<{ id: string; year: number }>) => {
+            const found = subjectsList.find(s => s.id === subjectId);
+            if (found?.year) return found.year;
+            const lower = (subjectId || '').toLowerCase();
+            if (lower.startsWith('fe') || lower.includes('fe-') || lower.includes('first')) return 1;
+            if (lower.startsWith('se') || lower.includes('se-') || lower.includes('second')) return 2;
+            if (lower.startsWith('te') || lower.includes('te-') || lower.includes('third')) return 3;
+            if (lower.startsWith('be') || lower.includes('be-') || lower.includes('final')) return 4;
+            return 1;
+        };
+
+        it('should resolve year from subject document if present', () => {
+            const subjects = [
+                { id: 'sub-m1', year: 1 },
+                { id: 'sub-ds', year: 2 },
+                { id: 'sub-cn', year: 3 },
+                { id: 'sub-ai', year: 4 },
+            ];
+            expect(resolveYear('sub-m1', subjects)).toBe(1);
+            expect(resolveYear('sub-ds', subjects)).toBe(2);
+            expect(resolveYear('sub-cn', subjects)).toBe(3);
+            expect(resolveYear('sub-ai', subjects)).toBe(4);
+        });
+
+        it('should fallback to subjectId prefixes when subject record is missing', () => {
+            expect(resolveYear('fe-maths', [])).toBe(1);
+            expect(resolveYear('se-data-structures', [])).toBe(2);
+            expect(resolveYear('te-networks', [])).toBe(3);
+            expect(resolveYear('be-cloud-computing', [])).toBe(4);
+        });
+    });
 });

@@ -105,7 +105,7 @@ const NoteDetail: React.FC = () => {
   }, []);
 
   // Access logic
-  const isPurchased = user?.purchasedNoteIds.includes(note?.id || '') || false;
+  const isPurchased = user?.purchasedNoteIds?.includes(note?.id || '') || false;
   const isCollegeFree = React.useMemo(() => {
     if (!user || !note || !note.collegeConfig?.emailDomain) return false;
     const domain = note.collegeConfig.emailDomain.trim();
@@ -171,10 +171,10 @@ const NoteDetail: React.FC = () => {
   const handlePayment = async (currentUser = user) => {
     if (!note) return;
     setPaymentError('');
-    const userIsPurchased = currentUser?.purchasedNoteIds.includes(note.id) || false;
+    const userIsPurchased = currentUser?.purchasedNoteIds?.includes(note.id) || false;
     const collegeDomain = note.collegeConfig?.emailDomain?.trim();
     const userIsCollegeFree = !!currentUser && !!collegeDomain && collegeDomain.length >= 3 && currentUser.email.toLowerCase().endsWith(collegeDomain.toLowerCase());
-    const userHasAccess = !!currentUser && userIsPurchased;
+    const userHasAccess = !!currentUser && (userIsPurchased || isAdmin || isTeacherOwner);
     if (userHasAccess) return;
     if (!currentUser) {
       setOnLoginSuccess(() => (loggedInUser: User) => { handlePayment(loggedInUser); });
