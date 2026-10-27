@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth, useCredits } from '../context/AuthContext';
 import { api } from '../services/api';
 import { Course, Note, UserRole, PurchaseRecord } from '../types';
@@ -6,7 +6,7 @@ import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import { io } from 'socket.io-client';
 import { 
   LayoutDashboard, BookOpen, FileText, Video, VideoOff,
-  Settings, CreditCard, Sparkles, GraduationCap, ChevronRight, CheckCircle, Clock, LogOut, Menu, X, Brain, Wrench, Search, Bell, ArrowRight, Play, Zap, Compass, Rocket, Calendar, Download, Bookmark, Star, Navigation, Radio, Eye, Users, MonitorPlay, AlertCircle, Database, Globe, Loader2, RefreshCw
+  Settings, CreditCard, Sparkles, GraduationCap, ChevronRight, CheckCircle, Clock, LogOut, Menu, X, Brain, Wrench, Search, Bell, ArrowRight, Play, Zap, Compass, Rocket, Calendar, Download, Bookmark, Star, Navigation, Radio, Eye, Users, MonitorPlay, AlertCircle, Database, Globe, Loader2, RefreshCw, Layers, Filter
 } from 'lucide-react';
 import { BuyCreditsModal } from './QuizDetail';
 import CustomVideoPlayer from '../components/CustomVideoPlayer';
@@ -50,6 +50,10 @@ const StudentDashboard: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [showBuyModal, setShowBuyModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedNoteYearFilter, setSelectedNoteYearFilter] = useState<number | 'all'>('all');
+  const [noteSearchQuery, setNoteSearchQuery] = useState('');
+  const [selectedCourseYearFilter, setSelectedCourseYearFilter] = useState<number | 'all'>('all');
+  const [courseSearchQuery, setCourseSearchQuery] = useState('');
   const [liveTabFilter, setLiveTabFilter] = useState<'upcoming' | 'live' | 'my-classes' | 'recordings'>('upcoming');
   const [activeRecording, setActiveRecording] = useState<any | null>(null);
   const [playbackStreamUrl, setPlaybackStreamUrl] = useState<string | null>(null);
@@ -207,6 +211,117 @@ const StudentDashboard: React.FC = () => {
     { id: 'live', label: 'Live Classes', icon: Video },
     { id: 'billing', label: 'Credits & Plans', icon: CreditCard },
   ];
+
+  const getItemYear = useCallback((subjectId: string): number => {
+    const subject = subjects.find(s => s.id === subjectId);
+    if (subject?.year && typeof subject.year === 'number') {
+      return subject.year;
+    }
+    const lower = (subjectId || '').toLowerCase();
+    if (lower.startsWith('fe') || lower.includes('fe-') || lower.includes('first')) return 1;
+    if (lower.startsWith('se') || lower.includes('se-') || lower.includes('second')) return 2;
+    if (lower.startsWith('te') || lower.includes('te-') || lower.includes('third')) return 3;
+    if (lower.startsWith('be') || lower.includes('be-') || lower.includes('final')) return 4;
+    return 1;
+  }, [subjects]);
+
+  const getYearMeta = useCallback((yearNumber: number) => {
+    switch (yearNumber) {
+      case 1:
+        return {
+          code: 'FE',
+          name: 'First Year Engineering',
+          shortName: 'FE (First Year)',
+          badgeColor: 'bg-blue-50 text-blue-700 border-blue-200',
+          dotColor: 'bg-[#1F81FC]',
+          accentText: 'text-[#1F81FC]',
+          pillActive: 'bg-[#1F81FC] text-white shadow-sm',
+          pillInactive: 'bg-white text-slate-700 border border-slate-200 hover:bg-blue-50/50',
+          gradientBadge: 'from-blue-600 to-indigo-600',
+          borderColor: 'border-blue-100',
+          subtext: 'Common foundational subjects & first year engineering curriculum'
+        };
+      case 2:
+        return {
+          code: 'SE',
+          name: 'Second Year Engineering',
+          shortName: 'SE (Second Year)',
+          badgeColor: 'bg-indigo-50 text-indigo-700 border-indigo-200',
+          dotColor: 'bg-indigo-600',
+          accentText: 'text-indigo-600',
+          pillActive: 'bg-indigo-600 text-white shadow-sm',
+          pillInactive: 'bg-white text-slate-700 border border-slate-200 hover:bg-indigo-50/50',
+          gradientBadge: 'from-indigo-600 to-purple-600',
+          borderColor: 'border-indigo-100',
+          subtext: 'Department-specific core engineering subjects & lab courses'
+        };
+      case 3:
+        return {
+          code: 'TE',
+          name: 'Third Year Engineering',
+          shortName: 'TE (Third Year)',
+          badgeColor: 'bg-purple-50 text-purple-700 border-purple-200',
+          dotColor: 'bg-purple-600',
+          accentText: 'text-purple-600',
+          pillActive: 'bg-purple-600 text-white shadow-sm',
+          pillInactive: 'bg-white text-slate-700 border border-slate-200 hover:bg-purple-50/50',
+          gradientBadge: 'from-purple-600 to-pink-600',
+          borderColor: 'border-purple-100',
+          subtext: 'Advanced specialization & applied engineering coursework'
+        };
+      case 4:
+      default:
+        return {
+          code: 'BE',
+          name: 'Final Year Engineering',
+          shortName: 'BE (Final Year)',
+          badgeColor: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+          dotColor: 'bg-emerald-600',
+          accentText: 'text-emerald-700',
+          pillActive: 'bg-emerald-600 text-white shadow-sm',
+          pillInactive: 'bg-white text-slate-700 border border-slate-200 hover:bg-emerald-50/50',
+          gradientBadge: 'from-emerald-600 to-teal-600',
+          borderColor: 'border-emerald-100',
+          subtext: 'Final year electives, capstone projects & industry topics'
+        };
+    }
+  }, []);
+
+  const notesByYear = useMemo(() => {
+    const groups: Record<number, Note[]> = { 1: [], 2: [], 3: [], 4: [] };
+    for (const n of notes) {
+      const yr = getItemYear(n.subjectId);
+      if (!groups[yr]) groups[yr] = [];
+      groups[yr].push(n);
+    }
+    return groups;
+  }, [notes, getItemYear]);
+
+  const studentNoteYears = useMemo(() => {
+    const years = new Set<number>();
+    for (const n of notes) {
+      years.add(getItemYear(n.subjectId));
+    }
+    return Array.from(years).sort((a, b) => a - b);
+  }, [notes, getItemYear]);
+
+  const coursesByYear = useMemo(() => {
+    const groups: Record<number, Course[]> = { 1: [], 2: [], 3: [], 4: [] };
+    for (const c of courses) {
+      const yr = getItemYear(c.subjectId);
+      if (!groups[yr]) groups[yr] = [];
+      groups[yr].push(c);
+    }
+    return groups;
+  }, [courses, getItemYear]);
+
+  const studentCourseYears = useMemo(() => {
+    const years = new Set<number>();
+    for (const c of courses) {
+      years.add(getItemYear(c.subjectId));
+    }
+    return Array.from(years).sort((a, b) => a - b);
+  }, [courses, getItemYear]);
 
   const getSubjectBadge = (subjectId: string) => {
     const subject = subjects.find(s => s.id === subjectId);
@@ -814,115 +929,231 @@ const StudentDashboard: React.FC = () => {
                                 </div>
 
                                 {/* Filter Row */}
-                                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white p-2 rounded-xl border border-slate-100 shadow-sm">
-                                    <div className="flex items-center gap-2 overflow-x-auto w-full md:w-auto pb-2 md:pb-0">
-                                        <button onClick={() => alert('Feature coming soon!')} className="flex items-center gap-2 bg-blue-50 text-blue-600 px-4 py-2 rounded-lg text-sm font-semibold whitespace-nowrap">
-                                            <LayoutDashboard className="w-4 h-4" /> All Courses <span className="bg-white text-blue-600 px-1.5 py-0.5 rounded text-xs ml-1 shadow-sm">{courses.length}</span>
+                                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white p-3 rounded-2xl border border-slate-100 shadow-sm">
+                                    <div className="flex items-center gap-2 overflow-x-auto w-full md:w-auto pb-1 md:pb-0 no-scrollbar">
+                                        <button 
+                                            onClick={() => setSelectedCourseYearFilter('all')} 
+                                            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold whitespace-nowrap transition-all ${
+                                                selectedCourseYearFilter === 'all'
+                                                    ? 'bg-[#131A3F] text-white shadow-sm'
+                                                    : 'bg-slate-50 text-slate-700 hover:bg-slate-100 border border-slate-200'
+                                            }`}
+                                        >
+                                            <Layers className="w-4 h-4" /> All Courses <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                                selectedCourseYearFilter === 'all' ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-700'
+                                            }`}>{courses.length}</span>
                                         </button>
-                                        <button onClick={() => alert('Feature coming soon!')} className="flex items-center gap-2 text-slate-500 hover:bg-slate-50 px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors">
-                                            <Clock className="w-4 h-4" /> In Progress <span className="bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded text-xs ml-1">1</span>
-                                        </button>
-                                        <button onClick={() => alert('Feature coming soon!')} className="flex items-center gap-2 text-slate-500 hover:bg-slate-50 px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors">
-                                            <CheckCircle className="w-4 h-4" /> Completed <span className="bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded text-xs ml-1">0</span>
-                                        </button>
+
+                                        {studentCourseYears.map(yearNum => {
+                                            const meta = getYearMeta(yearNum);
+                                            const count = (coursesByYear[yearNum] || []).length;
+                                            const isSelected = selectedCourseYearFilter === yearNum;
+                                            return (
+                                                <button
+                                                    key={yearNum}
+                                                    onClick={() => setSelectedCourseYearFilter(isSelected ? 'all' : yearNum)}
+                                                    className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all whitespace-nowrap flex items-center gap-2 ${
+                                                        isSelected
+                                                            ? meta.pillActive
+                                                            : 'bg-white text-slate-700 hover:bg-slate-50 border border-slate-200'
+                                                    }`}
+                                                >
+                                                    <span className={`w-2 h-2 rounded-full ${meta.dotColor}`}></span>
+                                                    <span>{meta.code} • {meta.name}</span>
+                                                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                                        isSelected ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600'
+                                                    }`}>
+                                                        {count}
+                                                    </span>
+                                                </button>
+                                            );
+                                        })}
                                     </div>
-                                    <div className="flex items-center gap-2 shrink-0 px-2 text-sm text-slate-500">
-                                        <Menu className="w-4 h-4" /> Sort by
-                                        <select className="bg-transparent font-medium text-slate-800 focus:outline-none cursor-pointer">
-                                            <option>Recently Enrolled</option>
-                                            <option>Name (A-Z)</option>
-                                        </select>
+                                    <div className="relative w-full md:w-72 shrink-0">
+                                        <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                                        <input
+                                            type="text"
+                                            placeholder="Search courses..."
+                                            value={courseSearchQuery}
+                                            onChange={(e) => setCourseSearchQuery(e.target.value)}
+                                            className="w-full pl-9 pr-3 py-2 text-xs sm:text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#1F81FC]/30 text-slate-800 placeholder-slate-400"
+                                        />
                                     </div>
                                 </div>
 
-                                {/* My Courses List (Horizontal Cards) */}
-                                <div className="space-y-4">
-                                    {courses.map(c => (
-                                        <div key={c.id} className="bg-white rounded-2xl border border-slate-100 p-4 shadow-sm hover:shadow-md transition-shadow flex flex-col md:flex-row gap-6 relative">
-                                            {/* Thumbnail */}
-                                            <div className="w-full md:w-[280px] aspect-video bg-slate-100 rounded-xl overflow-hidden shrink-0">
-                                                {c.thumbnailUrl ? <img src={c.thumbnailUrl} className="w-full h-full object-contain bg-slate-900" /> : <div className="w-full h-full bg-indigo-100"></div>}
-                                            </div>
-                                            
-                                            {/* Content */}
-                                            <div className="flex-1 flex flex-col py-1">
-                                                <div className="flex justify-between items-start mb-2">
-                                                    <div>
-                                                        <div className="flex flex-wrap items-center gap-2">
-                                                            <span className="text-xs font-bold text-blue-600 bg-blue-50 px-2.5 py-1 rounded-md uppercase tracking-wide">
-                                                                {getSubjectBadge(c.subjectId)}
-                                                            </span>
-                                                            {myPurchases[c.id] && (
-                                                                <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-md flex items-center gap-1 ${
-                                                                    (myPurchases[c.id].daysRemaining ?? 999) <= 7 
-                                                                        ? 'bg-amber-50 text-amber-700 border border-amber-200' 
-                                                                        : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                                                                }`}>
-                                                                    <Clock className="w-3 h-3" />
-                                                                    {myPurchases[c.id].daysRemaining !== null 
-                                                                        ? `${myPurchases[c.id].daysRemaining}d access left` 
-                                                                        : 'Access active'}
-                                                                </span>
-                                                            )}
-                                                        </div>
-                                                        <h3 className="font-bold text-slate-900 text-xl mt-3 mb-4">{c.title}</h3>
-                                                    </div>
-                                                    <button onClick={() => alert('Feature coming soon!')} className="text-slate-400 hover:text-slate-600 p-1">
-                                                        <span className="flex flex-col gap-0.5">
-                                                            <span className="w-1 h-1 bg-current rounded-full"></span>
-                                                            <span className="w-1 h-1 bg-current rounded-full"></span>
-                                                            <span className="w-1 h-1 bg-current rounded-full"></span>
-                                                        </span>
-                                                    </button>
-                                                </div>
+                                {/* My Courses List */}
+                                {(() => {
+                                    const filteredCourses = courses.filter(c => {
+                                        const yr = getItemYear(c.subjectId);
+                                        if (selectedCourseYearFilter !== 'all' && yr !== selectedCourseYearFilter) return false;
+                                        if (courseSearchQuery.trim()) {
+                                            const q = courseSearchQuery.toLowerCase();
+                                            const titleMatch = c.title.toLowerCase().includes(q);
+                                            const descMatch = (c.description || '').toLowerCase().includes(q);
+                                            const subjMatch = getSubjectName(c.subjectId).toLowerCase().includes(q);
+                                            const badgeMatch = getSubjectBadge(c.subjectId).toLowerCase().includes(q);
+                                            if (!titleMatch && !descMatch && !subjMatch && !badgeMatch) return false;
+                                        }
+                                        return true;
+                                    });
 
-                                                {(() => {
-                                                    const lectureCount = c.modules?.reduce((acc: number, m: any) => acc + (m.videos?.length || (m.videoUrl ? 1 : 0)), 0) || (c.modules?.length ?? 0);
-                                                    const noteCount = c.modules?.reduce((acc: number, m: any) => acc + (m.resources?.length || 0) + (m.videos?.reduce((vacc: number, v: any) => vacc + (v.resources?.length || 0), 0) || 0), 0) || 0;
+                                    const renderCourseItem = (c: Course) => {
+                                        const lectureCount = c.modules?.reduce((acc: number, m: any) => acc + (m.videos?.length || (m.videoUrl ? 1 : 0)), 0) || (c.modules?.length ?? 0);
+                                        const noteCount = c.modules?.reduce((acc: number, m: any) => acc + (m.resources?.length || 0) + (m.videos?.reduce((vacc: number, v: any) => vacc + (v.resources?.length || 0), 0) || 0), 0) || 0;
+                                        return (
+                                            <div key={c.id} className="bg-white rounded-2xl border border-slate-100 p-4 shadow-sm hover:shadow-md transition-shadow flex flex-col md:flex-row gap-6 relative">
+                                                <div className="w-full md:w-[280px] aspect-video bg-slate-100 rounded-xl overflow-hidden shrink-0">
+                                                    {c.thumbnailUrl ? <img src={c.thumbnailUrl} className="w-full h-full object-contain bg-slate-900" /> : <div className="w-full h-full bg-indigo-100"></div>}
+                                                </div>
+                                                <div className="flex-1 flex flex-col py-1">
+                                                    <div className="flex justify-between items-start mb-2">
+                                                        <div>
+                                                            <div className="flex flex-wrap items-center gap-2">
+                                                                <span className="text-xs font-bold text-blue-600 bg-blue-50 px-2.5 py-1 rounded-md uppercase tracking-wide">
+                                                                    {getSubjectBadge(c.subjectId)}
+                                                                </span>
+                                                                {myPurchases[c.id] && (
+                                                                    <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-md flex items-center gap-1 ${
+                                                                        (myPurchases[c.id].daysRemaining ?? 999) <= 7 
+                                                                            ? 'bg-amber-50 text-amber-700 border border-amber-200' 
+                                                                            : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                                                    }`}>
+                                                                        <Clock className="w-3 h-3" />
+                                                                        {myPurchases[c.id].daysRemaining !== null 
+                                                                            ? `${myPurchases[c.id].daysRemaining}d access left` 
+                                                                            : 'Access active'}
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                            <h3 className="font-bold text-slate-900 text-xl mt-3 mb-4">{c.title}</h3>
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex items-center gap-6 text-sm text-slate-500 mb-6">
+                                                        <span className="flex items-center gap-1.5"><Video className="w-4 h-4" /> {lectureCount} {lectureCount === 1 ? 'Lecture' : 'Lectures'}</span>
+                                                        {noteCount > 0 && <span className="flex items-center gap-1.5"><FileText className="w-4 h-4" /> {noteCount} {noteCount === 1 ? 'Note' : 'Notes'}</span>}
+                                                        {c.modules && c.modules.length > 0 && <span className="flex items-center gap-1.5"><BookOpen className="w-4 h-4" /> {c.modules.length} {c.modules.length === 1 ? 'Module' : 'Modules'}</span>}
+                                                    </div>
+                                                    <div className="flex items-center gap-4 mt-auto">
+                                                        <div className="flex-1 flex items-center gap-3">
+                                                            <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
+                                                                <div className="h-full bg-blue-600 rounded-full" style={{ width: '0%' }}></div>
+                                                            </div>
+                                                            <span className="text-xs font-bold text-slate-500">0%</span>
+                                                        </div>
+                                                        <div className="flex flex-col sm:flex-row gap-2 shrink-0 ml-4">
+                                                            <Link to={`/course/${c.id}`} className="bg-blue-600 text-white px-5 py-2.5 rounded-lg text-sm font-semibold hover:bg-blue-700 transition-colors flex items-center justify-center gap-2">
+                                                                Continue Learning <ArrowRight className="w-4 h-4" />
+                                                            </Link>
+                                                            <Link to={`/course/${c.id}`} className="bg-blue-50 text-blue-600 px-5 py-2.5 rounded-lg text-sm font-semibold hover:bg-blue-100 transition-colors text-center">
+                                                                View Course Details
+                                                            </Link>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        );
+                                    };
+
+                                    if (courses.length === 0) {
+                                        return (
+                                            <div className="bg-slate-50 rounded-2xl border border-indigo-100 p-12 flex flex-col items-center justify-center text-center relative overflow-hidden">
+                                                <div className="absolute right-10 top-1/2 -translate-y-1/2 opacity-20 pointer-events-none hidden md:block">
+                                                    <Compass className="w-32 h-32 text-indigo-400 rotate-12" />
+                                                </div>
+                                                <div className="w-16 h-16 bg-indigo-100 text-indigo-600 rounded-2xl flex items-center justify-center mb-4 relative z-10 shadow-sm border border-white">
+                                                    <BookOpen className="w-8 h-8" />
+                                                </div>
+                                                <h3 className="text-lg font-bold text-slate-900 mb-2 relative z-10">You haven't enrolled in any courses yet.</h3>
+                                                <p className="text-sm text-slate-500 mb-6 relative z-10 max-w-sm">Discover high-quality courses from expert teachers and start your learning journey.</p>
+                                                <Link to="/browse" className="bg-indigo-600 text-white px-6 py-2.5 rounded-lg text-sm font-bold hover:bg-indigo-700 transition-colors shadow-md relative z-10 flex items-center gap-2">
+                                                    Browse Catalog <ArrowRight className="w-4 h-4" />
+                                                </Link>
+                                            </div>
+                                        );
+                                    }
+
+                                    if (selectedCourseYearFilter === 'all' && studentCourseYears.length > 1) {
+                                        return (
+                                            <div className="space-y-10">
+                                                {studentCourseYears.map(yearNum => {
+                                                    const meta = getYearMeta(yearNum);
+                                                    const yearCourses = filteredCourses.filter(c => getItemYear(c.subjectId) === yearNum);
+                                                    if (yearCourses.length === 0) return null;
                                                     return (
-                                                        <div className="flex items-center gap-6 text-sm text-slate-500 mb-6">
-                                                            <span className="flex items-center gap-1.5"><Video className="w-4 h-4" /> {lectureCount} {lectureCount === 1 ? 'Lecture' : 'Lectures'}</span>
-                                                            {noteCount > 0 && <span className="flex items-center gap-1.5"><FileText className="w-4 h-4" /> {noteCount} {noteCount === 1 ? 'Note' : 'Notes'}</span>}
-                                                            {c.modules && c.modules.length > 0 && <span className="flex items-center gap-1.5"><BookOpen className="w-4 h-4" /> {c.modules.length} {c.modules.length === 1 ? 'Module' : 'Modules'}</span>}
+                                                        <div key={yearNum} className="space-y-4">
+                                                            <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-slate-200/80 gap-2">
+                                                                <div className="flex items-center gap-3">
+                                                                    <span className={`px-2.5 py-1 rounded-lg text-xs font-extrabold uppercase tracking-wider border ${meta.badgeColor}`}>
+                                                                        {meta.code}
+                                                                    </span>
+                                                                    <div>
+                                                                        <h2 className="text-lg font-bold text-slate-900 leading-tight">
+                                                                            {meta.name}
+                                                                        </h2>
+                                                                        <p className="text-xs text-slate-500 mt-0.5">{meta.subtext}</p>
+                                                                    </div>
+                                                                </div>
+                                                                <div className="flex items-center gap-2 self-start sm:self-auto">
+                                                                    <span className="text-xs font-semibold text-slate-500 bg-slate-100 px-2.5 py-1 rounded-full">
+                                                                        {yearCourses.length} {yearCourses.length === 1 ? 'Course' : 'Courses'}
+                                                                    </span>
+                                                                    <button
+                                                                        onClick={() => setSelectedCourseYearFilter(yearNum)}
+                                                                        className="text-xs font-bold text-[#1F81FC] hover:underline flex items-center gap-1 ml-2"
+                                                                    >
+                                                                        Focus on {meta.code} <ArrowRight className="w-3 h-3" />
+                                                                    </button>
+                                                                </div>
+                                                            </div>
+                                                            <div className="space-y-4">
+                                                                {yearCourses.map(renderCourseItem)}
+                                                            </div>
                                                         </div>
                                                     );
-                                                })()}
-
-                                                <div className="flex items-center gap-4 mt-auto">
-                                                    <div className="flex-1 flex items-center gap-3">
-                                                        <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
-                                                            <div className="h-full bg-blue-600 rounded-full" style={{ width: '0%' }}></div>
-                                                        </div>
-                                                        <span className="text-xs font-bold text-slate-500">0%</span>
+                                                })}
+                                                {filteredCourses.length === 0 && (
+                                                    <div className="bg-white p-8 rounded-2xl border border-slate-100 text-center">
+                                                        <p className="text-sm text-slate-500">No courses found matching "{courseSearchQuery}".</p>
+                                                        <button onClick={() => setCourseSearchQuery('')} className="text-xs font-bold text-blue-600 hover:underline mt-2">Clear search</button>
                                                     </div>
-                                                    <div className="flex flex-col sm:flex-row gap-2 shrink-0 ml-4">
-                                                        <Link to={`/course/${c.id}`} className="bg-blue-600 text-white px-5 py-2.5 rounded-lg text-sm font-semibold hover:bg-blue-700 transition-colors flex items-center justify-center gap-2">
-                                                            Continue Learning <ArrowRight className="w-4 h-4" />
-                                                        </Link>
-                                                        <Link to={`/course/${c.id}`} className="bg-blue-50 text-blue-600 px-5 py-2.5 rounded-lg text-sm font-semibold hover:bg-blue-100 transition-colors text-center">
-                                                            View Course Details
-                                                        </Link>
-                                                    </div>
-                                                </div>
+                                                )}
                                             </div>
+                                        );
+                                    }
+
+                                    return (
+                                        <div className="space-y-4">
+                                            {selectedCourseYearFilter !== 'all' && (
+                                                <div className="flex items-center justify-between bg-blue-50/60 border border-blue-100 rounded-xl p-3 px-4">
+                                                    <span className="text-sm font-semibold text-slate-900">
+                                                        Showing {getYearMeta(selectedCourseYearFilter).name} ({filteredCourses.length})
+                                                    </span>
+                                                    <button
+                                                        onClick={() => setSelectedCourseYearFilter('all')}
+                                                        className="text-xs font-semibold text-blue-600 hover:text-blue-800 underline flex items-center gap-1"
+                                                    >
+                                                        Show all academic years
+                                                    </button>
+                                                </div>
+                                            )}
+                                            {filteredCourses.length > 0 ? (
+                                                <div className="space-y-4">
+                                                    {filteredCourses.map(renderCourseItem)}
+                                                </div>
+                                            ) : (
+                                                <div className="bg-white p-8 rounded-2xl border border-slate-100 text-center">
+                                                    <p className="text-sm text-slate-500">No courses found for this filter.</p>
+                                                    <button
+                                                        onClick={() => { setSelectedCourseYearFilter('all'); setCourseSearchQuery(''); }}
+                                                        className="text-xs font-bold text-blue-600 hover:underline mt-2"
+                                                    >
+                                                        Reset filters
+                                                    </button>
+                                                </div>
+                                            )}
                                         </div>
-                                    ))}
-                                    {courses.length === 0 && (
-                                         <div className="bg-slate-50 rounded-2xl border border-indigo-100 p-12 flex flex-col items-center justify-center text-center relative overflow-hidden">
-                                             <div className="absolute right-10 top-1/2 -translate-y-1/2 opacity-20 pointer-events-none hidden md:block">
-                                                 <Compass className="w-32 h-32 text-indigo-400 rotate-12" />
-                                             </div>
-                                             <div className="w-16 h-16 bg-indigo-100 text-indigo-600 rounded-2xl flex items-center justify-center mb-4 relative z-10 shadow-sm border border-white">
-                                                 <BookOpen className="w-8 h-8" />
-                                             </div>
-                                             <h3 className="text-lg font-bold text-slate-900 mb-2 relative z-10">You haven't enrolled in any courses yet.</h3>
-                                             <p className="text-sm text-slate-500 mb-6 relative z-10 max-w-sm">Discover high-quality courses from expert teachers and start your learning journey.</p>
-                                             <Link to="/browse" className="bg-indigo-600 text-white px-6 py-2.5 rounded-lg text-sm font-bold hover:bg-indigo-700 transition-colors shadow-md relative z-10 flex items-center gap-2">
-                                                 Browse Catalog <ArrowRight className="w-4 h-4" />
-                                             </Link>
-                                         </div>
-                                    )}
-                                </div>
+                                    );
+                                })()}
 
                                 {/* Recommended for You */}
                                 <div className="pt-8 border-t border-slate-100">
@@ -1024,7 +1255,7 @@ const StudentDashboard: React.FC = () => {
                                 {/* Top Stats Row */}
                                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                                     <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm flex items-center gap-4">
-                                        <div className="w-12 h-12 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600 shrink-0">
+                                        <div className="w-12 h-12 rounded-xl bg-blue-50 flex items-center justify-center text-[#1F81FC] shrink-0">
                                             <FileText className="w-6 h-6" />
                                         </div>
                                         <div>
@@ -1032,147 +1263,317 @@ const StudentDashboard: React.FC = () => {
                                             <div className="flex items-baseline gap-2">
                                                 <h3 className="text-2xl font-bold text-slate-900 leading-none mt-1">{notes.length}</h3>
                                             </div>
-                                            <p className="text-[10px] text-slate-400 mt-1">Purchased by you</p>
+                                            <p className="text-[10px] text-slate-400 mt-1">Purchased packages</p>
                                         </div>
                                     </div>
+
                                     <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm flex items-center gap-4">
-                                        <div className="w-12 h-12 rounded-xl bg-green-50 flex items-center justify-center text-green-600 shrink-0">
-                                            <Download className="w-6 h-6" />
+                                        <div className="w-12 h-12 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600 shrink-0 font-extrabold text-sm border border-blue-100">
+                                            FE
                                         </div>
                                         <div>
-                                            <p className="text-xs font-semibold text-slate-500">Downloads</p>
+                                            <p className="text-xs font-semibold text-slate-500">First Year (FE)</p>
                                             <div className="flex items-baseline gap-2">
-                                                <h3 className="text-2xl font-bold text-slate-900 leading-none mt-1">0</h3>
+                                                <h3 className="text-2xl font-bold text-slate-900 leading-none mt-1">
+                                                    {notesByYear[1]?.length || 0}
+                                                </h3>
                                             </div>
-                                            <p className="text-[10px] text-slate-400 mt-1">Notes downloaded</p>
+                                            <p className="text-[10px] text-slate-400 mt-1">Foundation notes</p>
                                         </div>
                                     </div>
+
+                                    <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm flex items-center gap-4">
+                                        <div className="w-12 h-12 rounded-xl bg-indigo-50 flex items-center justify-center text-indigo-600 shrink-0 font-extrabold text-sm border border-indigo-100">
+                                            SE
+                                        </div>
+                                        <div>
+                                            <p className="text-xs font-semibold text-slate-500">Second Year (SE)</p>
+                                            <div className="flex items-baseline gap-2">
+                                                <h3 className="text-2xl font-bold text-slate-900 leading-none mt-1">
+                                                    {notesByYear[2]?.length || 0}
+                                                </h3>
+                                            </div>
+                                            <p className="text-[10px] text-slate-400 mt-1">Department core</p>
+                                        </div>
+                                    </div>
+
                                     <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm flex items-center gap-4">
                                         <div className="w-12 h-12 rounded-xl bg-purple-50 flex items-center justify-center text-purple-600 shrink-0">
-                                            <Bookmark className="w-6 h-6" />
+                                            <Layers className="w-6 h-6" />
                                         </div>
                                         <div>
-                                            <p className="text-xs font-semibold text-slate-500">Saved Notes</p>
+                                            <p className="text-xs font-semibold text-slate-500">Curriculum Scope</p>
                                             <div className="flex items-baseline gap-2">
-                                                <h3 className="text-2xl font-bold text-slate-900 leading-none mt-1">0</h3>
+                                                <h3 className="text-base font-bold text-slate-900 leading-none mt-1">
+                                                    {studentNoteYears.length > 0 
+                                                        ? studentNoteYears.map(y => getYearMeta(y).code).join(' & ') 
+                                                        : 'None'}
+                                                </h3>
                                             </div>
-                                            <p className="text-[10px] text-slate-400 mt-1">Marked for later</p>
-                                        </div>
-                                    </div>
-                                    <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm flex items-center gap-4">
-                                        <div className="w-12 h-12 rounded-xl bg-orange-50 flex items-center justify-center text-orange-500 shrink-0">
-                                            <Star className="w-6 h-6" />
-                                        </div>
-                                        <div>
-                                            <p className="text-xs font-semibold text-slate-500">Free Notes</p>
-                                            <div className="flex items-baseline gap-2">
-                                                <h3 className="text-2xl font-bold text-slate-900 leading-none mt-1">0</h3>
-                                            </div>
-                                            <p className="text-[10px] text-slate-400 mt-1">Accessed for free</p>
+                                            <p className="text-[10px] text-slate-400 mt-1">Active academic years</p>
                                         </div>
                                     </div>
                                 </div>
 
-                                {/* Filter Row */}
-                                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                                    <div className="flex items-center gap-2 overflow-x-auto w-full md:w-auto pb-2 md:pb-0">
-                                        <button onClick={() => alert('Feature coming soon!')} className="bg-blue-600 text-white px-5 py-2 rounded-lg text-sm font-semibold whitespace-nowrap shadow-sm">
-                                            All Notes
+                                {/* Year Filter Tabs & Search Row */}
+                                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white p-3 rounded-2xl border border-slate-100 shadow-sm">
+                                    <div className="flex items-center gap-2 overflow-x-auto w-full md:w-auto pb-1 md:pb-0 no-scrollbar">
+                                        <button 
+                                            onClick={() => setSelectedNoteYearFilter('all')} 
+                                            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold whitespace-nowrap transition-all ${
+                                                selectedNoteYearFilter === 'all'
+                                                    ? 'bg-[#131A3F] text-white shadow-sm'
+                                                    : 'bg-slate-50 text-slate-700 hover:bg-slate-100 border border-slate-200'
+                                            }`}
+                                        >
+                                            <Layers className="w-4 h-4" /> All Academic Years <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                                selectedNoteYearFilter === 'all' ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-700'
+                                            }`}>{notes.length}</span>
                                         </button>
-                                        <button onClick={() => alert('Feature coming soon!')} className="bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 px-5 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors">
-                                            My Purchased
-                                        </button>
-                                        <button onClick={() => alert('Feature coming soon!')} className="bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 px-5 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors">
-                                            Free Notes
-                                        </button>
-                                        <button onClick={() => alert('Feature coming soon!')} className="bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 px-5 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors">
-                                            Saved
-                                        </button>
+
+                                        {studentNoteYears.map(yearNum => {
+                                            const meta = getYearMeta(yearNum);
+                                            const count = (notesByYear[yearNum] || []).length;
+                                            const isSelected = selectedNoteYearFilter === yearNum;
+                                            return (
+                                                <button
+                                                    key={yearNum}
+                                                    onClick={() => setSelectedNoteYearFilter(isSelected ? 'all' : yearNum)}
+                                                    className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all whitespace-nowrap flex items-center gap-2 ${
+                                                        isSelected
+                                                            ? meta.pillActive
+                                                            : 'bg-white text-slate-700 hover:bg-slate-50 border border-slate-200'
+                                                    }`}
+                                                >
+                                                    <span className={`w-2 h-2 rounded-full ${meta.dotColor}`}></span>
+                                                    <span>{meta.code} • {meta.name}</span>
+                                                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                                        isSelected ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600'
+                                                    }`}>
+                                                        {count}
+                                                    </span>
+                                                </button>
+                                            );
+                                        })}
                                     </div>
-                                    <div className="flex items-center gap-3 overflow-x-auto w-full md:w-auto">
-                                        <div className="bg-white border border-slate-200 rounded-lg px-3 py-1.5 flex flex-col shrink-0">
-                                            <span className="text-[10px] text-slate-400 font-medium leading-none mb-1">Branch</span>
-                                            <select className="bg-transparent text-xs font-semibold text-slate-700 focus:outline-none cursor-pointer">
-                                                <option>All Branches</option>
-                                            </select>
-                                        </div>
-                                        <div className="bg-white border border-slate-200 rounded-lg px-3 py-1.5 flex flex-col shrink-0">
-                                            <span className="text-[10px] text-slate-400 font-medium leading-none mb-1">Year</span>
-                                            <select className="bg-transparent text-xs font-semibold text-slate-700 focus:outline-none cursor-pointer">
-                                                <option>All Years</option>
-                                            </select>
-                                        </div>
-                                        <div className="bg-white border border-slate-200 rounded-lg px-3 py-1.5 flex flex-col shrink-0">
-                                            <span className="text-[10px] text-slate-400 font-medium leading-none mb-1">Subject</span>
-                                            <select className="bg-transparent text-xs font-semibold text-slate-700 focus:outline-none cursor-pointer">
-                                                <option>All Subjects</option>
-                                            </select>
-                                        </div>
+
+                                    <div className="relative w-full md:w-72 shrink-0">
+                                        <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                                        <input
+                                            type="text"
+                                            placeholder="Search notes or subjects..."
+                                            value={noteSearchQuery}
+                                            onChange={(e) => setNoteSearchQuery(e.target.value)}
+                                            className="w-full pl-9 pr-3 py-2 text-xs sm:text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#1F81FC]/30 text-slate-800 placeholder-slate-400"
+                                        />
                                     </div>
                                 </div>
 
-                                {/* Recently Purchased Notes */}
-                                <div>
-                                    <div className="flex items-center justify-between mb-4">
-                                        <div>
-                                            <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2"><Clock className="w-5 h-5 text-blue-500" /> Recently Purchased Notes</h2>
-                                            <p className="text-sm text-slate-500 ml-7">Your latest notes and study material</p>
-                                        </div>
-                                        <Link to="/notes" className="text-blue-600 text-sm font-bold flex items-center gap-1 hover:underline">View All <ArrowRight className="w-4 h-4" /></Link>
-                                    </div>
-                                    
-                                    {notes.length > 0 ? (
-                                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                                            {notes.slice(0,4).map(n => (
-                                                <Link key={n.id} to={`/note/${n.id}`} className="bg-white rounded-xl border border-slate-100 shadow-sm overflow-hidden flex flex-col group">
-                                                    <div className="aspect-[4/3] bg-slate-900 relative">
-                                                        {n.thumbnailUrl ? <img src={n.thumbnailUrl} className="w-full h-full object-contain opacity-90 group-hover:opacity-100 transition-opacity" /> : <div className="w-full h-full bg-indigo-900"></div>}
-                                                        <div className="absolute top-3 left-3 bg-white/20 backdrop-blur-md text-white text-[10px] font-bold px-2 py-0.5 rounded">
-                                                            {getSubjectBadge(n.subjectId)}
+                                {/* Notes Presentation: Grouped by Year or Filtered */}
+                                {(() => {
+                                    const filteredNotes = notes.filter(n => {
+                                        const yr = getItemYear(n.subjectId);
+                                        if (selectedNoteYearFilter !== 'all' && yr !== selectedNoteYearFilter) return false;
+                                        if (noteSearchQuery.trim()) {
+                                            const q = noteSearchQuery.toLowerCase();
+                                            const titleMatch = n.title.toLowerCase().includes(q);
+                                            const descMatch = (n.description || '').toLowerCase().includes(q);
+                                            const subjMatch = getSubjectName(n.subjectId).toLowerCase().includes(q);
+                                            const badgeMatch = getSubjectBadge(n.subjectId).toLowerCase().includes(q);
+                                            if (!titleMatch && !descMatch && !subjMatch && !badgeMatch) return false;
+                                        }
+                                        return true;
+                                    });
+
+                                    const renderNoteCard = (n: Note) => {
+                                        const purchase = myPurchases[n.id];
+                                        const fileCount = n.sections?.reduce((acc: number, s: any) => acc + (s.files?.length || 0), 0) || 0;
+                                        const yr = getItemYear(n.subjectId);
+                                        const meta = getYearMeta(yr);
+                                        const subjName = getSubjectName(n.subjectId);
+
+                                        return (
+                                            <Link 
+                                                key={n.id} 
+                                                to={`/note/${n.id}`} 
+                                                className="bg-white rounded-2xl border border-slate-100 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all overflow-hidden flex flex-col group relative"
+                                            >
+                                                <div className="aspect-video bg-slate-900 relative overflow-hidden">
+                                                    {n.thumbnailUrl ? (
+                                                        <img 
+                                                            src={n.thumbnailUrl} 
+                                                            alt={n.title} 
+                                                            className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-300" 
+                                                        />
+                                                    ) : (
+                                                        <div className="w-full h-full bg-slate-800 flex items-center justify-center text-slate-500">
+                                                            <FileText className="w-8 h-8 opacity-40" />
                                                         </div>
-                                                        <div className="absolute top-3 right-3 text-white/70 hover:text-white cursor-pointer">
-                                                            <Bookmark className="w-5 h-5" />
-                                                        </div>
-                                                        <div className="absolute bottom-3 right-3 bg-white text-red-600 text-[10px] font-bold px-2 py-1 rounded shadow-md flex items-center gap-1">
-                                                            <FileText className="w-3 h-3" /> PDF
-                                                        </div>
+                                                    )}
+                                                    
+                                                    {/* Year badge pill */}
+                                                    <div className="absolute top-2.5 left-2.5 flex items-center gap-1.5 bg-[#131A3F]/90 backdrop-blur-md text-white text-[10px] font-extrabold px-2.5 py-1 rounded-lg border border-white/10 shadow-sm">
+                                                        <span className={`w-1.5 h-1.5 rounded-full ${meta.dotColor}`}></span>
+                                                        <span>{meta.code}</span>
                                                     </div>
-                                                    <div className="p-4 flex-1 flex flex-col">
-                                                        <h3 className="font-bold text-slate-900 mb-2 line-clamp-2 leading-snug">{n.title}</h3>
-                                                        {(() => {
-                                                            const fileCount = n.sections?.reduce((acc: number, s: any) => acc + (s.files?.length || 0), 0) || 0;
-                                                            return (
-                                                                <div className="flex items-center gap-4 text-xs text-slate-500 mb-4">
-                                                                    <span className="flex items-center gap-1"><FileText className="w-3.5 h-3.5" /> {fileCount > 0 ? `${fileCount} ${fileCount === 1 ? 'PDF' : 'PDFs'}` : `${n.sections?.length || 0} Sections`}</span>
-                                                                </div>
-                                                            );
-                                                        })()}
-                                                        <div className="mt-auto flex items-center justify-between">
-                                                            <span className="font-bold text-slate-900">₹{n.price}</span>
-                                                            <span className="bg-blue-50 text-blue-600 px-3 py-1.5 rounded-lg text-xs font-bold group-hover:bg-blue-100 transition-colors flex items-center gap-1">
-                                                                View Notes <ArrowRight className="w-3 h-3" />
+
+                                                    {/* Expiry / Days remaining */}
+                                                    {purchase && (
+                                                        <div className="absolute top-2.5 right-2.5">
+                                                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md backdrop-blur-md shadow-sm flex items-center gap-1 ${
+                                                                (purchase.daysRemaining ?? 999) <= 7 
+                                                                    ? 'bg-amber-500/90 text-white' 
+                                                                    : 'bg-emerald-600/90 text-white'
+                                                            }`}>
+                                                                <Clock className="w-2.5 h-2.5" />
+                                                                {purchase.daysRemaining !== null 
+                                                                    ? `${purchase.daysRemaining}d left` 
+                                                                    : 'Active'}
                                                             </span>
                                                         </div>
+                                                    )}
+
+                                                    <div className="absolute bottom-2.5 right-2.5 bg-white/95 backdrop-blur-sm text-slate-800 text-[10px] font-bold px-2 py-0.5 rounded shadow-sm flex items-center gap-1">
+                                                        <FileText className="w-3 h-3 text-[#1F81FC]" /> PDF Notes
                                                     </div>
-                                                </Link>
-                                            ))}
-                                        </div>
-                                    ) : (
-                                        <div className="bg-slate-50 rounded-2xl border border-blue-100 p-12 flex flex-col items-center justify-center text-center relative overflow-hidden">
-                                            <div className="absolute right-10 top-1/2 -translate-y-1/2 opacity-20 pointer-events-none hidden md:block">
-                                                <Navigation className="w-32 h-32 text-blue-400 rotate-45" />
-                                            </div>
-                                            <div className="w-16 h-16 bg-blue-100 text-blue-500 rounded-2xl flex items-center justify-center mb-4 relative z-10 shadow-sm border border-white">
-                                                <FileText className="w-8 h-8" />
-                                            </div>
-                                            <h3 className="text-lg font-bold text-slate-900 mb-2 relative z-10">You haven't purchased any notes yet.</h3>
-                                            <p className="text-sm text-slate-500 mb-6 relative z-10 max-w-sm">Explore high quality notes prepared by expert teachers.</p>
-                                            <Link to="/notes" className="bg-blue-600 text-white px-6 py-2.5 rounded-lg text-sm font-bold hover:bg-blue-700 transition-colors shadow-md relative z-10 flex items-center gap-2">
-                                                Browse Notes <ArrowRight className="w-4 h-4" />
+                                                </div>
+
+                                                <div className="p-4 flex-1 flex flex-col">
+                                                    <div className="flex items-center gap-1.5 text-xs font-semibold text-[#1F81FC] mb-1.5 truncate">
+                                                        <span className="uppercase tracking-wider text-[11px] font-extrabold">{meta.code}</span>
+                                                        {subjName && <span className="text-slate-400 font-normal truncate">• {subjName}</span>}
+                                                    </div>
+
+                                                    <h3 className="font-bold text-slate-900 mb-2 line-clamp-2 leading-snug group-hover:text-[#1F81FC] transition-colors">
+                                                        {n.title}
+                                                    </h3>
+
+                                                    <div className="flex items-center gap-3 text-xs text-slate-500 mb-4">
+                                                        <span className="flex items-center gap-1">
+                                                            <FileText className="w-3.5 h-3.5 text-slate-400" /> 
+                                                            {fileCount > 0 ? `${fileCount} ${fileCount === 1 ? 'PDF' : 'PDFs'}` : `${n.sections?.length || 0} Sections`}
+                                                        </span>
+                                                    </div>
+
+                                                    <div className="mt-auto pt-3 border-t border-slate-100 flex items-center justify-between">
+                                                        <span className="text-xs font-medium text-slate-500">
+                                                            {purchase?.amountPaid === 0 ? 'Free Access' : 'Enrolled'}
+                                                        </span>
+                                                        <span className="bg-blue-50 text-blue-600 group-hover:bg-[#1F81FC] group-hover:text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1">
+                                                            Open Notes <ArrowRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
+                                                        </span>
+                                                    </div>
+                                                </div>
                                             </Link>
+                                        );
+                                    };
+
+                                    if (notes.length === 0) {
+                                        return (
+                                            <div className="bg-slate-50 rounded-2xl border border-blue-100 p-12 flex flex-col items-center justify-center text-center relative overflow-hidden">
+                                                <div className="absolute right-10 top-1/2 -translate-y-1/2 opacity-20 pointer-events-none hidden md:block">
+                                                    <Navigation className="w-32 h-32 text-blue-400 rotate-45" />
+                                                </div>
+                                                <div className="w-16 h-16 bg-blue-100 text-blue-500 rounded-2xl flex items-center justify-center mb-4 relative z-10 shadow-sm border border-white">
+                                                    <FileText className="w-8 h-8" />
+                                                </div>
+                                                <h3 className="text-lg font-bold text-slate-900 mb-2 relative z-10">You haven't purchased any notes yet.</h3>
+                                                <p className="text-sm text-slate-500 mb-6 relative z-10 max-w-sm">Explore high quality notes prepared by expert teachers.</p>
+                                                <Link to="/notes" className="bg-blue-600 text-white px-6 py-2.5 rounded-lg text-sm font-bold hover:bg-blue-700 transition-colors shadow-md relative z-10 flex items-center gap-2">
+                                                    Browse Notes <ArrowRight className="w-4 h-4" />
+                                                </Link>
+                                            </div>
+                                        );
+                                    }
+
+                                    // If student has notes across multiple academic years and viewing "All", group them into distinct year sections
+                                    if (selectedNoteYearFilter === 'all' && studentNoteYears.length > 1) {
+                                        return (
+                                            <div className="space-y-10">
+                                                {studentNoteYears.map(yearNum => {
+                                                    const meta = getYearMeta(yearNum);
+                                                    const yearNotes = filteredNotes.filter(n => getItemYear(n.subjectId) === yearNum);
+                                                    if (yearNotes.length === 0) return null;
+
+                                                    return (
+                                                        <div key={yearNum} className="space-y-4">
+                                                            <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-slate-200/80 gap-2">
+                                                                <div className="flex items-center gap-3">
+                                                                    <span className={`px-2.5 py-1 rounded-lg text-xs font-extrabold uppercase tracking-wider border ${meta.badgeColor}`}>
+                                                                        {meta.code}
+                                                                    </span>
+                                                                    <div>
+                                                                        <h2 className="text-lg font-bold text-slate-900 leading-tight">
+                                                                            {meta.name}
+                                                                        </h2>
+                                                                        <p className="text-xs text-slate-500 mt-0.5">{meta.subtext}</p>
+                                                                    </div>
+                                                                </div>
+                                                                <div className="flex items-center gap-2 self-start sm:self-auto">
+                                                                    <span className="text-xs font-semibold text-slate-500 bg-slate-100 px-2.5 py-1 rounded-full">
+                                                                        {yearNotes.length} {yearNotes.length === 1 ? 'Package' : 'Packages'}
+                                                                    </span>
+                                                                    <button
+                                                                        onClick={() => setSelectedNoteYearFilter(yearNum)}
+                                                                        className="text-xs font-bold text-[#1F81FC] hover:underline flex items-center gap-1 ml-2"
+                                                                    >
+                                                                        Focus on {meta.code} <ArrowRight className="w-3 h-3" />
+                                                                    </button>
+                                                                </div>
+                                                            </div>
+
+                                                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                                                                {yearNotes.map(renderNoteCard)}
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })}
+
+                                                {filteredNotes.length === 0 && (
+                                                    <div className="bg-white p-8 rounded-2xl border border-slate-100 text-center">
+                                                        <p className="text-sm text-slate-500">No notes found matching "{noteSearchQuery}".</p>
+                                                        <button onClick={() => setNoteSearchQuery('')} className="text-xs font-bold text-blue-600 hover:underline mt-2">Clear search</button>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        );
+                                    }
+
+                                    // Single year view or when only 1 year of notes exists
+                                    return (
+                                        <div className="space-y-4">
+                                            {selectedNoteYearFilter !== 'all' && (
+                                                <div className="flex items-center justify-between bg-blue-50/60 border border-blue-100 rounded-xl p-3 px-4">
+                                                    <span className="text-sm font-semibold text-slate-900">
+                                                        Showing {getYearMeta(selectedNoteYearFilter).name} ({filteredNotes.length})
+                                                    </span>
+                                                    <button
+                                                        onClick={() => setSelectedNoteYearFilter('all')}
+                                                        className="text-xs font-semibold text-blue-600 hover:text-blue-800 underline flex items-center gap-1"
+                                                    >
+                                                        Show all academic years
+                                                    </button>
+                                                </div>
+                                            )}
+
+                                            {filteredNotes.length > 0 ? (
+                                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                                                    {filteredNotes.map(renderNoteCard)}
+                                                </div>
+                                            ) : (
+                                                <div className="bg-white p-8 rounded-2xl border border-slate-100 text-center">
+                                                    <p className="text-sm text-slate-500">No notes found for this filter.</p>
+                                                    <button
+                                                        onClick={() => { setSelectedNoteYearFilter('all'); setNoteSearchQuery(''); }}
+                                                        className="text-xs font-bold text-blue-600 hover:underline mt-2"
+                                                    >
+                                                        Reset filters
+                                                    </button>
+                                                </div>
+                                            )}
                                         </div>
-                                    )}
-                                </div>
+                                    );
+                                })()}
 
                                 {/* Recommended for You */}
                                 <div className="pt-4">

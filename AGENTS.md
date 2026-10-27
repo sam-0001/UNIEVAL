@@ -104,6 +104,13 @@ This file serves as the permanent memory and architectural guide for the UniEval
     - **Month-End Date Rollover Clamping**: `addMonths` in `validity.service.ts` safely clamps month-end additions (e.g., Oct 31 + 6 months becomes April 30, preventing accidental overflow into May).
     - **Expired Free Re-Enrollment**: `enrollCourseFree` and `purchaseNoteFree` call `syncUserExpiredPurchases` prior to enrollment checks, allowing students to re-enroll once previous free or expired access concludes.
     - **Author & Admin Previewing**: `CourseDetail.tsx` and `NoteDetail.tsx` allow admins and owning teachers full access to preview and test their modules, videos, and PDFs. Initial file picker accurately selects the first non-empty section's file.
+  - **Multi-Year Academic Segmentation on Student Dashboard**:
+    - When students purchase notes or courses across multiple engineering years (e.g. FE and SE), the dashboard avoids clutter through smart segmentation:
+      - **Dynamic Year Filter Pills**: Quick tabs for `'All Academic Years'`, `'FE • First Year'`, `'SE • Second Year'`, etc., with real-time package counts.
+      - **Grouped Academic Year Sections**: In the default view, materials are organized under distinct, branded year section cards (`FE`, `SE`, `TE`, `BE`) with individual counters and "Focus on FE/SE" buttons rather than dumping them into a mixed flat list.
+      - **Dedicated Year Isolation**: Clicking any year pill isolates only materials from that academic year for distraction-free studying.
+      - **Inline Real-time Search**: Instant keyword filtering across note/course titles and subject names.
+      - **Uncapped Catalog**: Removed legacy `notes.slice(0, 4)` restriction so all unlocked packages are fully visible.
 
 ---
 *(Note: As an agent, I will update this file whenever major architectural decisions, new features, or critical rules are established.)*
