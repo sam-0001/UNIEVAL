@@ -123,6 +123,13 @@ export async function updateCourse(req: express.Request, res: express.Response):
         const existingCourse = await Course.findOne({ id }).lean() as any;
         if (!existingCourse) { res.status(404).json({ error: 'Course not found' }); return; }
 
+        const currentUser = (req as any).currentUser;
+        const isAdmin = currentUser?.role === UserRole.ADMIN || currentUser?.role === UserRole.SUPER_ADMIN;
+        if (currentUser?.role === UserRole.TEACHER && existingCourse.teacherId && existingCourse.teacherId !== currentUser.id && !isAdmin) {
+            res.status(403).json({ error: 'You are not authorized to update this course' });
+            return;
+        }
+
         // Clean up removed videos and resources from R2
         if (Array.isArray(updates.modules) && Array.isArray(existingCourse.modules)) {
             const newVideoIds = new Set<string>();
@@ -208,7 +215,17 @@ export async function updateCourse(req: express.Request, res: express.Response):
 
 export async function deleteCourse(req: express.Request, res: express.Response): Promise<void> {
     const id = req.params.id as string;
+    const currentUser = (req as any).currentUser;
     try {
+        const existingCourse = await Course.findOne({ id }).lean() as any;
+        if (!existingCourse) { res.status(404).json({ error: 'Course not found' }); return; }
+
+        const isAdmin = currentUser?.role === UserRole.ADMIN || currentUser?.role === UserRole.SUPER_ADMIN;
+        if (currentUser?.role === UserRole.TEACHER && existingCourse.teacherId && existingCourse.teacherId !== currentUser.id && !isAdmin) {
+            res.status(403).json({ error: 'You are not authorized to delete this course' });
+            return;
+        }
+
         const course = await Course.findOneAndDelete({ id }) as any;
         if (!course) { res.status(404).json({ error: 'Course not found' }); return; }
 
@@ -315,6 +332,13 @@ export async function updateNote(req: express.Request, res: express.Response): P
         const existingNote = await Note.findOne({ id }).lean() as any;
         if (!existingNote) { res.status(404).json({ error: 'Note not found' }); return; }
 
+        const currentUser = (req as any).currentUser;
+        const isAdmin = currentUser?.role === UserRole.ADMIN || currentUser?.role === UserRole.SUPER_ADMIN;
+        if (currentUser?.role === UserRole.TEACHER && existingNote.teacherId && existingNote.teacherId !== currentUser.id && !isAdmin) {
+            res.status(403).json({ error: 'You are not authorized to update this note' });
+            return;
+        }
+
         // Clean up removed files from R2 and MongoDB
         if (Array.isArray(updates.sections) && Array.isArray(existingNote.sections)) {
             const newFileUrls = new Set<string>();
@@ -384,7 +408,17 @@ export async function updateNote(req: express.Request, res: express.Response): P
 
 export async function deleteNote(req: express.Request, res: express.Response): Promise<void> {
     const id = req.params.id as string;
+    const currentUser = (req as any).currentUser;
     try {
+        const existingNote = await Note.findOne({ id }).lean() as any;
+        if (!existingNote) { res.status(404).json({ error: 'Note not found' }); return; }
+
+        const isAdmin = currentUser?.role === UserRole.ADMIN || currentUser?.role === UserRole.SUPER_ADMIN;
+        if (currentUser?.role === UserRole.TEACHER && existingNote.teacherId && existingNote.teacherId !== currentUser.id && !isAdmin) {
+            res.status(403).json({ error: 'You are not authorized to delete this note' });
+            return;
+        }
+
         const note = await Note.findOneAndDelete({ id }) as any;
         if (!note) { res.status(404).json({ error: 'Note not found' }); return; }
         
@@ -439,6 +473,16 @@ export async function createQuiz(req: express.Request, res: express.Response): P
 export async function updateQuiz(req: express.Request, res: express.Response): Promise<void> {
     const id = req.params.id as string;
     try {
+        const existingQuiz = await Quiz.findOne({ id }).lean() as any;
+        if (!existingQuiz) { res.status(404).json({ error: 'Quiz not found' }); return; }
+
+        const currentUser = (req as any).currentUser;
+        const isAdmin = currentUser?.role === UserRole.ADMIN || currentUser?.role === UserRole.SUPER_ADMIN;
+        if (currentUser?.role === UserRole.TEACHER && existingQuiz.teacherId && existingQuiz.teacherId !== currentUser.id && !isAdmin) {
+            res.status(403).json({ error: 'You are not authorized to update this quiz' });
+            return;
+        }
+
         const quiz = await Quiz.findOneAndUpdate({ id }, req.body, { new: true });
         if (!quiz) { res.status(404).json({ error: 'Quiz not found' }); return; }
         await Promise.all([cache.invalidate('quizzes:*'), cache.invalidate(`quiz:${id}`)]);
@@ -449,6 +493,16 @@ export async function updateQuiz(req: express.Request, res: express.Response): P
 export async function deleteQuiz(req: express.Request, res: express.Response): Promise<void> {
     const id = req.params.id as string;
     try {
+        const existingQuiz = await Quiz.findOne({ id }).lean() as any;
+        if (!existingQuiz) { res.status(404).json({ error: 'Quiz not found' }); return; }
+
+        const currentUser = (req as any).currentUser;
+        const isAdmin = currentUser?.role === UserRole.ADMIN || currentUser?.role === UserRole.SUPER_ADMIN;
+        if (currentUser?.role === UserRole.TEACHER && existingQuiz.teacherId && existingQuiz.teacherId !== currentUser.id && !isAdmin) {
+            res.status(403).json({ error: 'You are not authorized to delete this quiz' });
+            return;
+        }
+
         const quiz = await Quiz.findOneAndDelete({ id });
         if (!quiz) { res.status(404).json({ error: 'Quiz not found' }); return; }
         await Promise.all([cache.invalidate('quizzes:*'), cache.invalidate(`quiz:${id}`)]);
@@ -490,7 +544,12 @@ export async function createViva(req: express.Request, res: express.Response): P
     const vivaData = req.body;
     if (!vivaData.title || !vivaData.subjectId) { res.status(400).json({ error: 'Title and subjectId are required' }); return; }
     try {
-        const viva = await Viva.create({ ...vivaData, id: generateId() });
+        const currentUser = (req as any).currentUser;
+        const viva = await Viva.create({
+            ...vivaData,
+            id: generateId(),
+            teacherId: vivaData.teacherId || currentUser?.id
+        });
         await cache.invalidate('vivas:*');
         res.json(viva);
     } catch (err) { logger.error('[Vivas] createViva:', err); res.status(500).json({ error: 'An internal error occurred' }); }
@@ -499,6 +558,16 @@ export async function createViva(req: express.Request, res: express.Response): P
 export async function updateViva(req: express.Request, res: express.Response): Promise<void> {
     const id = req.params.id as string;
     try {
+        const existingViva = await Viva.findOne({ id }).lean() as any;
+        if (!existingViva) { res.status(404).json({ error: 'Viva not found' }); return; }
+
+        const currentUser = (req as any).currentUser;
+        const isAdmin = currentUser?.role === UserRole.ADMIN || currentUser?.role === UserRole.SUPER_ADMIN;
+        if (currentUser?.role === UserRole.TEACHER && existingViva.teacherId && existingViva.teacherId !== currentUser.id && !isAdmin) {
+            res.status(403).json({ error: 'You are not authorized to update this viva' });
+            return;
+        }
+
         const viva = await Viva.findOneAndUpdate({ id }, req.body, { new: true });
         if (!viva) { res.status(404).json({ error: 'Viva not found' }); return; }
         await Promise.all([cache.invalidate('vivas:*'), cache.invalidate(`viva:${id}`)]);
@@ -509,6 +578,16 @@ export async function updateViva(req: express.Request, res: express.Response): P
 export async function deleteViva(req: express.Request, res: express.Response): Promise<void> {
     const id = req.params.id as string;
     try {
+        const existingViva = await Viva.findOne({ id }).lean() as any;
+        if (!existingViva) { res.status(404).json({ error: 'Viva not found' }); return; }
+
+        const currentUser = (req as any).currentUser;
+        const isAdmin = currentUser?.role === UserRole.ADMIN || currentUser?.role === UserRole.SUPER_ADMIN;
+        if (currentUser?.role === UserRole.TEACHER && existingViva.teacherId && existingViva.teacherId !== currentUser.id && !isAdmin) {
+            res.status(403).json({ error: 'You are not authorized to delete this viva' });
+            return;
+        }
+
         const viva = await Viva.findOneAndDelete({ id });
         if (!viva) { res.status(404).json({ error: 'Viva not found' }); return; }
         await Promise.all([cache.invalidate('vivas:*'), cache.invalidate(`viva:${id}`)]);

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { api } from '../services/api';
-import { Course, CourseModule, CourseVideo, User } from '../types';
+import { Course, CourseModule, CourseVideo, User, UserRole } from '../types';
 import { useAuth } from '../context/AuthContext';
 import CustomVideoPlayer from '../components/CustomVideoPlayer';
 import { useSEO } from '../hooks/useSEO';
@@ -86,7 +86,9 @@ const CourseDetail: React.FC = () => {
     if (!domain || domain.length < 3) return false;
     return user.email.toLowerCase().endsWith(domain.toLowerCase());
   }, [user, course]);
-  const hasAccess = !!user && isPurchased;
+  const isAdmin = user?.role === UserRole.ADMIN || user?.role === UserRole.SUPER_ADMIN;
+  const isTeacherOwner = user?.role === UserRole.TEACHER && Boolean(user?.id && course?.teacherId && user.id === course.teacherId);
+  const hasAccess = !!user && (isPurchased || isAdmin || isTeacherOwner);
   const displayPrice = appliedCoupon ? appliedCoupon.discountedPrice : (course?.price || 0);
 
   const handleApplyCoupon = async () => {

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { api } from '../services/api';
-import { Note, NoteFile, User } from '../types';
+import { Note, NoteFile, User, UserRole } from '../types';
 import { useAuth } from '../context/AuthContext';
 import SecurePdfViewer from '../components/SecurePdfViewer';
 import SecureHtmlViewer from '../components/SecureHtmlViewer';
@@ -51,10 +51,11 @@ const NoteDetail: React.FC = () => {
       setTimeout(() => setLoading(true), 0);
       api.getNoteById(id).then(data => {
         setNote(data || null);
-        if (data && data.sections.length > 0) {
+        if (data && Array.isArray(data.sections) && data.sections.length > 0) {
           setExpandedSections(new Set(data.sections.map(s => s.id)));
-          if (data.sections[0].files.length > 0) {
-            setActiveFile(data.sections[0].files[0]);
+          const firstAvailableFile = data.sections.find(s => Array.isArray(s.files) && s.files.length > 0)?.files[0];
+          if (firstAvailableFile) {
+            setActiveFile(firstAvailableFile);
           }
         }
         setLoading(false);
@@ -85,11 +86,20 @@ const NoteDetail: React.FC = () => {
     if (!el) return;
     if (!document.fullscreenElement) {
       try {
-        await el.requestFullscreen();
+        if (el.requestFullscreen) {
+          await el.requestFullscreen();
+        }
         setIsFullscreen(true);
-      } catch { /* unsupported */ }
+      } catch {
+        // Fallback for iOS Safari / touch devices that disallow requestFullscreen on div
+        setIsFullscreen(prev => !prev);
+      }
     } else {
-      await document.exitFullscreen();
+      try {
+        if (document.exitFullscreen) {
+          await document.exitFullscreen();
+        }
+      } catch { /* ignore */ }
       setIsFullscreen(false);
     }
   }, []);
@@ -102,7 +112,9 @@ const NoteDetail: React.FC = () => {
     if (!domain || domain.length < 3) return false;
     return user.email.toLowerCase().endsWith(domain.toLowerCase());
   }, [user, note]);
-  const hasAccess = !!user && isPurchased;
+  const isAdmin = user?.role === UserRole.ADMIN || user?.role === UserRole.SUPER_ADMIN;
+  const isTeacherOwner = user?.role === UserRole.TEACHER && Boolean(user?.id && note?.teacherId && user.id === note.teacherId);
+  const hasAccess = !!user && (isPurchased || isAdmin || isTeacherOwner);
 
   // Find the first file across all sections (1st PDF open for everyone as demo)
   const firstFileId = React.useMemo(() => {

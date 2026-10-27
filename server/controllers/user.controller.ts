@@ -36,8 +36,15 @@ export async function updateUser(req: express.Request, res: express.Response): P
     if (!canEdit) { res.status(403).json({ error: 'You can only update your own profile' }); return; }
 
     const updates = { ...req.body };
-    // Strip fields that must never be updated via this endpoint
-    ['password', 'role', 'id', '_id', 'purchasedNoteIds'].forEach(k => delete updates[k]);
+    // Strip sensitive fields that must never be updated via this user profile endpoint
+    [
+        'password', 'role', 'id', '_id',
+        'purchasedCourseIds', 'purchasedNoteIds',
+        'archivedCourseIds', 'archivedNoteIds',
+        'credits', 'unlimitedPlan',
+        'freeQuizUsedToday', 'lastReset',
+        'sessionToken'
+    ].forEach(k => delete updates[k]);
 
     try {
         const user = await User.findOneAndUpdate({ id }, updates, { new: true, projection: { password: 0, __v: 0 } });
@@ -239,7 +246,7 @@ export async function createNoteOrder(req: express.Request, res: express.Respons
                     const expiresAt = calculateItemExpiryDate(note as any);
                     await Purchase.create({
                         id: randomUUID(), userId, productId: noteId,
-                        teacherId, productType: couponPricing.discountedPrice <= 0 ? 'free' : 'note',
+                        teacherId, productType: 'note',
                         amountPaid: couponPricing.discountedPrice,
                         couponId: couponPricing.couponId,
                         discountAmount: couponPricing.discountAmount,
@@ -331,6 +338,7 @@ export async function purchaseNoteFree(req: express.Request, res: express.Respon
     }
 
     try {
+        await syncUserExpiredPurchases(userId);
         const [note, user] = await Promise.all([
             Note.findOne({ id: noteId }).lean(),
             User.findOne({ id: userId })
@@ -362,7 +370,7 @@ export async function purchaseNoteFree(req: express.Request, res: express.Respon
             userId,
             productId: noteId,
             teacherId,
-            productType: 'free',
+            productType: 'note',
             amountPaid: 0,
             expiresAt,
         }).catch(err => {
@@ -519,6 +527,7 @@ export async function enrollCourseFree(req: express.Request, res: express.Respon
     }
 
     try {
+        await syncUserExpiredPurchases(userId);
         const [course, user] = await Promise.all([
             Course.findOne({ id: courseId }).lean(),
             User.findOne({ id: userId })
@@ -551,7 +560,7 @@ export async function enrollCourseFree(req: express.Request, res: express.Respon
             userId,
             productId: courseId,
             teacherId,
-            productType: 'free',
+            productType: 'course',
             amountPaid: 0,
             expiresAt,
         }).catch(err => {

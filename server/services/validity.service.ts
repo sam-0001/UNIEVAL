@@ -2,6 +2,20 @@ import { Purchase, User } from '../models/index.js';
 import logger from '../logger.js';
 
 /**
+ * Safe helper to add months to a Date, clamping to the last valid day of the target month
+ * (e.g. Oct 31 + 6 months becomes April 30, not May 1).
+ */
+export function addMonths(startDate: Date, months: number): Date {
+    const d = new Date(startDate);
+    const day = d.getDate();
+    d.setMonth(d.getMonth() + months);
+    if (d.getDate() !== day) {
+        d.setDate(0);
+    }
+    return d;
+}
+
+/**
  * Calculates the expiration date for a purchase based on the course/note's validity settings.
  * Defaults to 6 months if not specified or invalid.
  */
@@ -21,9 +35,7 @@ export function calculateItemExpiryDate(
         ? Math.min(60, item.validityMonths)
         : 6;
 
-    const d = new Date();
-    d.setMonth(d.getMonth() + months);
-    return d;
+    return addMonths(new Date(), months);
 }
 
 /**
@@ -36,8 +48,7 @@ export function isPurchaseExpired(purchase: { expiresAt?: Date | string | null; 
     }
     // Default fallback: 6 months from creation
     const createdAt = purchase.createdAt ? new Date(purchase.createdAt) : now;
-    const sixMonthsAfter = new Date(createdAt);
-    sixMonthsAfter.setMonth(sixMonthsAfter.getMonth() + 6);
+    const sixMonthsAfter = addMonths(createdAt, 6);
     return sixMonthsAfter.getTime() < now.getTime();
 }
 

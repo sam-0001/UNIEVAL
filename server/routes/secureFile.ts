@@ -100,7 +100,9 @@ async function resolveFileAccess(
         return { ok: false, status: 401, error: 'Authentication required to access this file' };
     }
 
-    const isAdmin       = currentUser?.role === 'admin';
+    const userRole      = (currentUser?.role || '').toUpperCase();
+    const isAdmin       = userRole === 'ADMIN' || userRole === 'SUPER_ADMIN';
+    const isTeacherOwner = userRole === 'TEACHER' && Boolean(note.teacherId && note.teacherId === currentUser?.id);
     const isPurchased   = Array.isArray(currentUser?.purchasedNoteIds) && currentUser.purchasedNoteIds.includes(noteId);
     let activePurchased = isPurchased;
     if (isPurchased && currentUser?.id) {
@@ -125,7 +127,7 @@ async function resolveFileAccess(
 
     const collegeDomain = note.collegeConfig?.emailDomain?.trim().toLowerCase();
     const isCollegeFree = !!collegeDomain && collegeDomain.length >= 3 && currentUser.email?.toLowerCase().endsWith(collegeDomain);
-    const hasAccess     = activePurchased || isCollegeFree || isAdmin;
+    const hasAccess     = activePurchased || isCollegeFree || isAdmin || isTeacherOwner;
     if (!hasAccess) {
         if (isPurchased && !activePurchased) {
             return { ok: false, status: 403, error: 'Your access to this note has expired. Please renew your purchase.' };

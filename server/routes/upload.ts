@@ -495,28 +495,8 @@ router.post('/delete-files', requireAuth, requireRole(UserRole.TEACHER, UserRole
     }
 });
 
-router.get('/video/key/:videoId', async (req: Request, res: Response): Promise<void> => {
-    try {
-        const videoId = req.params.videoId as string;
-        const videoKeyDoc = await VideoKey.findOne({ videoId });
-        
-        if (!videoKeyDoc || !videoKeyDoc.keyHex) {
-            res.status(404).send('Key not found');
-            return;
-        }
-
-        const keyBuffer = Buffer.from(videoKeyDoc.keyHex, 'hex');
-        res.setHeader('Content-Type', 'application/octet-stream');
-        res.setHeader('Access-Control-Allow-Origin', '*'); 
-        res.send(keyBuffer);
-    } catch (error) {
-        logger.error('Error fetching AES key:', error);
-        res.status(500).send('Error fetching key');
-    }
-});
-
 // ✅ CHANGED: uploadRateLimit → presignedUrlLimit (cheap URL signing, not heavy processing)
-router.post('/upload/r2-presigned-url', requireAuth, presignedUrlLimit, async (req: Request, res: Response): Promise<void> => {
+router.post('/upload/r2-presigned-url', requireAuth, requireRole(UserRole.TEACHER, UserRole.ADMIN, UserRole.SUPER_ADMIN), presignedUrlLimit, async (req: Request, res: Response): Promise<void> => {
   const { fileName, fileType, fileSize, isVideo = true } = req.body;
   const validation = validateFileUpload(fileName, fileType, fileSize, isVideo);
   if (!validation.valid) { res.status(400).json({ error: validation.error }); return; }
@@ -578,7 +558,7 @@ async function encryptAndStoreFile(
     return fileId;
 }
 
-router.post('/upload/file', requireAuth, uploadRateLimit, noteFileUpload.single('file'), async (req: Request, res: Response): Promise<void> => {
+router.post('/upload/file', requireAuth, requireRole(UserRole.TEACHER, UserRole.ADMIN, UserRole.SUPER_ADMIN), uploadRateLimit, noteFileUpload.single('file'), async (req: Request, res: Response): Promise<void> => {
     const file = (req as any).file as Express.Multer.File | undefined;
     if (!file) { res.status(400).json({ error: 'No file provided' }); return; }
 
@@ -618,7 +598,7 @@ const bundleUpload = multer({
     },
 });
 
-router.post('/upload/html-bundle', requireAuth, uploadRateLimit, bundleUpload.single('file'), async (req: Request, res: Response): Promise<void> => {
+router.post('/upload/html-bundle', requireAuth, requireRole(UserRole.TEACHER, UserRole.ADMIN, UserRole.SUPER_ADMIN), uploadRateLimit, bundleUpload.single('file'), async (req: Request, res: Response): Promise<void> => {
     const file = (req as any).file as Express.Multer.File | undefined;
     if (!file) { res.status(400).json({ error: 'No file provided' }); return; }
 
@@ -733,7 +713,7 @@ export async function readAndDecryptBundleAsset(bundleId: string, relativePath: 
 
 
 // uploadRateLimit stays here — this triggers heavy FFmpeg processing
-router.post('/process-video', requireAuth, uploadRateLimit, async (req: Request, res: Response): Promise<void> => {
+router.post('/process-video', requireAuth, requireRole(UserRole.TEACHER, UserRole.ADMIN, UserRole.SUPER_ADMIN), uploadRateLimit, async (req: Request, res: Response): Promise<void> => {
     const { videoUrl, videoKey } = req.body as ProcessVideoRequest;
     if (!videoUrl) { res.status(400).json({ error: 'Missing videoUrl' }); return; }
 

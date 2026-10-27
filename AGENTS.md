@@ -95,6 +95,15 @@ This file serves as the permanent memory and architectural guide for the UniEval
       - Sidebar displays a bright `FREE DEMO` badge on the 1st file with an unlocked preview icon, while remaining files show the lock icon.
       - A top promotional banner informs users they are viewing the free demo, with a 1-click CTA button to unlock the complete package.
       - Note cards on `NotesLibrary.tsx` and `BrowseCourses.tsx` showcase a `1st PDF Free Demo` badge.
+  - **Platform Security & Integrity Hardening**:
+    - **Mass-Assignment Protection (`updateUser`)**: Strictly strips sensitive profile parameters (`purchasedCourseIds`, `purchasedNoteIds`, `credits`, `unlimitedPlan`, `archivedCourseIds`, `archivedNoteIds`, `freeQuizUsedToday`, `lastReset`, `sessionToken`) preventing self-entitlement or privilege escalation.
+    - **Admin Access Grant Expiry Synchronization**: Admin `grantAccess` creates a valid `Purchase` record with accurate expiration dates (`calculateItemExpiryDate(item)`), and `revokeAccess` cleans up purchase records so access is consistent across video keys and secure file proxy.
+    - **Teacher Content Ownership Enforcement**: Teachers are strictly restricted to updating and deleting only courses, notes, quizzes, and vivas that they authored (`teacherId === currentUser.id` or admin bypass).
+    - **Role Case Consistency & Author Access**: `secureFile.ts` normalizes user roles (`toUpperCase()`) to correctly recognize `'ADMIN'` and `'SUPER_ADMIN'` in Mongo, and permits author teachers to preview their note packages without requiring a student purchase record.
+    - **Upload & Video Pipeline Role Guard**: `/upload/r2-presigned-url`, `/upload/file`, `/upload/html-bundle`, and `/process-video` are strictly gated with `requireRole(TEACHER, ADMIN, SUPER_ADMIN)`. Removed dangerous duplicate unauthenticated `/video/key/:videoId` route from `upload.ts`.
+    - **Month-End Date Rollover Clamping**: `addMonths` in `validity.service.ts` safely clamps month-end additions (e.g., Oct 31 + 6 months becomes April 30, preventing accidental overflow into May).
+    - **Expired Free Re-Enrollment**: `enrollCourseFree` and `purchaseNoteFree` call `syncUserExpiredPurchases` prior to enrollment checks, allowing students to re-enroll once previous free or expired access concludes.
+    - **Author & Admin Previewing**: `CourseDetail.tsx` and `NoteDetail.tsx` allow admins and owning teachers full access to preview and test their modules, videos, and PDFs. Initial file picker accurately selects the first non-empty section's file.
 
 ---
 *(Note: As an agent, I will update this file whenever major architectural decisions, new features, or critical rules are established.)*

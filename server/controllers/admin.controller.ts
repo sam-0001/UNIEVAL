@@ -1,11 +1,12 @@
 import express from 'express';
-import { User, OTP, Course, Note } from '../models/index.js';
+import { User, OTP, Course, Note, Purchase } from '../models/index.js';
 import { UserRole } from '../../types.js';
 import { signToken } from '../middleware/auth.js';
 import { sanitizeUser } from './auth.controller.js';
 import logger from '../logger.js';
 import { randomUUID } from 'crypto';
 import { sendWhatsAppBroadcast } from '../services/whatsapp.service.js';
+import { calculateItemExpiryDate } from '../services/validity.service.js';
 
 export async function superAdminLogin(req: express.Request, res: express.Response): Promise<void> {
     const { email, otp } = req.body;
@@ -137,11 +138,14 @@ export async function grantAccess(req: express.Request, res: express.Response): 
         const user = await User.findOne({ id: userId });
         if (!user) { res.status(404).json({ error: 'User not found' }); return; }
 
+        let item: any = null;
         if (type === 'course') {
+            item = await Course.findOne({ id: itemId }).lean();
             if (!user.purchasedCourseIds.includes(itemId)) {
                 user.purchasedCourseIds.push(itemId);
             }
         } else if (type === 'note') {
+            item = await Note.findOne({ id: itemId }).lean();
             if (!user.purchasedNoteIds.includes(itemId)) {
                 user.purchasedNoteIds.push(itemId);
             }
@@ -151,6 +155,30 @@ export async function grantAccess(req: express.Request, res: express.Response): 
         }
 
         await user.save();
+
+        // Create or update Purchase record so streaming and secure proxy recognize the admin grant
+        const expiresAt = calculateItemExpiryDate(item);
+        await Purchase.findOneAndUpdate(
+            { userId, productId: itemId },
+            {
+                $set: {
+                    userId,
+                    productId: itemId,
+                    teacherId: item?.teacherId || 'admin',
+                    productType: type,
+                    amountPaid: 0,
+                    expiresAt,
+                    createdAt: new Date(),
+                },
+                $setOnInsert: {
+                    id: randomUUID(),
+                }
+            },
+            { upsert: true, new: true }
+        ).catch(err => {
+            logger.warn('[Admin] grantAccess Purchase record error:', err);
+        });
+
         res.json(sanitizeUser(user));
     } catch (err) {
         logger.error('[Admin] grantAccess:', err);
@@ -181,6 +209,10 @@ export async function revokeAccess(req: express.Request, res: express.Response):
         }
 
         await user.save();
+        await Purchase.deleteMany({ userId, productId: itemId }).catch(err => {
+            logger.warn('[Admin] revokeAccess Purchase record delete error:', err);
+        });
+
         res.json(sanitizeUser(user));
     } catch (err) {
         logger.error('[Admin] revokeAccess:', err);

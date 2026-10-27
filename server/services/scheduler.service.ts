@@ -68,6 +68,11 @@ async function runDailyReset(): Promise<void> {
             } else if (p.productType === 'note') {
                 const res = await User.updateOne({ id: p.userId }, { $pull: { purchasedNoteIds: p.productId } });
                 if (res.modifiedCount > 0) expiredNotesCount++;
+            } else {
+                const resCourse = await User.updateOne({ id: p.userId }, { $pull: { purchasedCourseIds: p.productId } });
+                const resNote = await User.updateOne({ id: p.userId }, { $pull: { purchasedNoteIds: p.productId } });
+                if (resCourse.modifiedCount > 0) expiredCoursesCount++;
+                if (resNote.modifiedCount > 0) expiredNotesCount++;
             }
         }
 
