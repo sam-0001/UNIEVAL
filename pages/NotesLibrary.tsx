@@ -241,8 +241,8 @@ const NotesLibrary: React.FC = () => {
                             </div>
 
                             <div className="mb-3">
-                                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg text-[10px] font-bold uppercase tracking-wider bg-blue-50 text-brand-cobalt border border-blue-200">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-brand-cobalt animate-pulse"></span>
                                     1st PDF Free Demo
                                 </span>
                             </div>

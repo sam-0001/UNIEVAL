@@ -403,8 +403,8 @@ const NoteDetail: React.FC = () => {
                   </span>
                 )}
                 {!hasAccess && (
-                  <span className="inline-flex items-center gap-1.5 px-3 py-0.5 bg-emerald-50 text-emerald-700 text-xs font-semibold rounded-full border border-emerald-200">
-                    <svg className="w-3.5 h-3.5 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <span className="inline-flex items-center gap-1.5 px-3 py-0.5 bg-blue-50 text-brand-cobalt text-xs font-semibold rounded-full border border-brand-cobalt/20">
+                    <svg className="w-3.5 h-3.5 text-brand-cobalt" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                     </svg>
@@ -520,7 +520,7 @@ const NoteDetail: React.FC = () => {
                                     {isSelected ? 'Viewing Now' : 'View File'}
                                   </p>
                                   {isDemo && !hasAccess && (
-                                    <span className="inline-flex items-center px-1.5 py-0.5 text-[10px] font-bold rounded bg-emerald-100 text-emerald-800 tracking-wide">
+                                    <span className="inline-flex items-center px-1.5 py-0.5 text-[10px] font-bold rounded bg-blue-50 text-brand-cobalt border border-brand-cobalt/20 tracking-wide">
                                       FREE DEMO
                                     </span>
                                   )}
@@ -531,7 +531,7 @@ const NoteDetail: React.FC = () => {
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                                 </svg>
                               ) : isDemo && !hasAccess ? (
-                                <span className="text-emerald-600 shrink-0" title="Free Demo Available">
+                                <span className="text-brand-cobalt shrink-0" title="Free Demo Available">
                                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
@@ -664,19 +664,21 @@ const NoteDetail: React.FC = () => {
                 <div className={`w-full flex flex-col ${isFullscreen ? 'flex-1 min-h-0' : 'h-full'}`}>
                   {/* Top Free Demo Banner for guests & non-purchased visitors */}
                   {!isFullscreen && !hasAccess && isFileDemo(activeFile) && (
-                    <div className="bg-gradient-to-r from-emerald-600 via-teal-600 to-indigo-600 text-white px-4 py-2.5 flex flex-wrap items-center justify-between gap-3 text-xs sm:text-sm shadow-sm shrink-0">
+                    <div className="bg-brand-navy text-white px-4 py-2.5 flex flex-wrap items-center justify-between gap-3 text-xs sm:text-sm shadow-sm shrink-0 border-b border-brand-cobalt/20">
                       <div className="flex items-center gap-2 min-w-0">
-                        <span className="px-2 py-0.5 bg-white/20 rounded font-bold uppercase tracking-wider text-[10px] shrink-0">Free Demo</span>
-                        <span className="font-medium text-emerald-50 truncate">
+                        <span className="px-2 py-0.5 bg-brand-cobalt/20 text-blue-300 border border-brand-cobalt/40 rounded-lg font-bold uppercase tracking-wider text-[10px] shrink-0">
+                          Free Demo
+                        </span>
+                        <span className="font-medium text-slate-200 truncate">
                           Previewing 1st Unit PDF. Unlock all units, question banks & resources!
                         </span>
                       </div>
                       <button
                         onClick={() => handlePayment()}
                         disabled={paymentLoading}
-                        className="bg-white text-emerald-900 hover:bg-emerald-50 px-3 py-1 rounded-lg font-bold text-xs shadow-sm transition-all transform hover:scale-105 shrink-0 flex items-center gap-1.5"
+                        className="bg-gradient-main hover:opacity-95 disabled:opacity-60 text-white px-3.5 py-1.5 rounded-lg font-bold text-xs shadow-md shadow-brand-cobalt/20 transition-all transform hover:scale-105 shrink-0 flex items-center gap-1.5"
                       >
-                        {paymentLoading && <span className="w-3 h-3 border-2 border-emerald-700/30 border-t-emerald-700 rounded-full animate-spin" />}
+                        {paymentLoading && <span className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
                         {!user ? 'Login to Unlock All' : (displayPrice === 0 ? 'Unlock All Free' : `Unlock Full Notes • ₹${displayPrice}`)}
                       </button>
                     </div>
@@ -688,7 +690,7 @@ const NoteDetail: React.FC = () => {
                       <div className="flex items-center gap-3">
                         <span className="font-mono">{getFileExtension(activeFile.title)} Viewer</span>
                         {!hasAccess && isFileDemo(activeFile) && (
-                          <span className="bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 px-2 py-0.5 rounded text-[10px] font-bold">
+                          <span className="bg-brand-cobalt/20 text-blue-300 border border-brand-cobalt/40 px-2 py-0.5 rounded text-[10px] font-bold">
                             FREE DEMO
                           </span>
                         )}
