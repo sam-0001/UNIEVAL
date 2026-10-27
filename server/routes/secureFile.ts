@@ -32,16 +32,18 @@ async function requireAuthOrQuery(req: Request, res: Response, next: NextFunctio
     } else if (typeof req.query.t === 'string' && req.query.t) {
         token = req.query.t;
     }
-    if (!token) { res.status(401).json({ error: 'Authentication required' }); return; }
-    try {
-        const decoded = jwt.verify(token, JWT_SECRET) as JwtPayload;
-        const user = await User.findOne({ id: decoded.userId });
-        if (!user) { res.status(401).json({ error: 'Invalid session' }); return; }
-        (req as any).currentUser = user;
-        next();
-    } catch {
-        res.status(401).json({ error: 'Invalid or expired token' });
+    if (token) {
+        try {
+            const decoded = jwt.verify(token, JWT_SECRET) as JwtPayload;
+            const user = await User.findOne({ id: decoded.userId });
+            if (user) {
+                (req as any).currentUser = user;
+            }
+        } catch {
+            // Invalid/expired token: leave currentUser unset so free demo access can still proceed
+        }
     }
+    next();
 }
 
 // ── MIME map ──────────────────────────────────────────────────────────────────
@@ -65,7 +67,7 @@ function extOf(filename: string): string {
 }
 
 // Shared by both the main file route and the bundle-asset route: loads the note, finds the
-// requested file, and checks the requester is entitled to it (purchased / free / college-domain).
+// requested file, and checks the requester is entitled to it (purchased / free / college-domain / 1st PDF demo).
 async function resolveFileAccess(
     noteId: string,
     fileId: string,
@@ -75,12 +77,30 @@ async function resolveFileAccess(
     if (!note) return { ok: false, status: 404, error: 'Note not found' };
 
     let targetFile: { id: string; title: string; url: string; isFree: boolean } | undefined;
+    let firstFileId: string | null = null;
     for (const section of note.sections || []) {
+        if (!firstFileId && Array.isArray(section.files) && section.files.length > 0) {
+            firstFileId = section.files[0].id;
+        }
         const found = (section.files || []).find((f: any) => f.id === fileId);
-        if (found) { targetFile = found; break; }
+        if (found) { targetFile = found; }
     }
     if (!targetFile) return { ok: false, status: 404, error: 'File not found' };
 
+    // The 1st PDF / file across all sections is open for everyone as a free demo preview
+    const isFirstFileDemo = Boolean(firstFileId && String(targetFile.id) === String(firstFileId));
+    const isFreeNote      = !note.price || note.price === 0;
+    const isAlwaysFree    = isFirstFileDemo || targetFile.isFree || isFreeNote;
+
+    if (isAlwaysFree) {
+        return { ok: true, targetFile };
+    }
+
+    if (!currentUser) {
+        return { ok: false, status: 401, error: 'Authentication required to access this file' };
+    }
+
+    const isAdmin       = currentUser?.role === 'admin';
     const isPurchased   = Array.isArray(currentUser?.purchasedNoteIds) && currentUser.purchasedNoteIds.includes(noteId);
     let activePurchased = isPurchased;
     if (isPurchased && currentUser?.id) {
@@ -105,8 +125,7 @@ async function resolveFileAccess(
 
     const collegeDomain = note.collegeConfig?.emailDomain?.trim().toLowerCase();
     const isCollegeFree = !!collegeDomain && collegeDomain.length >= 3 && currentUser.email?.toLowerCase().endsWith(collegeDomain);
-    const isFreeNote    = !note.price || note.price === 0;
-    const hasAccess     = activePurchased || isCollegeFree || isFreeNote || targetFile.isFree;
+    const hasAccess     = activePurchased || isCollegeFree || isAdmin;
     if (!hasAccess) {
         if (isPurchased && !activePurchased) {
             return { ok: false, status: 403, error: 'Your access to this note has expired. Please renew your purchase.' };

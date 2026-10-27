@@ -303,32 +303,41 @@ const BrowseCourses: React.FC = () => {
                   {/* Purple Top Border Accent */}
                   <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-indigo-500 to-purple-600 transform origin-left scale-x-0 group-hover:scale-x-100 transition-transform duration-300"></div>
                   
-                  <div className="flex justify-between items-start mb-4">
+                  <div className="flex justify-between items-start mb-2">
                       <h3 className="text-lg font-bold text-gray-900 group-hover:text-indigo-700 transition-colors leading-tight">
                           {item.title}
                       </h3>
                       {type === 'note' && (
-                          <div className="bg-red-50 p-2 rounded-lg">
+                          <div className="bg-red-50 p-2 rounded-lg shrink-0">
                              <svg className="w-6 h-6 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
                              </svg>
                           </div>
                       )}
                       {type === 'quiz' && (
-                          <div className="bg-blue-50 p-2 rounded-lg">
+                          <div className="bg-blue-50 p-2 rounded-lg shrink-0">
                               <svg className="w-6 h-6 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                               </svg>
                           </div>
                       )}
                       {type === 'viva' && (
-                           <div className="bg-green-50 p-2 rounded-lg">
+                           <div className="bg-green-50 p-2 rounded-lg shrink-0">
                               <svg className="w-6 h-6 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
                               </svg>
                            </div>
                       )}
                   </div>
+
+                  {type === 'note' && (
+                    <div className="mb-3">
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                        1st PDF Free Demo
+                      </span>
+                    </div>
+                  )}
 
                   <p className="text-sm text-gray-500 mb-6 flex-grow">
                       {item.description || `Comprehensive ${type} material for your preparation.`}

@@ -103,6 +103,23 @@ const NoteDetail: React.FC = () => {
     return user.email.toLowerCase().endsWith(domain.toLowerCase());
   }, [user, note]);
   const hasAccess = !!user && isPurchased;
+
+  // Find the first file across all sections (1st PDF open for everyone as demo)
+  const firstFileId = React.useMemo(() => {
+    if (!note || !Array.isArray(note.sections)) return null;
+    for (const section of note.sections) {
+      if (Array.isArray(section.files) && section.files.length > 0) {
+        return section.files[0].id;
+      }
+    }
+    return null;
+  }, [note]);
+
+  const isFileDemo = useCallback((file: NoteFile | null) => {
+    if (!file) return false;
+    return Boolean(file.isFree || (firstFileId && file.id === firstFileId));
+  }, [firstFileId]);
+
   const displayPrice = appliedCoupon ? appliedCoupon.discountedPrice : (note?.price || 0);
 
   const handleApplyCoupon = async () => {
@@ -201,9 +218,16 @@ const NoteDetail: React.FC = () => {
   };
 
   const handleFileSelect = (file: NoteFile) => {
-    if (!user) { setShowLoginModal(true); return; }
-    if (!hasAccess && !file.isFree) { handlePayment(); return; }
+    if (hasAccess || isFileDemo(file)) {
+      setActiveFile(file);
+      return;
+    }
     setActiveFile(file);
+    if (!user) {
+      setShowLoginModal(true);
+      return;
+    }
+    handlePayment();
   };
 
   const toggleSection = (sectionId: string) => {
@@ -283,7 +307,7 @@ const NoteDetail: React.FC = () => {
           key={activeFile.id}
           url={secureUrl}
           filename={activeFile.title}
-          watermarkText={(user as any)?.phoneNumber || user?.email || 'UNIEVAL'}
+          watermarkText={(user as any)?.phoneNumber || user?.email || 'UNIEVAL DEMO PREVIEW'}
         />
       );
     }
@@ -295,7 +319,7 @@ const NoteDetail: React.FC = () => {
           key={activeFile.id}
           url={secureUrl}
           filename={activeFile.title}
-          watermarkText={(user as any)?.phoneNumber || user?.email || 'UNIEVAL'}
+          watermarkText={(user as any)?.phoneNumber || user?.email || 'UNIEVAL DEMO PREVIEW'}
         />
       );
     }
@@ -376,6 +400,15 @@ const NoteDetail: React.FC = () => {
                   <span className="inline-flex items-center gap-1.5 px-3 py-0.5 bg-green-50 text-green-700 text-xs font-bold rounded-full border border-green-200">
                     <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" /></svg>
                     Free for {note.collegeConfig.name} students
+                  </span>
+                )}
+                {!hasAccess && (
+                  <span className="inline-flex items-center gap-1.5 px-3 py-0.5 bg-emerald-50 text-emerald-700 text-xs font-semibold rounded-full border border-emerald-200">
+                    <svg className="w-3.5 h-3.5 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                    </svg>
+                    1st PDF Free Demo Available
                   </span>
                 )}
                 <span className="inline-flex items-center gap-1.5 px-3 py-0.5 bg-indigo-50 text-indigo-700 text-xs font-semibold rounded-full border border-indigo-200">
@@ -466,28 +499,48 @@ const NoteDetail: React.FC = () => {
                     </button>
                     {isExpanded && (
                       <div className="bg-slate-50/30 animate-in slide-in-from-top-2 duration-200">
-                        {section.files.map((f) => (
-                          <div
-                            key={f.id}
-                            onClick={() => handleFileSelect(f)}
-                            className={`px-4 py-3 flex items-center gap-3 cursor-pointer hover:bg-slate-50 border-l-4 transition-all ${activeFile?.id === f.id ? 'border-brand-cobalt bg-blue-50/50' : 'border-transparent'}`}
-                          >
-                            {getFileBadge(f.title)}
-                            <div className="flex-1 min-w-0">
-                              <p className={`text-sm truncate ${activeFile?.id === f.id ? 'font-bold text-brand-cobalt' : 'text-slate-600 font-medium'}`}>
-                                {f.title}
-                              </p>
-                              <p className={`text-xs font-medium ${activeFile?.id === f.id ? 'text-brand-cobalt' : 'text-slate-400'}`}>
-                                {activeFile?.id === f.id ? 'Viewing Now' : 'View File'}
-                              </p>
+                        {section.files.map((f) => {
+                          const isDemo = isFileDemo(f);
+                          const isSelected = activeFile?.id === f.id;
+                          const isLocked = !hasAccess && !isDemo;
+
+                          return (
+                            <div
+                              key={f.id}
+                              onClick={() => handleFileSelect(f)}
+                              className={`px-4 py-3 flex items-center gap-3 cursor-pointer hover:bg-slate-50 border-l-4 transition-all ${isSelected ? 'border-brand-cobalt bg-blue-50/50' : 'border-transparent'}`}
+                            >
+                              {getFileBadge(f.title)}
+                              <div className="flex-1 min-w-0">
+                                <p className={`text-sm truncate ${isSelected ? 'font-bold text-brand-cobalt' : 'text-slate-600 font-medium'}`}>
+                                  {f.title}
+                                </p>
+                                <div className="flex items-center gap-2 mt-0.5">
+                                  <p className={`text-xs font-medium ${isSelected ? 'text-brand-cobalt' : 'text-slate-400'}`}>
+                                    {isSelected ? 'Viewing Now' : 'View File'}
+                                  </p>
+                                  {isDemo && !hasAccess && (
+                                    <span className="inline-flex items-center px-1.5 py-0.5 text-[10px] font-bold rounded bg-emerald-100 text-emerald-800 tracking-wide">
+                                      FREE DEMO
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                              {isLocked ? (
+                                <svg className="w-4 h-4 text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                                </svg>
+                              ) : isDemo && !hasAccess ? (
+                                <span className="text-emerald-600 shrink-0" title="Free Demo Available">
+                                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                  </svg>
+                                </span>
+                              ) : null}
                             </div>
-                            {!hasAccess && !f.isFree && (
-                              <svg className="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                              </svg>
-                            )}
-                          </div>
-                        ))}
+                          );
+                        })}
                         {section.files.length === 0 && (
                           <div className="px-4 py-3 text-xs text-gray-400 italic">No files available</div>
                         )}
@@ -549,7 +602,7 @@ const NoteDetail: React.FC = () => {
               )}
 
               {/* Scenario: Locked */}
-              {activeFile && !hasAccess && !activeFile.isFree ? (
+              {activeFile && !hasAccess && !isFileDemo(activeFile) ? (
                 <div className="absolute inset-0 flex items-center justify-center flex-col bg-white/90 backdrop-blur-sm z-10 p-4">
                   <div className="bg-white p-8 rounded-2xl shadow-xl text-center max-w-sm border border-slate-200">
                     <div className="w-16 h-16 bg-blue-50 text-brand-cobalt rounded-full flex items-center justify-center mx-auto mb-4">
@@ -607,13 +660,38 @@ const NoteDetail: React.FC = () => {
                   </div>
                 </div>
               ) : activeFile ? (
-                /* Unlocked — viewer only, no toolbar with download */
+                /* Unlocked / Free Demo — viewer */
                 <div className={`w-full flex flex-col ${isFullscreen ? 'flex-1 min-h-0' : 'h-full'}`}>
+                  {/* Top Free Demo Banner for guests & non-purchased visitors */}
+                  {!isFullscreen && !hasAccess && isFileDemo(activeFile) && (
+                    <div className="bg-gradient-to-r from-emerald-600 via-teal-600 to-indigo-600 text-white px-4 py-2.5 flex flex-wrap items-center justify-between gap-3 text-xs sm:text-sm shadow-sm shrink-0">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="px-2 py-0.5 bg-white/20 rounded font-bold uppercase tracking-wider text-[10px] shrink-0">Free Demo</span>
+                        <span className="font-medium text-emerald-50 truncate">
+                          Previewing 1st Unit PDF. Unlock all units, question banks & resources!
+                        </span>
+                      </div>
+                      <button
+                        onClick={() => handlePayment()}
+                        disabled={paymentLoading}
+                        className="bg-white text-emerald-900 hover:bg-emerald-50 px-3 py-1 rounded-lg font-bold text-xs shadow-sm transition-all transform hover:scale-105 shrink-0 flex items-center gap-1.5"
+                      >
+                        {paymentLoading && <span className="w-3 h-3 border-2 border-emerald-700/30 border-t-emerald-700 rounded-full animate-spin" />}
+                        {!user ? 'Login to Unlock All' : (displayPrice === 0 ? 'Unlock All Free' : `Unlock Full Notes • ₹${displayPrice}`)}
+                      </button>
+                    </div>
+                  )}
+
                   {/* Slim toolbar — no download button */}
                   {!isFullscreen && (
                     <div className="bg-slate-800 text-white px-4 py-2 flex items-center justify-between text-xs shrink-0">
                       <div className="flex items-center gap-3">
                         <span className="font-mono">{getFileExtension(activeFile.title)} Viewer</span>
+                        {!hasAccess && isFileDemo(activeFile) && (
+                          <span className="bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 px-2 py-0.5 rounded text-[10px] font-bold">
+                            FREE DEMO
+                          </span>
+                        )}
                       </div>
                       <button
                         onClick={toggleFullscreen}

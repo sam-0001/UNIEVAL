@@ -82,6 +82,19 @@ This file serves as the permanent memory and architectural guide for the UniEval
     - Teachers and Admins have a dedicated toggle switch and a "Remove College Access" button in `AdminDashboard.tsx` and `TeacherUpload.tsx`.
     - When disabled or removed, the backend explicitly executes `$unset: { collegeConfig: 1 }` in MongoDB.
     - Domain matching requires `collegeDomain.length >= 3` and strict case-insensitive suffix matching (`email.toLowerCase().endsWith(collegeDomain)`), completely preventing accidental free access for student emails.
+  - **1st PDF / File Free Demo Preview for Notes**:
+    - The first file (e.g. Unit 1 PDF) across all sections of any note package is automatically accessible as a free demo preview for everyone (including unauthenticated guest visitors and non-purchased students).
+    - `server/routes/secureFile.ts`:
+      - `requireAuthOrQuery` passes through requests without a token so guest requests can evaluate file access without immediate 401 rejection.
+      - `resolveFileAccess` identifies `firstFileId` across `note.sections`. If the requested file is the first file (`targetFile.id === firstFileId`), or `targetFile.isFree`, or `note.price === 0`, it returns `{ ok: true, targetFile }` without requiring a user token or purchase.
+      - Subsequent files remain locked and strictly require a valid user token (401) and active purchase or admin/college entitlement (403).
+    - `pages/NoteDetail.tsx`:
+      - `firstFileId` and `isFileDemo(file)` are computed dynamically from `note.sections`.
+      - When landing on the page, the 1st PDF loads immediately in `SecurePdfViewer` without being blocked by the locked overlay.
+      - For guest viewers, watermark defaults to `'UNIEVAL DEMO PREVIEW'`.
+      - Sidebar displays a bright `FREE DEMO` badge on the 1st file with an unlocked preview icon, while remaining files show the lock icon.
+      - A top promotional banner informs users they are viewing the free demo, with a 1-click CTA button to unlock the complete package.
+      - Note cards on `NotesLibrary.tsx` and `BrowseCourses.tsx` showcase a `1st PDF Free Demo` badge.
 
 ---
 *(Note: As an agent, I will update this file whenever major architectural decisions, new features, or critical rules are established.)*

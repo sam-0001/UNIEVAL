@@ -229,15 +229,22 @@ const NotesLibrary: React.FC = () => {
                             {/* Gradient Top Border Accent */}
                             <div className="absolute top-0 left-0 w-full h-1 bg-gradient-main transform origin-left scale-x-0 group-hover:scale-x-100 transition-transform duration-300"></div>
                             
-                            <div className="flex justify-between items-start mb-4 gap-2">
+                            <div className="flex justify-between items-start mb-2 gap-2">
                                 <h3 className="text-lg font-bold text-brand-navy group-hover:text-brand-indigo transition-colors leading-tight">
                                     {note.title}
                                 </h3>
-                                <div className="bg-red-50 p-2 rounded-lg">
+                                <div className="bg-red-50 p-2 rounded-lg shrink-0">
                                     <svg className="w-6 h-6 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
                                     </svg>
                                 </div>
+                            </div>
+
+                            <div className="mb-3">
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                                    1st PDF Free Demo
+                                </span>
                             </div>
 
                             {/* Added whitespace-pre-line and removed line-clamp so the full list renders properly */}
