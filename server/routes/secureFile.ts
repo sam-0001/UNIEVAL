@@ -19,10 +19,15 @@ import jwt from 'jsonwebtoken';
 import { Note, User, Purchase } from '../models/index.js';
 import { JwtPayload } from '../middleware/auth.js';
 import { readAndDecryptFile, readAndDecryptBundleAsset, getBundleIdForFile, getFileBufferFromR2OrUrl } from './upload.js';
+import { cache } from '../services/cache.service.js';
 import logger from '../logger.js';
 
 const router = express.Router();
 const JWT_SECRET = process.env.JWT_SECRET!;
+
+// Fast in-memory cache for student note purchase validity (2 minutes TTL)
+// Avoids hammering MongoDB on every single HTTP Range byte request for the same document
+const accessCache = new Map<string, { hasAccess: boolean; expiresAt: number }>();
 
 // ── Auth middleware — accepts Bearer header OR ?t= query param ────────────────
 async function requireAuthOrQuery(req: Request, res: Response, next: NextFunction): Promise<void> {
@@ -136,7 +141,7 @@ async function resolveFileAccess(
     fileId: string,
     currentUser: any,
 ): Promise<{ ok: true; targetFile: { id: string; title: string; url: string; isFree: boolean } } | { ok: false; status: number; error: string }> {
-    const note = await Note.findOne({ $or: [{ id: noteId }, { _id: noteId as any }] }).lean() as any;
+    const note = await cache.getOrSet(`note:${noteId}`, () => Note.findOne({ $or: [{ id: noteId }, { _id: noteId as any }] }).lean(), 600) as any;
     if (!note) return { ok: false, status: 404, error: 'Note not found' };
 
     let targetFile: { id: string; title: string; url: string; isFree: boolean } | undefined;
@@ -176,35 +181,48 @@ async function resolveFileAccess(
         return { ok: false, status: 401, error: 'Authentication required to access this file' };
     }
 
-    const userRole      = (currentUser?.role || '').toUpperCase();
-    const isAdmin       = userRole === 'ADMIN' || userRole === 'SUPER_ADMIN';
+    const userRole       = (currentUser?.role || '').toUpperCase();
+    const isAdmin        = userRole === 'ADMIN' || userRole === 'SUPER_ADMIN';
     const isTeacherOwner = userRole === 'TEACHER' && Boolean(note.teacherId && note.teacherId === currentUser?.id);
-    const isPurchased   = Array.isArray(currentUser?.purchasedNoteIds) && currentUser.purchasedNoteIds.includes(noteId);
+    const collegeDomain  = note.collegeConfig?.emailDomain?.trim().toLowerCase();
+    const isCollegeFree  = !!collegeDomain && collegeDomain.length >= 3 && currentUser.email?.toLowerCase().endsWith(collegeDomain);
+
+    if (isAdmin || isTeacherOwner || isCollegeFree) {
+        return { ok: true, targetFile };
+    }
+
+    const isPurchased = Array.isArray(currentUser?.purchasedNoteIds) && currentUser.purchasedNoteIds.includes(noteId);
     let activePurchased = isPurchased;
+
     if (isPurchased && currentUser?.id) {
-        const now = new Date();
-        const sixMonthsAgo = new Date(now);
-        sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+        const accessKey = `${currentUser.id}:${noteId}`;
+        const cached = accessCache.get(accessKey);
+        if (cached && cached.expiresAt > Date.now()) {
+            activePurchased = cached.hasAccess;
+        } else {
+            const now = new Date();
+            const sixMonthsAgo = new Date(now);
+            sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
 
-        const activeRecord = await Purchase.findOne({
-            userId: currentUser.id,
-            productId: noteId,
-            $or: [
-                { expiresAt: { $gt: now } },
-                { expiresAt: null, createdAt: { $gt: sixMonthsAgo } }
-            ]
-        }).lean();
+            const activeRecord = await Purchase.findOne({
+                userId: currentUser.id,
+                productId: noteId,
+                $or: [
+                    { expiresAt: { $gt: now } },
+                    { expiresAt: null, createdAt: { $gt: sixMonthsAgo } }
+                ]
+            }).lean();
 
-        if (!activeRecord) {
-            activePurchased = false;
-            await User.updateOne({ id: currentUser.id }, { $pull: { purchasedNoteIds: noteId } });
+            activePurchased = !!activeRecord;
+            if (!activeRecord) {
+                await User.updateOne({ id: currentUser.id }, { $pull: { purchasedNoteIds: noteId } });
+            }
+            if (accessCache.size > 10000) accessCache.clear();
+            accessCache.set(accessKey, { hasAccess: activePurchased, expiresAt: Date.now() + 120_000 });
         }
     }
 
-    const collegeDomain = note.collegeConfig?.emailDomain?.trim().toLowerCase();
-    const isCollegeFree = !!collegeDomain && collegeDomain.length >= 3 && currentUser.email?.toLowerCase().endsWith(collegeDomain);
-    const hasAccess     = activePurchased || isCollegeFree || isAdmin || isTeacherOwner;
-    if (!hasAccess) {
+    if (!activePurchased) {
         if (isPurchased && !activePurchased) {
             return { ok: false, status: 403, error: 'Your access to this note has expired. Please renew your purchase.' };
         }

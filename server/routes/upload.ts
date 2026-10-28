@@ -700,8 +700,10 @@ interface DecryptedCacheEntry {
 }
 
 const decryptedCache = new Map<string, DecryptedCacheEntry>();
-const MAX_DECRYPTED_CACHE_SIZE = 30; // cache up to 30 files in RAM
-const DECRYPTED_CACHE_TTL_MS = 15 * 60 * 1000; // 15 mins TTL
+const MAX_DECRYPTED_CACHE_SIZE = parseInt(process.env.MAX_NOTE_CACHE_SIZE || '150', 10); // cache up to 150 files in RAM (plenty for 200 PDFs library)
+const DECRYPTED_CACHE_TTL_MS = 30 * 60 * 1000; // 30 mins TTL
+const inFlightDecrypts = new Map<string, Promise<{ buffer: Buffer; mimeType?: string; originalName?: string; bundleId?: string; isEntry?: boolean } | null>>();
+const inFlightRawFetches = new Map<string, Promise<{ buffer: Buffer; contentType?: string } | null>>();
 
 export function invalidateDecryptedCache(fileId?: string) {
     if (fileId) {
@@ -723,18 +725,33 @@ export async function readAndDecryptFile(fileId: string): Promise<{ buffer: Buff
         };
     }
 
-    const record = await FileKey.findOne({ fileId }).lean() as any;
-    if (!record) return null;
-    const buffer = await decryptRecord(record);
-    const result = { buffer, mimeType: record.mimeType, originalName: record.originalName, bundleId: record.bundleId, isEntry: record.isEntry };
-
-    if (decryptedCache.size >= MAX_DECRYPTED_CACHE_SIZE) {
-        const oldestKey = decryptedCache.keys().next().value;
-        if (oldestKey) decryptedCache.delete(oldestKey);
+    // Coalesce in-flight requests: if multiple students request the same file simultaneously,
+    // execute only 1 decrypt operation and share the result among all callers.
+    if (inFlightDecrypts.has(fileId)) {
+        return inFlightDecrypts.get(fileId)!;
     }
-    decryptedCache.set(fileId, { ...result, cachedAt: Date.now() });
 
-    return result;
+    const decryptTask = (async () => {
+        try {
+            const record = await FileKey.findOne({ fileId }).lean() as any;
+            if (!record) return null;
+            const buffer = await decryptRecord(record);
+            const result = { buffer, mimeType: record.mimeType, originalName: record.originalName, bundleId: record.bundleId, isEntry: record.isEntry };
+
+            if (decryptedCache.size >= MAX_DECRYPTED_CACHE_SIZE) {
+                const oldestKey = decryptedCache.keys().next().value;
+                if (oldestKey) decryptedCache.delete(oldestKey);
+            }
+            decryptedCache.set(fileId, { ...result, cachedAt: Date.now() });
+
+            return result;
+        } finally {
+            inFlightDecrypts.delete(fileId);
+        }
+    })();
+
+    inFlightDecrypts.set(fileId, decryptTask);
+    return decryptTask;
 }
 
 /**
@@ -751,70 +768,83 @@ export async function getFileBufferFromR2OrUrl(fileUrl: string): Promise<{ buffe
         return { buffer: cached.buffer, contentType: cached.mimeType };
     }
 
-    // 2. Direct S3 retrieval from Cloudflare R2 (authenticated, zero bot challenge risk)
-    const r2Key = extractR2KeyFromUrl(fileUrl);
-    if (r2Key && R2_ACCOUNT_ID && R2_BUCKET_NAME) {
+    if (inFlightRawFetches.has(fileUrl)) {
+        return inFlightRawFetches.get(fileUrl)!;
+    }
+
+    const fetchTask = (async () => {
         try {
-            const obj = await s3Client.send(new GetObjectCommand({
-                Bucket: R2_BUCKET_NAME,
-                Key: r2Key
-            }));
-            const bytes = await (obj.Body as any).transformToByteArray();
-            const buffer = Buffer.from(bytes);
-            const contentType = obj.ContentType;
+            // 2. Direct S3 retrieval from Cloudflare R2 (authenticated, zero bot challenge risk)
+            const r2Key = extractR2KeyFromUrl(fileUrl);
+            if (r2Key && R2_ACCOUNT_ID && R2_BUCKET_NAME) {
+                try {
+                    const obj = await s3Client.send(new GetObjectCommand({
+                        Bucket: R2_BUCKET_NAME,
+                        Key: r2Key
+                    }));
+                    const bytes = await (obj.Body as any).transformToByteArray();
+                    const buffer = Buffer.from(bytes);
+                    const contentType = obj.ContentType;
 
-            if (decryptedCache.size >= MAX_DECRYPTED_CACHE_SIZE) {
-                const oldestKey = decryptedCache.keys().next().value;
-                if (oldestKey) decryptedCache.delete(oldestKey);
-            }
-            decryptedCache.set(fileUrl, { buffer, mimeType: contentType, cachedAt: Date.now() });
+                    if (decryptedCache.size >= MAX_DECRYPTED_CACHE_SIZE) {
+                        const oldestKey = decryptedCache.keys().next().value;
+                        if (oldestKey) decryptedCache.delete(oldestKey);
+                    }
+                    decryptedCache.set(fileUrl, { buffer, mimeType: contentType, cachedAt: Date.now() });
 
-            return { buffer, contentType };
-        } catch (s3Err: any) {
-            logger.warn(`[upload] Direct R2 S3 fetch failed for key "${r2Key}", attempting upstream HTTP fallback:`, s3Err?.message || s3Err);
-        }
-    }
-
-    // 3. Local disk check (for local development or hybrid environments)
-    if (r2Key) {
-        const localPath = path.join(process.cwd(), 'uploads', r2Key);
-        if (fs.existsSync(localPath)) {
-            try {
-                const buffer = fs.readFileSync(localPath);
-                return { buffer };
-            } catch {}
-        }
-    }
-
-    // 4. Upstream HTTP fetch fallback (with realistic User-Agent to prevent Cloudflare/CDN bot blocks)
-    if (fileUrl.startsWith('http://') || fileUrl.startsWith('https://')) {
-        try {
-            const upstream = await fetch(fileUrl, {
-                headers: {
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 UniEval/1.0',
-                    'Accept': '*/*'
+                    return { buffer, contentType };
+                } catch (s3Err: any) {
+                    logger.warn(`[upload] Direct R2 S3 fetch failed for key "${r2Key}", attempting upstream HTTP fallback:`, s3Err?.message || s3Err);
                 }
-            });
-            if (upstream.ok) {
-                const buffer = Buffer.from(await upstream.arrayBuffer());
-                const contentType = upstream.headers.get('content-type') || undefined;
-
-                if (decryptedCache.size >= MAX_DECRYPTED_CACHE_SIZE) {
-                    const oldestKey = decryptedCache.keys().next().value;
-                    if (oldestKey) decryptedCache.delete(oldestKey);
-                }
-                decryptedCache.set(fileUrl, { buffer, mimeType: contentType, cachedAt: Date.now() });
-
-                return { buffer, contentType };
-            } else {
-                logger.error(`[upload] Upstream fetch failed for ${fileUrl}: ${upstream.status} ${upstream.statusText}`);
             }
-        } catch (fetchErr: any) {
-            logger.error(`[upload] Upstream fetch exception for ${fileUrl}:`, fetchErr?.message || fetchErr);
-        }
-    }
 
-    return null;
+            // 3. Local disk check (for local development or hybrid environments)
+            if (r2Key) {
+                const localPath = path.join(process.cwd(), 'uploads', r2Key);
+                if (fs.existsSync(localPath)) {
+                    try {
+                        const buffer = fs.readFileSync(localPath);
+                        return { buffer };
+                    } catch {}
+                }
+            }
+
+            // 4. Upstream HTTP fetch fallback (with realistic User-Agent to prevent Cloudflare/CDN bot blocks)
+            if (fileUrl.startsWith('http://') || fileUrl.startsWith('https://')) {
+                try {
+                    const upstream = await fetch(fileUrl, {
+                        headers: {
+                            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 UniEval/1.0',
+                            'Accept': '*/*'
+                        }
+                    });
+                    if (upstream.ok) {
+                        const buffer = Buffer.from(await upstream.arrayBuffer());
+                        const contentType = upstream.headers.get('content-type') || undefined;
+
+                        if (decryptedCache.size >= MAX_DECRYPTED_CACHE_SIZE) {
+                            const oldestKey = decryptedCache.keys().next().value;
+                            if (oldestKey) decryptedCache.delete(oldestKey);
+                        }
+                        decryptedCache.set(fileUrl, { buffer, mimeType: contentType, cachedAt: Date.now() });
+
+                        return { buffer, contentType };
+                    } else {
+                        logger.error(`[upload] Upstream fetch failed for ${fileUrl}: ${upstream.status} ${upstream.statusText}`);
+                    }
+                } catch (fetchErr: any) {
+                    logger.error(`[upload] Upstream fetch exception for ${fileUrl}:`, fetchErr?.message || fetchErr);
+                }
+            }
+
+            return null;
+        } finally {
+            inFlightRawFetches.delete(fileUrl);
+        }
+    })();
+
+    inFlightRawFetches.set(fileUrl, fetchTask);
+    return fetchTask;
 }
 
 // Looks up and decrypts a sibling asset (e.g. an image under img/) that was uploaded in the
