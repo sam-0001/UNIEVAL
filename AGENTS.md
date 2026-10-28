@@ -160,5 +160,9 @@ This file serves as the permanent memory and architectural guide for the UniEval
       - **In-Flight Request Deduplication (Singleflight)**: Prevents cache stampedes. When 500+ students open the same unit PDF at 9 PM before an exam, only 1 fetch from Cloudflare R2 and 1 AES-256 decryption runs; all 500 requests resolve from that single task.
       - **Entitlement & Structure Caching (`resolveFileAccess`)**: `Note` structure is cached via `cache.getOrSet` (10m TTL) and user purchase validity is cached in memory (`accessCache`, 2m TTL). Eliminates 20,000+ repetitive MongoDB queries across HTTP Range byte chunk requests.
 
+    - **Dashboard Content Visibility & Role Alignment**:
+      - **Admin & Super Admin Catalog View (`AdminDashboard.tsx`)**: `ADMIN` and `SUPER_ADMIN` roles now view all courses, notes, quizzes, and vivas system-wide rather than filtering by `teacherId === user.id`. Non-admin teachers continue to see only their authored materials.
+      - **College Free Access Inclusion on Student Dashboard (`StudentDashboard.tsx`)**: Students with matching college email domains now automatically see their college-unlocked notes and courses under their dashboard sections without needing separate manual enrollment records.
+
 ---
 *(Note: As an agent, I will update this file whenever major architectural decisions, new features, or critical rules are established.)*

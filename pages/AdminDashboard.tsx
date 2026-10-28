@@ -1030,10 +1030,11 @@ const AdminDashboard: React.FC = () => {
 
   useEffect(() => {
     if (user && user.role !== 'STUDENT') {
-        api.getCourses().then(all => setCourses(all.filter(c => c.teacherId === user.id)));
-        api.getNotes().then(all => setNotes(all.filter(n => n.teacherId === user.id)));
-        api.getQuizzes().then(all => setQuizzes(all.filter(q => q.teacherId === user.id)));
-        api.getViva().then(all => setViva(all.filter(v => v.teacherId === user.id)));
+        const isAdmin = user.role === 'ADMIN' || user.role === 'SUPER_ADMIN';
+        api.getCourses().then(all => setCourses(isAdmin ? all : all.filter(c => c.teacherId === user.id)));
+        api.getNotes().then(all => setNotes(isAdmin ? all : all.filter(n => n.teacherId === user.id)));
+        api.getQuizzes().then(all => setQuizzes(isAdmin ? all : all.filter(q => q.teacherId === user.id)));
+        api.getViva().then(all => setViva(isAdmin ? all : all.filter(v => v.teacherId === user.id)));
         fetchGlobalLiveClasses();
     }
   }, [user]);

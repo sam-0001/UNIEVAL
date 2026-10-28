@@ -101,6 +101,13 @@ const StudentDashboard: React.FC = () => {
     }
   };
 
+  const isCollegeFreeItem = React.useCallback((item: { collegeConfig?: { name?: string; emailDomain?: string } | null }) => {
+    if (!user || !user.email || !item?.collegeConfig?.emailDomain) return false;
+    const domain = item.collegeConfig.emailDomain.trim();
+    if (!domain || domain.length < 3) return false;
+    return user.email.toLowerCase().endsWith(domain.toLowerCase());
+  }, [user]);
+
   useEffect(() => {
     if (user && user.role === UserRole.STUDENT) {
       const fetchPurchases = async () => {
@@ -111,10 +118,11 @@ const StudentDashboard: React.FC = () => {
             api.getNotes(), 
             api.getSubjects(),
           ]);
+
           setAllCoursesState(allCourses);
-          setCourses(allCourses.filter(c => user.purchasedCourseIds?.includes(c.id)));
+          setCourses(allCourses.filter(c => user.purchasedCourseIds?.includes(c.id) || isCollegeFreeItem(c)));
           setAllNotesState(allNotes);
-          setNotes(allNotes.filter(n => user.purchasedNoteIds?.includes(n.id)));
+          setNotes(allNotes.filter(n => user.purchasedNoteIds?.includes(n.id) || isCollegeFreeItem(n)));
           setSubjects(allSubjects || []);
           setLoading(false); // Dashboard unlocks immediately without waiting for secondary APIs!
 
@@ -1181,7 +1189,7 @@ const StudentDashboard: React.FC = () => {
                                     </div>
                                     
                                     {(() => {
-                                        const recommendedCourses = allCoursesState.filter(c => !user.purchasedCourseIds?.includes(c.id)).slice(0, 4);
+                                        const recommendedCourses = allCoursesState.filter(c => !user.purchasedCourseIds?.includes(c.id) && !isCollegeFreeItem(c)).slice(0, 4);
                                         if (recommendedCourses.length === 0) {
                                             return (
                                                 <div className="bg-slate-50 rounded-2xl border border-dashed border-slate-200 p-10 flex flex-col items-center justify-center text-center">
@@ -1605,7 +1613,7 @@ const StudentDashboard: React.FC = () => {
                                     </div>
                                     
                                     {(() => {
-                                        const recommendedNotes = allNotesState.filter(n => !user.purchasedNoteIds?.includes(n.id) && n.price !== 0).slice(0, 4);
+                                        const recommendedNotes = allNotesState.filter(n => !user.purchasedNoteIds?.includes(n.id) && !isCollegeFreeItem(n) && n.price !== 0).slice(0, 4);
                                         if (recommendedNotes.length === 0) {
                                             return (
                                                 <div className="bg-slate-50 rounded-2xl border border-dashed border-slate-200 p-10 flex flex-col items-center justify-center text-center">
