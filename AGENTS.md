@@ -174,5 +174,9 @@ This file serves as the permanent memory and architectural guide for the UniEval
       - Utilizes `getDashboardRoute(user?.role)` to navigate students directly to `/dashboard`, teachers/admins to `/admin`, and super admins to `/super-admin`.
       - Added back navigation to `CourseDetail.tsx` and aligned `TeacherLiveClasses.tsx`.
 
+    - **Document Page Skeleton Loader (`SecurePdfViewer.tsx` & `NoteDetail.tsx`)**:
+      - Replaced raw circular buffer spinners with an authentic A4 document skeleton sheet featuring subtle pulsing text paragraphs, diagram blocks, header/footer guides, and a sleek minimal progress status bar.
+      - Replaced raw `Loading...` text in `NoteDetail.tsx` with a matching 2-column skeleton screen (header card, unit accordion, and viewer container) ensuring smooth, flicker-free page hydration.
+
 ---
 *(Note: As an agent, I will update this file whenever major architectural decisions, new features, or critical rules are established.)*

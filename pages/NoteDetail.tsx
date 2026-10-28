@@ -368,7 +368,63 @@ const NoteDetail: React.FC = () => {
     );
   };
 
-  if (loading) return <div className="p-12 text-center">Loading...</div>;
+  const NoteDetailSkeleton: React.FC = () => (
+    <div className="bg-slate-50 min-h-screen pb-12 animate-pulse">
+      <div className="max-w-[1400px] mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6">
+        <div className="h-4 w-32 bg-slate-200 rounded mb-6" />
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 mb-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+          <div className="flex items-start gap-4 flex-1">
+            <div className="w-14 h-14 bg-slate-200 rounded-xl shrink-0" />
+            <div className="space-y-2.5 flex-1">
+              <div className="h-6 w-1/3 bg-slate-200 rounded" />
+              <div className="h-4 w-2/3 bg-slate-100 rounded" />
+              <div className="flex gap-2 pt-1">
+                <div className="h-5 w-16 bg-slate-200 rounded-full" />
+                <div className="h-5 w-32 bg-slate-100 rounded-full" />
+              </div>
+            </div>
+          </div>
+          <div className="h-11 w-36 bg-slate-200 rounded-xl shrink-0" />
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          <div className="lg:col-span-4 space-y-4">
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-4 space-y-3">
+              <div className="h-4 w-28 bg-slate-200 rounded mb-3" />
+              {[1, 2, 3, 4].map(i => (
+                <div key={i} className="p-3 rounded-xl border border-slate-100 bg-slate-50 space-y-2">
+                  <div className="h-3.5 w-40 bg-slate-200 rounded" />
+                  <div className="h-2.5 w-24 bg-slate-100 rounded" />
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="lg:col-span-8">
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-8 sm:p-12 space-y-6 aspect-[1/1.414]">
+              <div className="flex justify-between items-center pb-4 border-b border-slate-100">
+                <div className="h-5 w-48 bg-slate-200 rounded" />
+                <div className="h-4 w-16 bg-slate-100 rounded" />
+              </div>
+              <div className="space-y-3 pt-2">
+                <div className="h-3.5 w-full bg-slate-100 rounded" />
+                <div className="h-3.5 w-[94%] bg-slate-100 rounded" />
+                <div className="h-3.5 w-[98%] bg-slate-100 rounded" />
+                <div className="h-3.5 w-[85%] bg-slate-100 rounded" />
+                <div className="h-3.5 w-[60%] bg-slate-100 rounded" />
+              </div>
+              <div className="w-full h-56 bg-slate-100 rounded-xl" />
+              <div className="space-y-3">
+                <div className="h-3.5 w-[95%] bg-slate-100 rounded" />
+                <div className="h-3.5 w-[90%] bg-slate-100 rounded" />
+                <div className="h-3.5 w-[50%] bg-slate-100 rounded" />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  if (loading) return <NoteDetailSkeleton />;
   if (!note) return <div className="p-12 text-center">Note not found.</div>;
 
   return (

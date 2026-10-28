@@ -429,19 +429,81 @@ const SecurePdfViewer: React.FC<Props> = ({ url, filename, watermarkText }) => {
         style={{ touchAction: 'none' }}
       >
         {loading && (
-          <div className="flex flex-col items-center justify-center text-white/60 mt-20 gap-3">
-            <div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin" />
-            <span className="text-sm font-medium">
-              Loading PDF{downloadProgress > 0 ? ` (${downloadProgress}%)` : '…'}
-            </span>
-            {downloadProgress > 0 && (
-              <div className="w-48 h-1.5 bg-white/10 rounded-full overflow-hidden mt-1">
+          <div className="w-full max-w-2xl flex flex-col items-center py-2 animate-in fade-in duration-200">
+            {/* Minimal buffer progress header */}
+            <div className="w-full max-w-lg mb-2.5 flex items-center justify-between text-xs text-slate-300 font-medium px-2">
+              <span className="inline-flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-blue-400 animate-ping" />
+                <span className="text-slate-200">Loading document...</span>
+              </span>
+              <span className="text-[11px] text-slate-400 font-mono">
+                {downloadProgress > 0 ? `${downloadProgress}%` : ''}
+              </span>
+            </div>
+
+            {/* Smooth progress bar */}
+            {downloadProgress > 0 && downloadProgress < 100 && (
+              <div className="w-full max-w-lg h-1.5 bg-slate-800 rounded-full overflow-hidden mb-4 border border-slate-700/50">
                 <div 
-                  className="h-full bg-blue-500 transition-all duration-200" 
+                  className="h-full bg-gradient-to-r from-blue-500 via-indigo-500 to-cyan-400 transition-all duration-150" 
                   style={{ width: `${downloadProgress}%` }} 
                 />
               </div>
             )}
+
+            {/* Realistic A4 Document Page Skeleton */}
+            <div className="w-full bg-white rounded-sm shadow-2xl border border-slate-200/90 p-8 sm:p-12 space-y-6 animate-pulse select-none max-w-xl aspect-[1/1.414]">
+              {/* Document Header Skeleton */}
+              <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-lg bg-slate-200" />
+                  <div className="space-y-1.5">
+                    <div className="h-4 w-36 bg-slate-200 rounded" />
+                    <div className="h-2.5 w-24 bg-slate-100 rounded" />
+                  </div>
+                </div>
+                <div className="h-4 w-12 bg-slate-100 rounded" />
+              </div>
+
+              {/* Title Block Skeleton */}
+              <div className="pt-2 space-y-2">
+                <div className="h-6 w-3/4 bg-slate-200 rounded" />
+                <div className="h-3 w-1/2 bg-slate-100 rounded" />
+              </div>
+
+              {/* Text Paragraph 1 Skeleton */}
+              <div className="space-y-2.5 pt-2">
+                <div className="h-3 w-full bg-slate-100 rounded" />
+                <div className="h-3 w-[95%] bg-slate-100 rounded" />
+                <div className="h-3 w-[98%] bg-slate-100 rounded" />
+                <div className="h-3 w-[88%] bg-slate-100 rounded" />
+                <div className="h-3 w-[65%] bg-slate-100 rounded" />
+              </div>
+
+              {/* Diagram / Graph Placeholder Skeleton */}
+              <div className="w-full h-40 sm:h-48 bg-slate-50 border border-slate-100 rounded-lg flex flex-col items-center justify-center gap-2 p-4">
+                <div className="w-10 h-10 rounded-xl bg-slate-200/80 flex items-center justify-center">
+                  <svg className="w-5 h-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                </div>
+                <div className="h-2 w-24 bg-slate-200 rounded" />
+              </div>
+
+              {/* Text Paragraph 2 Skeleton */}
+              <div className="space-y-2.5 pt-2">
+                <div className="h-3 w-[96%] bg-slate-100 rounded" />
+                <div className="h-3 w-[92%] bg-slate-100 rounded" />
+                <div className="h-3 w-[85%] bg-slate-100 rounded" />
+                <div className="h-3 w-[45%] bg-slate-100 rounded" />
+              </div>
+
+              {/* Document Footer Skeleton */}
+              <div className="pt-4 flex justify-between items-center border-t border-slate-100">
+                <div className="h-2 w-16 bg-slate-100 rounded" />
+                <div className="h-2 w-8 bg-slate-200 rounded" />
+              </div>
+            </div>
           </div>
         )}
         
