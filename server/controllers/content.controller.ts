@@ -267,10 +267,37 @@ export async function getCourseStudents(req: express.Request, res: express.Respo
 
 // ─── Notes ────────────────────────────────────────────────────────────────────
 
+function sanitizeNoteForClient(note: any, userRole?: string, userId?: string): any {
+    if (!note) return note;
+    const role = (userRole || '').toUpperCase();
+    const isAdmin = role === 'ADMIN' || role === 'SUPER_ADMIN';
+    const isTeacherOwner = role === 'TEACHER' && Boolean(note.teacherId && note.teacherId === userId);
+
+    // Admins and author teachers get raw internal storage pointers for editing in dashboard
+    if (isAdmin || isTeacherOwner) {
+        return note;
+    }
+
+    // For students and unauthenticated viewers, mask all internal/Cloudflare R2 URLs
+    const sanitized = { ...note };
+    if (Array.isArray(sanitized.sections)) {
+        sanitized.sections = sanitized.sections.map((sec: any) => ({
+            ...sec,
+            files: Array.isArray(sec.files) ? sec.files.map((f: any) => ({
+                ...f,
+                // Mask direct storage URLs with the secure proxy route
+                url: `/api/secure-file/${note.id}/${f.id || f._id}`
+            })) : []
+        }));
+    }
+    return sanitized;
+}
+
 export async function getNotes(req: express.Request, res: express.Response): Promise<void> {
     const subjectId = req.query.subjectId ? String(req.query.subjectId) : undefined;
     const teacherId = req.query.teacherId ? String(req.query.teacherId) : undefined;
     const { page, limit, skip } = parsePagination(req.query);
+    const currentUser = (req as any).currentUser;
     try {
         const result = await cache.getOrSet(
             `notes:${subjectId||'all'}:${teacherId||'all'}:${page}:${limit}`,
@@ -282,16 +309,20 @@ export async function getNotes(req: express.Request, res: express.Response): Pro
                 return { data, page, limit, total, totalPages: Math.ceil(total / limit) };
             }, 300
         );
-        res.json(result);
+        const sanitizedData = Array.isArray(result?.data)
+            ? result.data.map((n: any) => sanitizeNoteForClient(n, currentUser?.role, currentUser?.id))
+            : result?.data;
+        res.json({ ...result, data: sanitizedData });
     } catch (err) { logger.error('[Notes] getNotes:', err); res.status(500).json({ error: 'An internal error occurred' }); }
 }
 
 export async function getNoteById(req: express.Request, res: express.Response): Promise<void> {
     const id = req.params.id as string;
+    const currentUser = (req as any).currentUser;
     try {
         const note = await cache.getOrSet(`note:${id}`, () => Note.findOne({ id }).lean(), 600);
         if (!note) { res.status(404).json({ error: 'Note not found' }); return; }
-        res.json(note);
+        res.json(sanitizeNoteForClient(note, currentUser?.role, currentUser?.id));
     } catch (err) { logger.error('[Notes] getNoteById:', err); res.status(500).json({ error: 'An internal error occurred' }); }
 }
 

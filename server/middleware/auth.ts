@@ -47,6 +47,24 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
     }
 }
 
+export async function optionalAuth(req: Request, _res: Response, next: NextFunction): Promise<void> {
+    const authHeader = req.headers['authorization'];
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+        const token = authHeader.slice(7);
+        try {
+            const decoded = jwt.verify(token, JWT_SECRET!) as JwtPayload;
+            const user = await User.findOne({ id: decoded.userId });
+            if (user) {
+                (req as any).currentUser = user;
+                (req as any).sessionToken = decoded.sessionToken ?? null;
+            }
+        } catch {
+            // Non-blocking for optional auth
+        }
+    }
+    next();
+}
+
 export function requireRole(...roles: UserRole[]) {
     return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
         await requireAuth(req, res, () => {

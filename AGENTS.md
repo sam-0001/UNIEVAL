@@ -150,6 +150,10 @@ This file serves as the permanent memory and architectural guide for the UniEval
     - **Note File ID & Free-Status Preservation**:
       - `AdminDashboard.tsx` preserves existing `f.id` and `f.isFree` when editing notes, preventing UUID churn and broken URLs for existing students.
       - `secureFile.ts` resolves files polymorphically across `id`, `_id`, and `url` substring matches.
+    - **100% AES-256-GCM Note Encryption & API Storage Masking**:
+      - **Zero Direct Public URLs**: `CreateNoteModal` in `AdminDashboard.tsx` now uploads via `/api/upload/file` (AES-256-GCM encrypted at rest), completely removing unencrypted R2 presigned PUTs.
+      - **API Storage Masking**: `getNotes` and `getNoteById` in `content.controller.ts` automatically sanitize `files[].url` for students and guests, replacing storage URLs with the secure proxy endpoint (`/api/secure-file/:noteId/:fileId`). Students and visitors inspecting network traffic never see raw R2 bucket URLs or storage paths.
+      - **Full Database Encryption**: All legacy unencrypted note files across the MongoDB database were migrated and encrypted at rest with AES-256-GCM.
 
 ---
 *(Note: As an agent, I will update this file whenever major architectural decisions, new features, or critical rules are established.)*

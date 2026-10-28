@@ -1,6 +1,6 @@
 import express from 'express';
 import rateLimit from 'express-rate-limit';
-import { requireAuth, requireRole } from '../middleware/auth.js';
+import { requireAuth, requireRole, optionalAuth } from '../middleware/auth.js';
 import { UserRole } from '../../types.js';
 
 import * as AuthCtrl from '../controllers/auth.controller.js';
@@ -65,8 +65,8 @@ router.put(   '/courses/:id',  requireRole(UserRole.TEACHER, UserRole.ADMIN, Use
 router.delete('/courses/:id',  requireRole(UserRole.TEACHER, UserRole.ADMIN, UserRole.SUPER_ADMIN), ContentCtrl.deleteCourse);
 
 // ─── Notes ────────────────────────────────────────────────────────────────────
-router.get(   '/notes',                       ContentCtrl.getNotes);
-router.get(   '/notes/:id',                   ContentCtrl.getNoteById);
+router.get(   '/notes',                       optionalAuth, ContentCtrl.getNotes);
+router.get(   '/notes/:id',                   optionalAuth, ContentCtrl.getNoteById);
 router.post(  '/notes',                       requireRole(UserRole.TEACHER, UserRole.ADMIN, UserRole.SUPER_ADMIN), ContentCtrl.createNote);
 router.put(   '/notes/:id',                   requireRole(UserRole.TEACHER, UserRole.ADMIN, UserRole.SUPER_ADMIN), ContentCtrl.updateNote);
 router.delete('/notes/:id',                   requireRole(UserRole.TEACHER, UserRole.ADMIN, UserRole.SUPER_ADMIN), ContentCtrl.deleteNote);

@@ -2573,23 +2573,31 @@ const CreateNoteModal: React.FC<{onClose: () => void; editItem?: Note | null; on
         const tempFiles = newFiles.map(f => ({ name: `${f.name} (Uploading...)`, content: '#' }));
         setSections(prevSections => prevSections.map(s => s.id === sectionId ? { ...s, files: [...s.files, ...tempFiles] } : s));
 
-        const uploadSingle = async (file: File, retries = 4): Promise<{ name: string; content: string }> => {
-            const fileType = file.type || 'application/octet-stream';
+        const uploadSingle = async (file: File, retries = 3): Promise<{ name: string; content: string }> => {
+            const token = localStorage.getItem('token');
             for (let attempt = 0; attempt <= retries; attempt++) {
                 try {
-                    const { uploadUrl, publicUrl } = await api.getPresignedUrl(file.name, fileType, file.size, false);
-                    const response = await fetch(uploadUrl, { method: 'PUT', body: file, headers: { 'Content-Type': fileType } });
+                    const formData = new FormData();
+                    formData.append('file', file);
+                    const response = await fetch('/api/upload/file', {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${token}`
+                        },
+                        body: formData
+                    });
                     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-                    return { name: file.name, content: publicUrl };
+                    const data = await response.json();
+                    return { name: file.name, content: data.url };
                 } catch (error: any) {
                     const msg: string = error?.message ?? '';
                     const waitMatch = msg.match(/(\d+)\s*seconds/);
                     const isRateLimit = msg.toLowerCase().includes('rate limit') || msg.includes('429');
                     if (isRateLimit && attempt < retries) {
-                        const waitSec = waitMatch ? parseInt(waitMatch[1]) : 10;
+                        const waitSec = waitMatch ? parseInt(waitMatch[1]) : 5;
                         console.warn(`Rate limited on ${file.name}. Waiting ${waitSec}s (attempt ${attempt + 1}/${retries})...`);
                         await new Promise(res => setTimeout(res, waitSec * 1000));
-                    } else {
+                    } else if (attempt === retries) {
                         console.error('File Upload failed:', error);
                         return { name: `${file.name} (Failed)`, content: '#' };
                     }
