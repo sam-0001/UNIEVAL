@@ -132,4 +132,27 @@ describe('Note 1st PDF Free Demo Access', () => {
     expect(res.status).toBe(200);
     expect(res.body.toString()).toBe('%PDF-1.4 locked unit 2 content');
   });
+
+  it('supports HTTP 206 Partial Content range requests for instant progressive PDF loading', async () => {
+    vi.spyOn(Note, 'findOne').mockReturnValue({
+      lean: vi.fn().mockResolvedValue(mockNote)
+    } as any);
+
+    const fullContent = Buffer.from('%PDF-1.4 header and 64kb of chunked payload');
+    vi.mocked(uploadModule.readAndDecryptFile).mockResolvedValue({
+      buffer: fullContent,
+      mimeType: 'application/octet-stream' // generic MIME, should resolve to application/pdf from %PDF magic bytes
+    });
+
+    const res = await request(app)
+      .get(`/api/secure-file/note-123/file-demo-1`)
+      .set('Range', 'bytes=0-7');
+
+    expect(res.status).toBe(206);
+    expect(res.headers['content-range']).toBe(`bytes 0-7/${fullContent.length}`);
+    expect(res.headers['accept-ranges']).toBe('bytes');
+    expect(res.headers['x-no-compression']).toBe('1');
+    expect(res.headers['content-type']).toBe('application/pdf');
+    expect(res.body.toString()).toBe('%PDF-1.4');
+  });
 });

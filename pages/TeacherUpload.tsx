@@ -416,7 +416,7 @@ const TeacherUpload: React.FC = () => {
         finalThumbnailUrl = await uploadThumbnail(thumbnailFile);
       }
       if (!finalThumbnailUrl) {
-        finalThumbnailUrl = 'https://picsum.photos/800/600';
+        finalThumbnailUrl = '';
       }
 
       const course = await api.createCourse({
@@ -463,7 +463,7 @@ const TeacherUpload: React.FC = () => {
         setNoteThumbnailUploading(false);
       }
       if (!finalThumbnailUrl) {
-        finalThumbnailUrl = 'https://picsum.photos/800/600';
+        finalThumbnailUrl = '';
       }
 
       const finalSubjectId = await noteSubjectSelection.getSubjectForSave();

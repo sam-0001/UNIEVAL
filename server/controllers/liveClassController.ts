@@ -491,7 +491,9 @@ export const getLiveClassesForCourse = async (req: Request, res: Response): Prom
 
     const liveToSync = rawClasses.filter(c => c.status === 'live');
     if (liveToSync.length > 0) {
-      await Promise.all(liveToSync.map(lc => syncLiveClassStatus(lc)));
+      Promise.all(liveToSync.map(lc => syncLiveClassStatus(lc))).catch(err => {
+        logger.warn('[LiveClass] Background sync error in getLiveClassesForCourse:', err);
+      });
     }
 
     const liveClasses = rawClasses.map(lc => {
@@ -624,7 +626,10 @@ export const getMyLiveClassSchedule = async (req: Request, res: Response): Promi
 
     const liveClassesToSync = rawClasses.filter(c => c.status === 'live');
     if (liveClassesToSync.length > 0) {
-      await Promise.all(liveClassesToSync.map(lc => syncLiveClassStatus(lc)));
+      // Background non-blocking sync — scheduler also runs this every 15s, so student response is instant
+      Promise.all(liveClassesToSync.map(lc => syncLiveClassStatus(lc))).catch(err => {
+        logger.warn('[LiveClass] Background sync error in getMyLiveClassSchedule:', err);
+      });
     }
 
     const courseIds = [...new Set(rawClasses.map(c => c.courseId))];

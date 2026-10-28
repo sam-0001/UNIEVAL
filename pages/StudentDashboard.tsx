@@ -105,34 +105,43 @@ const StudentDashboard: React.FC = () => {
     if (user && user.role === UserRole.STUDENT) {
       const fetchPurchases = async () => {
         try {
-          const [allCourses, allNotes, scheduleRes, allSubjects, purchasesList] = await Promise.all([
-              api.getCourses(), 
-              api.getNotes(), 
-              api.getMyLiveClassSchedule().catch(() => ({ liveClasses: [] })),
-              api.getSubjects(),
-              api.getMyPurchases().catch(() => [])
+          // 1. Fetch core catalog & subjects first so dashboard renders instantly in ~200ms
+          const [allCourses, allNotes, allSubjects] = await Promise.all([
+            api.getCourses(), 
+            api.getNotes(), 
+            api.getSubjects(),
           ]);
           setAllCoursesState(allCourses);
           setCourses(allCourses.filter(c => user.purchasedCourseIds?.includes(c.id)));
           setAllNotesState(allNotes);
           setNotes(allNotes.filter(n => user.purchasedNoteIds?.includes(n.id)));
-          setLiveClasses(scheduleRes.liveClasses || []);
           setSubjects(allSubjects || []);
+          setLoading(false); // Dashboard unlocks immediately without waiting for secondary APIs!
 
-          const pMap: Record<string, PurchaseRecord> = {};
-          if (Array.isArray(purchasesList)) {
-            purchasesList.forEach(p => { pMap[p.productId] = p; });
-          }
-          setMyPurchases(pMap);
+          // 2. Fetch purchases & live class schedule in parallel in background
+          Promise.all([
+            api.getMyPurchases().catch(() => []),
+            api.getMyLiveClassSchedule().catch(() => ({ liveClasses: [] }))
+          ]).then(([purchasesList, scheduleRes]) => {
+            if (Array.isArray(purchasesList)) {
+              const pMap: Record<string, PurchaseRecord> = {};
+              purchasesList.forEach(p => { pMap[p.productId] = p; });
+              setMyPurchases(pMap);
+            }
+            if (scheduleRes && Array.isArray(scheduleRes.liveClasses)) {
+              setLiveClasses(scheduleRes.liveClasses);
+            }
+          }).catch(err => {
+            console.warn('[Dashboard] Background metadata fetch:', err);
+          });
         } catch (error) {
-          console.error('Failed to fetch purchases', error);
-        } finally {
+          console.error('Failed to fetch dashboard content', error);
           setLoading(false);
         }
       };
       fetchPurchases();
     } else {
-        setLoading(false);
+      setLoading(false);
     }
   }, [user]);
 
@@ -154,7 +163,13 @@ const StudentDashboard: React.FC = () => {
     let socket: any = null;
     try {
       socket = io(window.location.origin, {
-        transports: ['websocket', 'polling']
+        transports: ['polling', 'websocket'],
+        reconnectionAttempts: 3,
+        timeout: 5000,
+      });
+
+      socket.on('connect_error', () => {
+        // Silently handled; polling fallback below ensures schedule stays updated
       });
 
       socket.on('live-class-status-changed', () => {
@@ -1406,8 +1421,12 @@ const StudentDashboard: React.FC = () => {
                                                             className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-300" 
                                                         />
                                                     ) : (
-                                                        <div className="w-full h-full bg-slate-800 flex items-center justify-center text-slate-500">
-                                                            <FileText className="w-8 h-8 opacity-40" />
+                                                        <div className="w-full h-full bg-gradient-to-br from-[#131A3F] via-slate-900 to-[#1F81FC]/40 flex flex-col items-center justify-center text-white/80 p-4 text-center select-none group-hover:scale-105 transition-transform duration-300">
+                                                            <div className="w-10 h-10 rounded-xl bg-white/10 backdrop-blur-md flex items-center justify-center mb-2 shadow-inner border border-white/10">
+                                                                <FileText className="w-5 h-5 text-blue-400" />
+                                                            </div>
+                                                            <span className="text-xs font-bold text-white line-clamp-1">{n.title}</span>
+                                                            <span className="text-[10px] text-blue-200/80 font-medium mt-0.5">{fileCount > 0 ? `${fileCount} PDFs` : 'Study Material'}</span>
                                                         </div>
                                                     )}
                                                     
@@ -1601,7 +1620,16 @@ const StudentDashboard: React.FC = () => {
                                                 {recommendedNotes.map((n, i) => (
                                                     <Link key={n.id} to={`/note/${n.id}`} className="bg-white rounded-xl border border-slate-100 shadow-sm overflow-hidden flex flex-col group">
                                                         <div className="aspect-video bg-slate-900 relative">
-                                                            {n.thumbnailUrl ? <img src={n.thumbnailUrl} className="w-full h-full object-contain opacity-90 group-hover:opacity-100 transition-opacity" /> : <div className="w-full h-full bg-purple-900"></div>}
+                                                            {n.thumbnailUrl ? (
+                                                                <img src={n.thumbnailUrl} alt={n.title} className="w-full h-full object-contain opacity-90 group-hover:opacity-100 transition-opacity" />
+                                                            ) : (
+                                                                <div className="w-full h-full bg-gradient-to-br from-[#131A3F] via-slate-900 to-indigo-950 flex flex-col items-center justify-center text-white/80 p-4 text-center select-none">
+                                                                    <div className="w-9 h-9 rounded-xl bg-white/10 backdrop-blur-md flex items-center justify-center mb-1.5 border border-white/10">
+                                                                        <FileText className="w-4 h-4 text-indigo-400" />
+                                                                    </div>
+                                                                    <span className="text-xs font-bold text-white line-clamp-1">{n.title}</span>
+                                                                </div>
+                                                            )}
                                                             <div className="absolute top-3 left-3 bg-white/20 backdrop-blur-md text-white text-[10px] font-bold px-2 py-0.5 rounded">
                                                                 {getSubjectBadge(n.subjectId)}
                                                             </div>

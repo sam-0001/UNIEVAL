@@ -17,8 +17,10 @@ import React, {
 } from 'react';
 import * as pdfjsLib from 'pdfjs-dist';
 
-// Fetch the worker from a free CDN to save server bandwidth
-pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
+// Local same-origin worker (lightning fast, zero CDN latency or third-party blockage)
+if (typeof window !== 'undefined') {
+  pdfjsLib.GlobalWorkerOptions.workerSrc = `${window.location.origin}/pdf.worker.min.mjs`;
+}
 
 interface Props {
   url: string;
@@ -47,6 +49,7 @@ const SecurePdfViewer: React.FC<Props> = ({ url, filename, watermarkText }) => {
   const [basePageSize, setBasePageSize] = useState({ w: 0, h: 0 }); 
 
   const [loading,     setLoading]     = useState(true);
+  const [downloadProgress, setDownloadProgress] = useState(0);
   const [rendering,   setRendering]   = useState(false);
   const [error,       setError]       = useState('');
   const [animDirection, setAnimDirection] = useState<'next' | 'prev' | null>(null);
@@ -58,15 +61,41 @@ const SecurePdfViewer: React.FC<Props> = ({ url, filename, watermarkText }) => {
     setPdfDoc(null);
     setNumPages(0);
     setCurrentPage(1);
+    setDownloadProgress(0);
+
     try {
-      const resp = await fetch(url);
-      if (!resp.ok) throw new Error(`Failed to load PDF (${resp.status})`);
-      const buffer = await resp.arrayBuffer();
-      const doc = await pdfjsLib.getDocument({ data: buffer }).promise;
+      // 1. Try progressive loading with HTTP Range requests (Page 1 renders almost immediately)
+      const loadingTask = pdfjsLib.getDocument({
+        url,
+        withCredentials: true,
+        rangeChunkSize: 65536,
+        disableAutoFetch: false,
+        disableStream: false,
+      });
+
+      loadingTask.onProgress = (progressData: { loaded: number; total: number }) => {
+        if (progressData.total > 0) {
+          const pct = Math.min(100, Math.round((progressData.loaded / progressData.total) * 100));
+          setDownloadProgress(pct);
+        }
+      };
+
+      const doc = await loadingTask.promise;
       setPdfDoc(doc);
       setNumPages(doc.numPages);
-    } catch (e: any) {
-      setError(e.message || 'Failed to load PDF');
+    } catch (streamErr: any) {
+      console.warn('[PDF] Progressive stream fallback to buffer fetch:', streamErr?.message);
+      // 2. Resilient fallback to direct fetch if stream is aborted or blocked
+      try {
+        const resp = await fetch(url);
+        if (!resp.ok) throw new Error(`Failed to load PDF (${resp.status})`);
+        const buffer = await resp.arrayBuffer();
+        const doc = await pdfjsLib.getDocument({ data: buffer }).promise;
+        setPdfDoc(doc);
+        setNumPages(doc.numPages);
+      } catch (fallbackErr: any) {
+        setError(fallbackErr.message || 'Failed to load PDF');
+      }
     } finally {
       setLoading(false);
     }
@@ -373,7 +402,17 @@ const SecurePdfViewer: React.FC<Props> = ({ url, filename, watermarkText }) => {
         {loading && (
           <div className="flex flex-col items-center justify-center text-white/60 mt-20 gap-3">
             <div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin" />
-            <span className="text-sm">Loading PDF…</span>
+            <span className="text-sm font-medium">
+              Loading PDF{downloadProgress > 0 ? ` (${downloadProgress}%)` : '…'}
+            </span>
+            {downloadProgress > 0 && (
+              <div className="w-48 h-1.5 bg-white/10 rounded-full overflow-hidden mt-1">
+                <div 
+                  className="h-full bg-blue-500 transition-all duration-200" 
+                  style={{ width: `${downloadProgress}%` }} 
+                />
+              </div>
+            )}
           </div>
         )}
         

@@ -2174,7 +2174,7 @@ const CreateCourseModal: React.FC<{onClose: () => void; editItem?: Course | null
         modules.forEach(m => { m.videos.forEach(v => { if (v.videoStatus === 'uploading') { uploading = true; } }); });
         if (uploading) { alert("Please wait for all videos to finish uploading before saving."); return; }
         
-        let finalCourseThumbnail = editItem?.thumbnailUrl || 'https://picsum.photos/800/600?random=' + Date.now();
+        let finalCourseThumbnail = editItem?.thumbnailUrl || '';
         if (courseThumbnailFile) {
             try {
                 const { uploadUrl, publicUrl } = await api.getPresignedUrl(courseThumbnailFile.name, courseThumbnailFile.type || 'image/jpeg', courseThumbnailFile.size, false);
@@ -2543,6 +2543,9 @@ const CreateNoteModal: React.FC<{onClose: () => void; editItem?: Note | null; on
     const { user } = useAuth();
     const [title, setTitle] = useState(editItem?.title || '');
     const [description, setDescription] = useState(editItem?.description || '');
+    const [noteThumbnailFile, setNoteThumbnailFile] = useState<File | null>(null);
+    const [noteThumbnailPreview, setNoteThumbnailPreview] = useState<string>(editItem?.thumbnailUrl || '');
+    const [thumbnailUploading, setThumbnailUploading] = useState(false);
     const [price, setPrice] = useState(editItem?.price?.toString() || '199');
     const [originalPrice, setOriginalPrice] = useState(editItem?.originalPrice?.toString() || '');
     const [collegeName, setCollegeName] = useState(editItem?.collegeConfig?.name || '');
@@ -2599,8 +2602,6 @@ const CreateNoteModal: React.FC<{onClose: () => void; editItem?: Note | null; on
         }
 
         // Single final pass: swap every temp placeholder for its real result.
-        // Using a Map keyed by temp name avoids the double-entry that occurred
-        // when an inline per-file replacement AND a final append both ran.
         const resultByTempName = new Map(tempFiles.map((tf, i) => [tf.name, processedFiles[i]]));
         setSections(prevSections => prevSections.map(s => {
             if (s.id !== sectionId) return s;
@@ -2614,11 +2615,34 @@ const CreateNoteModal: React.FC<{onClose: () => void; editItem?: Note | null; on
     };
 
     const handleSave = async () => {
+        let finalNoteThumbnail = editItem?.thumbnailUrl || '';
+        if (noteThumbnailFile) {
+            setThumbnailUploading(true);
+            try {
+                const { uploadUrl, publicUrl } = await api.getPresignedUrl(noteThumbnailFile.name, noteThumbnailFile.type, noteThumbnailFile.size, false);
+                await new Promise((resolve, reject) => {
+                    const xhr = new XMLHttpRequest();
+                    xhr.open('PUT', uploadUrl);
+                    xhr.setRequestHeader('Content-Type', noteThumbnailFile.type);
+                    xhr.onload = () => (xhr.status >= 200 && xhr.status < 300) ? resolve(null) : reject();
+                    xhr.onerror = reject;
+                    xhr.send(noteThumbnailFile);
+                });
+                finalNoteThumbnail = publicUrl;
+            } catch (err) {
+                console.error("Note thumbnail upload failed", err);
+                alert("Failed to upload note thumbnail. Saving without it.");
+            } finally {
+                setThumbnailUploading(false);
+            }
+        }
+
         const finalSubjectId = await subjectSelection.getSubjectForSave();
         const noteData = {
             id: editItem?.id || '', title, description,
             subjectId: finalSubjectId, teacherId: user?.id || '',
             uploadedAt: editItem?.uploadedAt || new Date().toISOString(),
+            thumbnailUrl: finalNoteThumbnail,
             price: parseFloat(price) || 0,
             originalPrice: originalPrice ? parseFloat(originalPrice) : undefined,
             collegeConfig: (enableCollegeFree && collegeName.trim() && collegeDomain.trim()) 
@@ -2643,8 +2667,46 @@ const CreateNoteModal: React.FC<{onClose: () => void; editItem?: Note | null; on
                     <button onClick={onClose} className="text-gray-400 hover:text-gray-600 font-bold text-2xl">&times;</button>
                 </div>
                 <div className="p-5 sm:p-8 space-y-5 sm:space-y-6">
-                    <div><label className={LABEL_CLASS}>Title</label><input type="text" value={title} onChange={(e) => setTitle(e.target.value)} className={INPUT_CLASS} /></div>
-                    <div><label className={LABEL_CLASS}>Description</label><textarea rows={3} value={description} onChange={(e) => setDescription(e.target.value)} className={INPUT_CLASS}></textarea></div>
+                    <div className="flex flex-col md:flex-row gap-6">
+                        <div className="w-full md:w-1/3">
+                            <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Package Thumbnail</label>
+                            <div className="relative aspect-video bg-gray-100 rounded-xl overflow-hidden border-2 border-dashed border-gray-300 hover:border-indigo-500 transition-colors group cursor-pointer">
+                                <input 
+                                    type="file" 
+                                    accept="image/*" 
+                                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" 
+                                    onChange={(e) => {
+                                        if (e.target.files?.[0]) {
+                                            setNoteThumbnailFile(e.target.files[0]);
+                                            setNoteThumbnailPreview(URL.createObjectURL(e.target.files[0]));
+                                        }
+                                    }} 
+                                />
+                                {noteThumbnailPreview ? (
+                                    <img src={noteThumbnailPreview} alt="Note Package Cover" className="w-full h-full object-contain" />
+                                ) : (
+                                    <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-400">
+                                        <svg className="w-8 h-8 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                                        <span className="text-sm font-medium text-gray-500">Upload Thumbnail</span>
+                                    </div>
+                                )}
+                                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center pointer-events-none">
+                                    <span className="bg-white text-gray-900 px-3 py-1 rounded-md text-sm font-bold shadow">Change</span>
+                                </div>
+                            </div>
+                            <p className="text-[11px] text-gray-400 mt-1">Recommended: 16:9 widescreen image (PNG, JPG, WEBP)</p>
+                        </div>
+                        <div className="flex-1 space-y-4">
+                            <div>
+                                <label className={LABEL_CLASS}>Title</label>
+                                <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} className={INPUT_CLASS} placeholder="e.g. Engineering Mathematics I Notes" />
+                            </div>
+                            <div>
+                                <label className={LABEL_CLASS}>Description</label>
+                                <textarea rows={3} value={description} onChange={(e) => setDescription(e.target.value)} className={INPUT_CLASS} placeholder="Brief summary of what this note package covers..."></textarea>
+                            </div>
+                        </div>
+                    </div>
                     <div className="bg-gray-50 p-4 rounded-xl border border-gray-200"><SubjectSelector {...subjectSelection} inputClass={INPUT_CLASS} labelClass={LABEL_CLASS} /></div>
                     <div>
                         <label className={LABEL_CLASS}>Price (₹)</label>
@@ -2824,8 +2886,10 @@ const CreateNoteModal: React.FC<{onClose: () => void; editItem?: Note | null; on
                     </div>
                 </div>
                 <div className="p-6 border-t border-gray-100 flex justify-end gap-3 bg-gray-50 rounded-b-2xl">
-                    <button onClick={onClose} className="px-6 py-2.5 font-bold text-gray-600 hover:bg-gray-200 rounded-lg transition">Cancel</button>
-                    <button onClick={handleSave} className="px-6 py-2.5 font-bold text-white bg-indigo-800 hover:bg-indigo-900 rounded-lg shadow-lg shadow-indigo-200 transition">Save Note</button>
+                    <button onClick={onClose} disabled={thumbnailUploading} className="px-6 py-2.5 font-bold text-gray-600 hover:bg-gray-200 rounded-lg transition disabled:opacity-50">Cancel</button>
+                    <button onClick={handleSave} disabled={thumbnailUploading} className="px-6 py-2.5 font-bold text-white bg-indigo-800 hover:bg-indigo-900 rounded-lg shadow-lg shadow-indigo-200 transition disabled:opacity-50 flex items-center gap-2">
+                        {thumbnailUploading ? 'Uploading Thumbnail...' : 'Save Note'}
+                    </button>
                 </div>
             </div>
         </div>

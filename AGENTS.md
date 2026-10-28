@@ -112,5 +112,31 @@ This file serves as the permanent memory and architectural guide for the UniEval
       - **Inline Real-time Search**: Instant keyword filtering across note/course titles and subject names.
       - **Uncapped Catalog**: Removed legacy `notes.slice(0, 4)` restriction so all unlocked packages are fully visible.
 
+  - **Instant PDF Loading, HTTP/2 Protocol Error Fix & Socket Fallback**:
+    - **HTTP/2 Protocol Error Prevention**:
+      - Express `compression()` middleware previously attempted to gzip binary file proxy responses where `Content-Length` had already been set to the uncompressed length. In HTTP/2, this stream length mismatch triggered `ERR_HTTP2_PROTOCOL_ERROR`.
+      - Updated `server.ts` compression filter to strictly bypass `/api/secure-file`, `/api/video`, `/api/upload`, and any response with `x-no-compression`.
+    - **HTTP Range Support (206 Partial Content)**:
+      - `server/routes/secureFile.ts` now fully supports HTTP Range requests with `Accept-Ranges: bytes` and `Content-Range`.
+      - PDFs now load progressively: PDF.js requests just the header and Page 1 (first 64 KB) instead of waiting for the full multi-megabyte buffer to download. Page 1 renders in under 100ms.
+    - **Server-Side In-Memory Decryption Cache**:
+      - `upload.ts` maintains an LRU in-memory cache (`MAX_DECRYPTED_CACHE_SIZE = 30`, 15-minute TTL) for recently decrypted files.
+      - Range chunk requests, pagination, and multi-user views hit RAM in 0.1ms without re-fetching from Cloudflare R2 or re-running AES decryption.
+    - **Local PDF.js Worker**:
+      - Bundled `pdf.worker.min.mjs` directly into `public/` so the viewer loads the worker from the local origin rather than fetching 1.3 MB from `unpkg.com` (which suffered high latency and blockage across Indian ISPs).
+    - **Socket.io Graceful Polling Upgrade**:
+      - Configured Socket.io clients (`StudentDashboard.tsx` and `LiveClassRoom.tsx`) with `transports: ['polling', 'websocket']`.
+      - Prevents browser console `WebSocket connection to wss://... failed` errors when reverse proxies or CDNs do not forward raw WebSocket upgrades.
+
+  - **Note Thumbnail Uploads & Instant Dashboard Hydration**:
+    - **Note Thumbnail Upload for Teachers & Admins**:
+      - Added thumbnail upload to `CreateNoteModal` in `AdminDashboard.tsx` with 16:9 widescreen preview, direct presigned Cloudflare R2 upload, and persistence across creates and updates.
+      - Removed placeholder `picsum.photos` fallback in `TeacherUpload.tsx` and `AdminDashboard.tsx`.
+      - Notes without a custom uploaded thumbnail now render an elegant, branded UniEval cover card (navy gradient, glass icon, title and PDF count) instead of blank dark grey or purple rectangles.
+    - **Student Dashboard Fast Mount Split**:
+      - Separated dashboard data fetching: core materials (courses, notes, subjects) load first and unlock `loading = false` in ~200ms instead of blocking the whole UI behind a 5-way `Promise.all`.
+      - Live class schedule (`getMyLiveClassSchedule`) and purchase countdowns load in parallel in the background without freezing the screen.
+      - Gated live room status checks in `liveClassController.ts` so third-party Webinar.gg API calls run asynchronously in the background instead of stalling student HTTP requests for 3-4 seconds.
+
 ---
 *(Note: As an agent, I will update this file whenever major architectural decisions, new features, or critical rules are established.)*

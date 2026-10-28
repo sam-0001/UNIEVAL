@@ -190,8 +190,12 @@ export const LiveClassRoom: React.FC = () => {
             ? window.location.origin 
             : (import.meta.env.VITE_API_BASE_URL?.replace(/\/api\/?$/, '') || window.location.origin);
         const socket = io(socketBase, {
-            transports: ['websocket', 'polling'],
+            transports: ['polling', 'websocket'],
+            reconnectionAttempts: 5,
             autoConnect: true,
+        });
+        socket.on('connect_error', () => {
+            // Silently handled; room state falls back gracefully
         });
         socketRef.current = socket;
 

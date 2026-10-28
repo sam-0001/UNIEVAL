@@ -188,7 +188,24 @@ async function startServer() {
         optionsSuccessStatus: 200,
     }));
 
-    app.use(compression());
+    // ── Response Compression (skip secure files, binary assets, and uncompressed PDF proxies) ──
+    app.use(compression({
+        filter: (req, res) => {
+            if (req.headers['x-no-compression'] || res.getHeader('x-no-compression')) return false;
+            const path = req.path || '';
+            if (
+                path.startsWith('/api/secure-file') ||
+                path.startsWith('/api/video') ||
+                path.startsWith('/api/upload') ||
+                path.endsWith('.pdf') ||
+                path.endsWith('.ts') ||
+                path.endsWith('.m3u8')
+            ) {
+                return false;
+            }
+            return compression.filter(req, res);
+        }
+    }));
 
     // ── Body limits — 1mb for API, 50mb only for file operations ─────────────
     // 50mb on all routes was a DoS vector — any endpoint could receive huge payloads.

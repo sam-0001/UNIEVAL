@@ -292,6 +292,7 @@ export async function deleteNoteFileAssets(urlOrId?: string, fileIdFallback?: st
     }
 
     if (fileId) {
+      invalidateDecryptedCache(fileId);
       const record = await FileKey.findOne({ fileId }).lean() as any;
       if (record) {
         if (record.bundleId) {
@@ -687,11 +688,53 @@ async function decryptRecord(record: any): Promise<Buffer> {
     return decryptBuffer(ciphertext, record.keyHex, record.ivHex, record.authTagHex);
 }
 
+// In-memory cache for recently decrypted files (LRU + TTL)
+// Avoids repeated Cloudflare R2 downloads & AES decryption for Range requests, fast pagination, and concurrent users
+interface DecryptedCacheEntry {
+    buffer: Buffer;
+    mimeType?: string;
+    originalName?: string;
+    bundleId?: string;
+    isEntry?: boolean;
+    cachedAt: number;
+}
+
+const decryptedCache = new Map<string, DecryptedCacheEntry>();
+const MAX_DECRYPTED_CACHE_SIZE = 30; // cache up to 30 files in RAM
+const DECRYPTED_CACHE_TTL_MS = 15 * 60 * 1000; // 15 mins TTL
+
+export function invalidateDecryptedCache(fileId?: string) {
+    if (fileId) {
+        decryptedCache.delete(fileId);
+    } else {
+        decryptedCache.clear();
+    }
+}
+
 export async function readAndDecryptFile(fileId: string): Promise<{ buffer: Buffer; mimeType?: string; originalName?: string; bundleId?: string; isEntry?: boolean } | null> {
+    const cached = decryptedCache.get(fileId);
+    if (cached && (Date.now() - cached.cachedAt < DECRYPTED_CACHE_TTL_MS)) {
+        return {
+            buffer: cached.buffer,
+            mimeType: cached.mimeType,
+            originalName: cached.originalName,
+            bundleId: cached.bundleId,
+            isEntry: cached.isEntry
+        };
+    }
+
     const record = await FileKey.findOne({ fileId }).lean() as any;
     if (!record) return null;
     const buffer = await decryptRecord(record);
-    return { buffer, mimeType: record.mimeType, originalName: record.originalName, bundleId: record.bundleId, isEntry: record.isEntry };
+    const result = { buffer, mimeType: record.mimeType, originalName: record.originalName, bundleId: record.bundleId, isEntry: record.isEntry };
+
+    if (decryptedCache.size >= MAX_DECRYPTED_CACHE_SIZE) {
+        const oldestKey = decryptedCache.keys().next().value;
+        if (oldestKey) decryptedCache.delete(oldestKey);
+    }
+    decryptedCache.set(fileId, { ...result, cachedAt: Date.now() });
+
+    return result;
 }
 
 // Looks up and decrypts a sibling asset (e.g. an image under img/) that was uploaded in the

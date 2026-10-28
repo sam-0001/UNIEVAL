@@ -66,6 +66,68 @@ function extOf(filename: string): string {
     return (filename.split('.').pop() || '').toLowerCase();
 }
 
+function resolveBufferContentType(buffer: Buffer, originalName?: string, title?: string, fallback?: string): string {
+    if (buffer.length >= 4 && buffer.subarray(0, 4).toString() === '%PDF') {
+        return 'application/pdf';
+    }
+    if (buffer.length >= 8 && buffer.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]))) {
+        return 'image/png';
+    }
+    if (buffer.length >= 3 && buffer[0] === 0xFF && buffer[1] === 0xD8 && buffer[2] === 0xFF) {
+        return 'image/jpeg';
+    }
+    if (originalName) {
+        const ext = extOf(originalName);
+        if (MIME[ext]) return MIME[ext];
+    }
+    if (title) {
+        const ext = extOf(title);
+        if (MIME[ext]) return MIME[ext];
+    }
+    if (fallback && fallback !== 'application/octet-stream') {
+        return fallback;
+    }
+    return 'application/pdf';
+}
+
+function streamBufferWithRange(req: Request, res: Response, buffer: Buffer, contentType: string): void {
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Accept-Ranges', 'bytes');
+    res.setHeader('x-no-compression', '1');
+
+    const total = buffer.length;
+    const range = req.headers.range;
+
+    if (range) {
+        const parts = range.replace(/bytes=/, '').split('-');
+        let start = parseInt(parts[0], 10);
+        let end = parts[1] ? parseInt(parts[1], 10) : total - 1;
+
+        if (isNaN(start)) {
+            start = total - end;
+            end = total - 1;
+        }
+        if (isNaN(end) || end >= total) {
+            end = total - 1;
+        }
+
+        if (start > end || start >= total) {
+            res.status(416).setHeader('Content-Range', `bytes */${total}`).end();
+            return;
+        }
+
+        const chunk = buffer.subarray(start, end + 1);
+        res.status(206);
+        res.setHeader('Content-Range', `bytes ${start}-${end}/${total}`);
+        res.setHeader('Content-Length', chunk.length);
+        res.end(chunk);
+    } else {
+        res.status(200);
+        res.setHeader('Content-Length', total);
+        res.end(buffer);
+    }
+}
+
 // Shared by both the main file route and the bundle-asset route: loads the note, finds the
 // requested file, and checks the requester is entitled to it (purchased / free / college-domain / 1st PDF demo).
 async function resolveFileAccess(
@@ -160,16 +222,15 @@ router.get('/secure-file/:noteId/:fileId', requireAuthOrQuery, async (req: Reque
     res.setHeader('X-Frame-Options', 'SAMEORIGIN');
 
     // 5a. Encrypted-at-rest files: url looks like /api/secure-file-raw/<fileId>.
-    // Decrypt server-side (only ever in memory) and stream the plaintext to the
-    // already-authenticated, already-entitled requester.
+    // Decrypt server-side (only ever in memory) and stream the plaintext with Range support
+    // to the already-authenticated, already-entitled requester.
     const encryptedMatch = fileUrl.match(/^\/api\/secure-file-raw\/([a-zA-Z0-9-]+)$/);
     if (encryptedMatch) {
         try {
             const decrypted = await readAndDecryptFile(encryptedMatch[1]);
             if (!decrypted) { res.status(404).json({ error: 'File not found' }); return; }
-            res.setHeader('Content-Type', decrypted.mimeType || mimeType);
-            res.setHeader('Content-Length', decrypted.buffer.length);
-            res.end(decrypted.buffer);
+            const contentType = resolveBufferContentType(decrypted.buffer, decrypted.originalName, targetFile.title, decrypted.mimeType || mimeType);
+            streamBufferWithRange(req, res, decrypted.buffer, contentType);
         } catch (err) {
             if (!res.headersSent) res.status(500).json({ error: 'Failed to decrypt file' });
         }
@@ -177,7 +238,7 @@ router.get('/secure-file/:noteId/:fileId', requireAuthOrQuery, async (req: Reque
     }
 
     // 5b. Legacy path: files uploaded before encryption was introduced are stored as a
-    // plain (unencrypted) URL and are proxied through as before.
+    // plain (unencrypted) URL and are proxied through with Range support.
     try {
         if (!fileUrl.startsWith('http://') && !fileUrl.startsWith('https://')) {
             res.status(404).json({ error: 'File missing or corrupted in storage' });
@@ -187,22 +248,9 @@ router.get('/secure-file/:noteId/:fileId', requireAuthOrQuery, async (req: Reque
         const upstream = await fetch(fileUrl);
         if (!upstream.ok) { res.status(404).json({ error: 'File missing or corrupted in storage' }); return; }
 
-        res.setHeader('Content-Type', mimeType || upstream.headers.get('content-type') || 'application/octet-stream');
-        if (upstream.headers.has('content-length')) {
-            res.setHeader('Content-Length', upstream.headers.get('content-length')!);
-        }
-
-        // Stream body to client
-        if (upstream.body) {
-            const reader = upstream.body.getReader();
-            while (true) {
-                const { done, value } = await reader.read();
-                if (done) { res.end(); break; }
-                if (!res.write(value)) await new Promise(r => res.once('drain', r));
-            }
-        } else {
-            res.end(Buffer.from(await upstream.arrayBuffer()));
-        }
+        const buffer = Buffer.from(await upstream.arrayBuffer());
+        const contentType = resolveBufferContentType(buffer, undefined, targetFile.title, upstream.headers.get('content-type') || mimeType);
+        streamBufferWithRange(req, res, buffer, contentType);
     } catch {
         if (!res.headersSent) res.status(404).json({ error: 'File missing or corrupted in storage' });
     }
@@ -239,14 +287,8 @@ router.get('/secure-file/:noteId/:fileId/asset', requireAuthOrQuery, async (req:
         if (!asset) { res.status(404).json({ error: 'Asset not found' }); return; }
 
         const ext = extOf(relativePath);
-        res.setHeader('Content-Type', asset.mimeType || ASSET_MIME[ext] || 'application/octet-stream');
-        res.setHeader('Content-Disposition', 'inline');
-        res.setHeader('X-Content-Type-Options', 'nosniff');
-        res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
-        res.setHeader('Pragma', 'no-cache');
-        res.setHeader('X-Frame-Options', 'SAMEORIGIN');
-        res.setHeader('Content-Length', asset.buffer.length);
-        res.end(asset.buffer);
+        const contentType = asset.mimeType || ASSET_MIME[ext] || 'application/octet-stream';
+        streamBufferWithRange(req, res, asset.buffer, contentType);
     } catch (err) {
         if (!res.headersSent) res.status(500).json({ error: 'Failed to load asset' });
     }
