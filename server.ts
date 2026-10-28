@@ -162,9 +162,6 @@ async function startServer() {
     // ── Static assets & Web Workers served BEFORE CORS — they are always same-origin ──
     // Serving dist assets before CORS middleware prevents static files from
     // being rejected by CORS when CORS_ORIGINS is set to a specific domain.
-    express.static.mime.define({
-        'application/javascript': ['mjs', 'js']
-    });
 
     // Explicit PDF.js worker endpoints: guarantee Content-Type: application/javascript
     // under any reverse-proxy setup (Nginx / Cloudflare / PM2)
