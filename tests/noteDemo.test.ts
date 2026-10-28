@@ -9,7 +9,8 @@ import jwt from 'jsonwebtoken';
 vi.mock('../server/routes/upload.js', () => ({
   readAndDecryptFile: vi.fn(),
   readAndDecryptBundleAsset: vi.fn(),
-  getBundleIdForFile: vi.fn()
+  getBundleIdForFile: vi.fn(),
+  getFileBufferFromR2OrUrl: vi.fn()
 }));
 
 const app = express();
@@ -154,5 +155,39 @@ describe('Note 1st PDF Free Demo Access', () => {
     expect(res.headers['x-no-compression']).toBe('1');
     expect(res.headers['content-type']).toBe('application/pdf');
     expect(res.body.toString()).toBe('%PDF-1.4');
+  });
+
+  it('successfully serves direct R2 / legacy raw uploaded PDF files using getFileBufferFromR2OrUrl', async () => {
+    const noteWithR2 = {
+      ...mockNote,
+      sections: [{
+        id: 'sec-1',
+        title: 'Unit 1',
+        files: [
+          {
+            id: 'file-r2-1',
+            title: 'Unit1_R2.pdf',
+            url: 'https://pub-xyz.r2.dev/raw-uploads/123-Unit1_R2.pdf',
+            isFree: false
+          }
+        ]
+      }]
+    };
+
+    vi.spyOn(Note, 'findOne').mockReturnValue({
+      lean: vi.fn().mockResolvedValue(noteWithR2)
+    } as any);
+
+    vi.mocked(uploadModule.getFileBufferFromR2OrUrl).mockResolvedValue({
+      buffer: Buffer.from('%PDF-1.4 direct R2 content'),
+      contentType: 'application/pdf'
+    });
+
+    const res = await request(app).get(`/api/secure-file/note-123/file-r2-1`);
+
+    expect(res.status).toBe(200);
+    expect(res.headers['content-type']).toBe('application/pdf');
+    expect(res.body.toString()).toBe('%PDF-1.4 direct R2 content');
+    expect(uploadModule.getFileBufferFromR2OrUrl).toHaveBeenCalledWith('https://pub-xyz.r2.dev/raw-uploads/123-Unit1_R2.pdf');
   });
 });

@@ -18,7 +18,8 @@ import express, { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { Note, User, Purchase } from '../models/index.js';
 import { JwtPayload } from '../middleware/auth.js';
-import { readAndDecryptFile, readAndDecryptBundleAsset, getBundleIdForFile } from './upload.js';
+import { readAndDecryptFile, readAndDecryptBundleAsset, getBundleIdForFile, getFileBufferFromR2OrUrl } from './upload.js';
+import logger from '../logger.js';
 
 const router = express.Router();
 const JWT_SECRET = process.env.JWT_SECRET!;
@@ -135,18 +136,31 @@ async function resolveFileAccess(
     fileId: string,
     currentUser: any,
 ): Promise<{ ok: true; targetFile: { id: string; title: string; url: string; isFree: boolean } } | { ok: false; status: number; error: string }> {
-    const note = await Note.findOne({ id: noteId }).lean() as any;
+    const note = await Note.findOne({ $or: [{ id: noteId }, { _id: noteId as any }] }).lean() as any;
     if (!note) return { ok: false, status: 404, error: 'Note not found' };
 
     let targetFile: { id: string; title: string; url: string; isFree: boolean } | undefined;
     let firstFileId: string | null = null;
     for (const section of note.sections || []) {
         if (!firstFileId && Array.isArray(section.files) && section.files.length > 0) {
-            firstFileId = section.files[0].id;
+            firstFileId = section.files[0].id || String(section.files[0]._id);
         }
-        const found = (section.files || []).find((f: any) => f.id === fileId);
+        const found = (section.files || []).find((f: any) => 
+            f.id === fileId || 
+            String(f._id) === fileId || 
+            (f.url && f.url.includes(fileId))
+        );
         if (found) { targetFile = found; }
     }
+
+    // Fallback: If requested file is "first" or targetFile not found, fallback to first file
+    if (!targetFile && (fileId === 'first' || !fileId) && firstFileId) {
+        for (const section of note.sections || []) {
+            const found = (section.files || []).find((f: any) => f.id === firstFileId || String(f._id) === firstFileId);
+            if (found) { targetFile = found; break; }
+        }
+    }
+
     if (!targetFile) return { ok: false, status: 404, error: 'File not found' };
 
     // The 1st PDF / file across all sections is open for everyone as a free demo preview
@@ -237,21 +251,18 @@ router.get('/secure-file/:noteId/:fileId', requireAuthOrQuery, async (req: Reque
         return;
     }
 
-    // 5b. Legacy path: files uploaded before encryption was introduced are stored as a
-    // plain (unencrypted) URL and are proxied through with Range support.
+    // 5b. Direct R2 storage / URL path:
+    // Fetches directly via authenticated S3 client (avoiding edge CDN bot blocks) with Range support
     try {
-        if (!fileUrl.startsWith('http://') && !fileUrl.startsWith('https://')) {
+        const fileData = await getFileBufferFromR2OrUrl(fileUrl);
+        if (!fileData) {
             res.status(404).json({ error: 'File missing or corrupted in storage' });
             return;
         }
-        
-        const upstream = await fetch(fileUrl);
-        if (!upstream.ok) { res.status(404).json({ error: 'File missing or corrupted in storage' }); return; }
-
-        const buffer = Buffer.from(await upstream.arrayBuffer());
-        const contentType = resolveBufferContentType(buffer, undefined, targetFile.title, upstream.headers.get('content-type') || mimeType);
-        streamBufferWithRange(req, res, buffer, contentType);
-    } catch {
+        const contentType = resolveBufferContentType(fileData.buffer, undefined, targetFile.title, fileData.contentType || mimeType);
+        streamBufferWithRange(req, res, fileData.buffer, contentType);
+    } catch (err: any) {
+        logger.error('[secureFile] Error streaming file:', err?.message || err);
         if (!res.headersSent) res.status(404).json({ error: 'File missing or corrupted in storage' });
     }
 });

@@ -138,5 +138,18 @@ This file serves as the permanent memory and architectural guide for the UniEval
       - Live class schedule (`getMyLiveClassSchedule`) and purchase countdowns load in parallel in the background without freezing the screen.
       - Gated live room status checks in `liveClassController.ts` so third-party Webinar.gg API calls run asynchronously in the background instead of stalling student HTTP requests for 3-4 seconds.
 
+  - **High-Performance Worker Loading & Direct Authenticated S3 Note Streaming**:
+    - **PDF.js Worker MIME Alignment across Nginx & Express**:
+      - Copied `public/pdf.worker.min.js` alongside `.mjs` and configured `SecurePdfViewer.tsx` to point to `/pdf.worker.min.js`.
+      - Reverse proxies (like Nginx on Ubuntu) lack `.mjs` mappings and default them to `application/octet-stream`, triggering browser strict MIME rejection on module workers. `.js` universally serves as `application/javascript; charset=utf-8`.
+      - Explicit `/pdf.worker.min.js` and `/pdf.worker.min.mjs` handlers in `server.ts` guarantee strict MIME type compliance regardless of reverse proxy or CDN configuration.
+    - **Direct Authenticated S3 Retrieval for R2 Note Assets (`getFileBufferFromR2OrUrl`)**:
+      - Note PDFs stored as R2 URLs (e.g., `pub-*.r2.dev/raw-uploads/*`) are fetched directly via `@aws-sdk/client-s3` (`GetObjectCommand`) using authenticated credentials instead of public HTTP `fetch`.
+      - Bypasses Cloudflare edge CDN bot checks and datacenter IP rate-limiting that previously caused `404 File missing or corrupted in storage`.
+      - Decrypted and raw buffers are cached in memory (LRU with 15-minute TTL) for instant sub-millisecond Range chunk responses.
+    - **Note File ID & Free-Status Preservation**:
+      - `AdminDashboard.tsx` preserves existing `f.id` and `f.isFree` when editing notes, preventing UUID churn and broken URLs for existing students.
+      - `secureFile.ts` resolves files polymorphically across `id`, `_id`, and `url` substring matches.
+
 ---
 *(Note: As an agent, I will update this file whenever major architectural decisions, new features, or critical rules are established.)*

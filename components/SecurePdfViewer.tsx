@@ -18,8 +18,9 @@ import React, {
 import * as pdfjsLib from 'pdfjs-dist';
 
 // Local same-origin worker (lightning fast, zero CDN latency or third-party blockage)
+// Uses .js extension so reverse proxies (Nginx/Cloudflare) and Express universally return application/javascript
 if (typeof window !== 'undefined') {
-  pdfjsLib.GlobalWorkerOptions.workerSrc = `${window.location.origin}/pdf.worker.min.mjs`;
+  pdfjsLib.GlobalWorkerOptions.workerSrc = `${window.location.origin}/pdf.worker.min.js`;
 }
 
 interface Props {

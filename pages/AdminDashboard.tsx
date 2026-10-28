@@ -2557,8 +2557,12 @@ const CreateNoteModal: React.FC<{onClose: () => void; editItem?: Note | null; on
         editItem?.validityDate ? new Date(editItem.validityDate).toISOString().split('T')[0] : ''
     );
     const subjectSelection = useSubjectSelection(editItem?.subjectId);
-    const [sections, setSections] = useState<{id: number, title: string, files: {name: string, content?: string}[]}[]>(() => 
-        editItem?.sections.map(s => ({ id: Math.random(), title: s.title, files: s.files.map(f => ({ name: f.title, content: f.url })) })) || [{id: 1, title: 'Notes', files: []}]
+    const [sections, setSections] = useState<{id: number | string, title: string, files: {id?: string, name: string, content?: string, isFree?: boolean}[]}[]>(() => 
+        editItem?.sections.map(s => ({ 
+            id: s.id || Math.random(), 
+            title: s.title, 
+            files: s.files.map((f: any) => ({ id: f.id || f._id, name: f.title, content: f.url, isFree: f.isFree })) 
+        })) || [{id: 1, title: 'Notes', files: []}]
     );
     
     const addSection = () => setSections([...sections, { id: Date.now(), title: 'New Section', files: [] }]);
@@ -2653,7 +2657,12 @@ const CreateNoteModal: React.FC<{onClose: () => void; editItem?: Note | null; on
             validityDate: validityType === 'date' && validityDate ? validityDate : undefined,
             sections: sections.map(s => ({
                 id: s.id.toString(), title: s.title,
-                files: s.files.map((f) => ({ id: crypto.randomUUID(), title: f.name, url: f.content || '#', isFree: false }))
+                files: s.files.map((f: any) => ({
+                    id: f.id || crypto.randomUUID(),
+                    title: f.name,
+                    url: f.content || '#',
+                    isFree: !!f.isFree
+                }))
             }))
         };
         onSave(noteData as unknown as Note);

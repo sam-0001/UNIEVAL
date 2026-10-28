@@ -159,9 +159,30 @@ async function startServer() {
         crossOriginEmbedderPolicy: false, // needed for HLS video player
     }));
 
-    // ── Static assets served BEFORE CORS — they are always same-origin ──────
+    // ── Static assets & Web Workers served BEFORE CORS — they are always same-origin ──
     // Serving dist assets before CORS middleware prevents static files from
     // being rejected by CORS when CORS_ORIGINS is set to a specific domain.
+    express.static.mime.define({
+        'application/javascript': ['mjs', 'js']
+    });
+
+    // Explicit PDF.js worker endpoints: guarantee Content-Type: application/javascript
+    // under any reverse-proxy setup (Nginx / Cloudflare / PM2)
+    const serveWorker = (res: express.Response, fileName: string) => {
+        const distFile = path.resolve(__dirname, 'dist', fileName);
+        const publicFile = path.resolve(__dirname, 'public', fileName);
+        const target = fs.existsSync(distFile) ? distFile : (fs.existsSync(publicFile) ? publicFile : null);
+        if (target) {
+            res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
+            res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+            res.sendFile(target);
+        } else {
+            res.status(404).end();
+        }
+    };
+    app.get('/pdf.worker.min.js', (_req, res) => serveWorker(res, 'pdf.worker.min.js'));
+    app.get('/pdf.worker.min.mjs', (_req, res) => serveWorker(res, 'pdf.worker.min.mjs'));
+
     if (NODE_ENV === 'production') {
         const distPath = path.resolve(__dirname, 'dist');
         app.use(express.static(distPath, {
@@ -170,6 +191,8 @@ async function startServer() {
             setHeaders: (res, filePath) => {
                 if (filePath.endsWith('.html')) {
                     res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+                } else if (filePath.endsWith('.mjs') || filePath.endsWith('.js')) {
+                    res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
                 }
             }
         }));
