@@ -169,5 +169,10 @@ This file serves as the permanent memory and architectural guide for the UniEval
       - Previously, PDF.js progressive loading attempted multi-roundtrip range requests and suffered a 15-second internal worker handshake timeout before falling back to buffer fetch, causing 15-20s perceived latency on ~800 KB PDFs.
       - Direct streaming fetches the full decrypted buffer in one continuous HTTP/2 multiplexed response (~150-250ms) with real-time percentage progress and executes in-memory `pdfjsLib.getDocument({ data: buffer })` in ~100ms, rendering Page 1 in under 400ms.
 
+    - **Role-Aware "Back to Dashboard" Universal Navigation**:
+      - Replaced hardcoded links (such as legacy `"Back to First Year Notes"` in `NoteDetail.tsx`, `"Back to Quizzes"` in `QuizDetail.tsx`, and `"Back to Viva List"` in `VivaDetail.tsx`) with dynamic `"Back to Dashboard"` links.
+      - Utilizes `getDashboardRoute(user?.role)` to navigate students directly to `/dashboard`, teachers/admins to `/admin`, and super admins to `/super-admin`.
+      - Added back navigation to `CourseDetail.tsx` and aligned `TeacherLiveClasses.tsx`.
+
 ---
 *(Note: As an agent, I will update this file whenever major architectural decisions, new features, or critical rules are established.)*

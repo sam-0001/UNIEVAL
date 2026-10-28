@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { api } from '../services/api';
-import { Quiz } from '../types';
+import { Quiz, getDashboardRoute } from '../types';
 import { useAuth } from '../context/AuthContext';
 import { useCredits } from '../context/AuthContext';
+import { ArrowLeft } from 'lucide-react';
 
 // ─── Plans ────────────────────────────────────────────────────────────────────
 const PLANS = [
@@ -593,9 +594,9 @@ const QuizDetail: React.FC = () => {
   if (status === 'intro') return (
     <div className="max-w-3xl mx-auto px-4 py-12">
       {showBuyModal && <BuyCreditsModal onClose={() => setShowBuyModal(false)} onSuccess={() => setShowBuyModal(false)} userName={user?.name} userEmail={user?.email} />}
-      <Link to="/browse?tab=quizzes" className="inline-flex items-center text-sm text-slate-500 hover:text-indigo-600 mb-6 transition-colors">
-        <svg className="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
-        Back to Quizzes
+      <Link to={getDashboardRoute(user?.role)} className="inline-flex items-center text-sm text-slate-500 hover:text-indigo-600 mb-6 transition-colors group font-medium">
+        <ArrowLeft className="w-4 h-4 mr-1.5 group-hover:-translate-x-0.5 transition-transform" />
+        Back to Dashboard
       </Link>
       <div className="bg-white rounded-2xl shadow-xl border border-slate-100 overflow-hidden animate-in fade-in zoom-in-95 duration-300">
         <div className="p-5 sm:p-10 text-center">
@@ -705,8 +706,8 @@ const QuizDetail: React.FC = () => {
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
                 Re-Attempt Quiz
               </button>
-              <Link to="/browse?tab=quizzes" className="flex-1 bg-slate-50 hover:bg-slate-100 text-slate-500 font-bold py-3 rounded-xl transition flex items-center justify-center gap-2 text-sm border border-slate-200">
-                Browse More Quizzes
+              <Link to={getDashboardRoute(user?.role)} className="flex-1 bg-slate-50 hover:bg-slate-100 text-slate-600 font-bold py-3 rounded-xl transition flex items-center justify-center gap-2 text-sm border border-slate-200">
+                Back to Dashboard
               </Link>
             </div>
           </div>

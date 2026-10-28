@@ -5,6 +5,12 @@ export enum UserRole {
   SUPER_ADMIN = 'SUPER_ADMIN'
 }
 
+export const getDashboardRoute = (role?: UserRole | string): string => {
+  if (role === UserRole.SUPER_ADMIN || role === 'SUPER_ADMIN') return '/super-admin';
+  if (role === UserRole.ADMIN || role === 'ADMIN' || role === UserRole.TEACHER || role === 'TEACHER') return '/admin';
+  return '/dashboard';
+};
+
 // Changed from Enum to string type to support the extensive list of modern engineering branches
 export type Branch = string;
 

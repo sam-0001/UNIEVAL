@@ -78,13 +78,8 @@ class ErrorBoundary extends React.Component<
     }
 }
 
-import { UserRole } from './types';
-
-export const getDashboardRoute = (role?: UserRole): string => {
-    if (role === UserRole.SUPER_ADMIN) return '/super-admin';
-    if (role === UserRole.ADMIN || role === UserRole.TEACHER) return '/admin';
-    return '/dashboard';
-};
+import { UserRole, getDashboardRoute } from './types';
+export { getDashboardRoute };
 
 const AuthModalWrapper = () => {
     const { showLoginModal } = useAuth();

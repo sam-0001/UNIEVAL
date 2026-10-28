@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { api } from '../services/api';
-import { Note, NoteFile, User, UserRole } from '../types';
+import { Note, NoteFile, User, UserRole, getDashboardRoute } from '../types';
 import { useAuth } from '../context/AuthContext';
 import SecurePdfViewer from '../components/SecurePdfViewer';
 import SecureHtmlViewer from '../components/SecureHtmlViewer';
 import { useSEO } from '../hooks/useSEO';
-import { Clock } from 'lucide-react';
+import { Clock, ArrowLeft } from 'lucide-react';
 
 declare global {
   interface Window {
@@ -375,12 +375,10 @@ const NoteDetail: React.FC = () => {
     <div className="bg-slate-50 min-h-screen pb-12">
       <div className="max-w-[1400px] mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6">
 
-        {/* Back Link */}
-        <Link to="/browse?year=1" className="inline-flex items-center text-xs sm:text-sm text-slate-500 hover:text-brand-cobalt mb-4 sm:mb-6 transition-colors font-medium">
-          <svg className="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-          </svg>
-          Back to First Year Notes
+        {/* Back to Dashboard Link */}
+        <Link to={getDashboardRoute(user?.role)} className="inline-flex items-center text-xs sm:text-sm text-slate-500 hover:text-brand-cobalt mb-4 sm:mb-6 transition-colors font-medium group">
+          <ArrowLeft className="w-4 h-4 mr-1.5 group-hover:-translate-x-0.5 transition-transform" />
+          Back to Dashboard
         </Link>
 
         {/* Header Card */}

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import { getDashboardRoute } from '../types';
 import Navbar from '../components/Navbar';
 import { Video, Calendar, Clock, Plus, MonitorPlay, Copy, Play, Trash2, ArrowLeft, Sun, Moon, Loader2, VideoOff, Link, CheckCircle2 } from 'lucide-react';
 
@@ -222,8 +223,8 @@ const TeacherLiveClasses: React.FC = () => {
                     <button onClick={() => setIsDarkMode(!isDarkMode)} className="p-2 rounded-full bg-slate-100 dark:bg-[#252A41] text-slate-600 dark:text-gray-300 hover:bg-slate-200 dark:hover:bg-[#2A2E3D] transition-colors" title="Toggle theme">
                         {isDarkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
                     </button>
-                    <button onClick={() => navigate('/teacher/upload')} className="text-xs sm:text-sm text-slate-500 dark:text-gray-400 hover:text-indigo-600 dark:text-blue-400 flex items-center gap-1.5 transition-colors font-medium">
-                        <ArrowLeft className="w-4 h-4" /> <span className="hidden xs:inline">Back to App</span><span className="xs:hidden">Back</span>
+                    <button onClick={() => navigate(getDashboardRoute(user?.role))} className="text-xs sm:text-sm text-slate-500 dark:text-gray-400 hover:text-indigo-600 dark:text-blue-400 flex items-center gap-1.5 transition-colors font-medium">
+                        <ArrowLeft className="w-4 h-4" /> <span className="hidden xs:inline">Back to Dashboard</span><span className="xs:hidden">Dashboard</span>
                     </button>
                 </div>
             </header>

@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { api } from '../services/api';
-import { Course, CourseModule, CourseVideo, User, UserRole } from '../types';
+import { Course, CourseModule, CourseVideo, User, UserRole, getDashboardRoute } from '../types';
 import { useAuth } from '../context/AuthContext';
 import CustomVideoPlayer from '../components/CustomVideoPlayer';
 import { useSEO } from '../hooks/useSEO';
-import { Clock } from 'lucide-react';
+import { Clock, ArrowLeft } from 'lucide-react';
 
 // Extend window object to support Cashfree
 declare global {
@@ -223,6 +223,11 @@ const CourseDetail: React.FC = () => {
 
   return (
     <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-8 pb-24">
+      {/* Back to Dashboard Link */}
+      <Link to={getDashboardRoute(user?.role)} className="inline-flex items-center text-xs sm:text-sm text-slate-500 hover:text-brand-cobalt mb-4 sm:mb-6 transition-colors font-medium group">
+        <ArrowLeft className="w-4 h-4 mr-1.5 group-hover:-translate-x-0.5 transition-transform" />
+        Back to Dashboard
+      </Link>
       <div className="lg:grid lg:grid-cols-3 lg:gap-8">
         {/* Main Content (Video Player) */}
         <div className="lg:col-span-2">

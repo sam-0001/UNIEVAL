@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { api } from '../services/api';
-import { Viva } from '../types';
-
+import { Viva, getDashboardRoute } from '../types';
 import { useAuth } from '../context/AuthContext';
+import { ArrowLeft } from 'lucide-react';
 
 // Interface for evaluation result
 interface Evaluation {
@@ -177,11 +177,9 @@ const VivaDetail: React.FC = () => {
 
   return (
     <div className="max-w-4xl mx-auto px-3 sm:px-6 py-4 sm:py-8 min-h-screen">
-       <Link to="/browse?tab=viva" className="inline-flex items-center text-sm text-slate-500 hover:text-brand-cobalt mb-6 transition-colors font-medium">
-            <svg className="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-            </svg>
-            Back to Viva List
+       <Link to={getDashboardRoute(user?.role)} className="inline-flex items-center text-sm text-slate-500 hover:text-brand-cobalt mb-6 transition-colors font-medium group">
+            <ArrowLeft className="w-4 h-4 mr-1.5 group-hover:-translate-x-0.5 transition-transform" />
+            Back to Dashboard
        </Link>
 
        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-4 sm:p-8 mb-6 sm:mb-8">
