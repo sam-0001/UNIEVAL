@@ -254,10 +254,10 @@ async function startServer() {
 
     // ── Rate limiting ─────────────────────────────────────────────────────────
     const globalLimiter = rateLimit({
-        windowMs: 15 * 60 * 1000, max: 500,
+        windowMs: 15 * 60 * 1000, max: 1000,
         message: 'Too many requests. Please try again later.',
         standardHeaders: true, legacyHeaders: false,
-        skip: (req) => req.path.startsWith('/upload/') || req.path.startsWith('/process-video'),
+        skip: (req) => req.path.startsWith('/upload/') || req.path.startsWith('/process-video') || req.path.startsWith('/secure-file'),
     });
     const authLimiter = rateLimit({
         windowMs: 15 * 60 * 1000, max: 100,
