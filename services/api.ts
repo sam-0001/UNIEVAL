@@ -39,7 +39,7 @@ function getCacheTTL(url: string, method?: string): number {
   return 0; // Don't cache auth, credits, session check, payments
 }
 
-async function fetchJson<T>(url: string, options?: RequestInit, timeoutMs = 15000): Promise<T> {
+async function fetchJson<T>(url: string, options?: RequestInit, timeoutMs = 30000): Promise<T> {
   const method = options?.method ? options.method.toUpperCase() : 'GET';
   const ttl = getCacheTTL(url, method);
   const cacheKey = `${url}`;

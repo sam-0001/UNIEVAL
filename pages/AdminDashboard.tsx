@@ -1031,10 +1031,10 @@ const AdminDashboard: React.FC = () => {
   useEffect(() => {
     if (user && user.role !== 'STUDENT') {
         const isAdmin = user.role === 'ADMIN' || user.role === 'SUPER_ADMIN';
-        api.getCourses().then(all => setCourses(isAdmin ? all : all.filter(c => c.teacherId === user.id)));
-        api.getNotes().then(all => setNotes(isAdmin ? all : all.filter(n => n.teacherId === user.id)));
-        api.getQuizzes().then(all => setQuizzes(isAdmin ? all : all.filter(q => q.teacherId === user.id)));
-        api.getViva().then(all => setViva(isAdmin ? all : all.filter(v => v.teacherId === user.id)));
+        api.getCourses().then(all => setCourses(isAdmin ? all : all.filter(c => c.teacherId === user.id))).catch(err => console.error('[Dashboard] getCourses error:', err));
+        api.getNotes().then(all => setNotes(isAdmin ? all : all.filter(n => n.teacherId === user.id))).catch(err => console.error('[Dashboard] getNotes error:', err));
+        api.getQuizzes().then(all => setQuizzes(isAdmin ? all : all.filter(q => q.teacherId === user.id))).catch(err => console.error('[Dashboard] getQuizzes error:', err));
+        api.getViva().then(all => setViva(isAdmin ? all : all.filter(v => v.teacherId === user.id))).catch(err => console.error('[Dashboard] getViva error:', err));
         fetchGlobalLiveClasses();
     }
   }, [user]);
@@ -2558,98 +2558,196 @@ const CreateNoteModal: React.FC<{onClose: () => void; editItem?: Note | null; on
         editItem?.validityDate ? new Date(editItem.validityDate).toISOString().split('T')[0] : ''
     );
     const subjectSelection = useSubjectSelection(editItem?.subjectId);
-    const [sections, setSections] = useState<{id: number | string, title: string, files: {id?: string, name: string, content?: string, isFree?: boolean}[]}[]>(() => 
-        editItem?.sections.map(s => ({ 
-            id: s.id || Math.random(), 
-            title: s.title, 
-            files: s.files.map((f: any) => ({ id: f.id || f._id, name: f.title, content: f.url, isFree: f.isFree })) 
-        })) || [{id: 1, title: 'Notes', files: []}]
+    
+    interface NoteModalFile {
+        id: string;
+        name: string;
+        content: string;
+        isFree?: boolean;
+        status: 'ready' | 'uploading' | 'failed';
+        progress: number;
+        error?: string;
+        rawFile?: File;
+    }
+
+    interface NoteModalSection {
+        id: string;
+        title: string;
+        files: NoteModalFile[];
+    }
+
+    const [sections, setSections] = useState<NoteModalSection[]>(() => 
+        (editItem?.sections && editItem.sections.length > 0) ? editItem.sections.map(s => ({ 
+            id: String(s.id || crypto.randomUUID()), 
+            title: s.title || '', 
+            files: (s.files || []).map((f: any) => ({
+                id: String(f.id || f._id || crypto.randomUUID()),
+                name: f.title || f.name || 'Untitled File',
+                content: f.url || '',
+                isFree: !!f.isFree,
+                status: 'ready' as const,
+                progress: 100
+            })) 
+        })) : [{ id: crypto.randomUUID(), title: 'Notes', files: [] }]
     );
     
-    const addSection = () => setSections([...sections, { id: Date.now(), title: 'New Section', files: [] }]);
-    const updateSectionTitle = (id: number, title: string) => setSections(sections.map(s => s.id === id ? { ...s, title } : s));
-    const removeSection = (id: number) => setSections(sections.filter(s => s.id !== id));
+    const addSection = () => setSections(prev => [...prev, { id: crypto.randomUUID(), title: 'New Section', files: [] }]);
+    const updateSectionTitle = (id: string | number, title: string) => setSections(prev => prev.map(s => String(s.id) === String(id) ? { ...s, title } : s));
+    const removeSection = (id: string | number) => setSections(prev => prev.filter(s => String(s.id) !== String(id)));
 
-    const addFilesToSection = async (sectionId: number, newFiles: File[]) => {
-        const tempFiles = newFiles.map(f => ({ name: `${f.name} (Uploading...)`, content: '#' }));
-        setSections(prevSections => prevSections.map(s => s.id === sectionId ? { ...s, files: [...s.files, ...tempFiles] } : s));
+    const uploadSingleFile = async (sectionId: string | number, fileItem: NoteModalFile) => {
+        if (!fileItem.rawFile) return;
+        const file = fileItem.rawFile;
+        const isBundle = file.name.toLowerCase().endsWith('.zip');
+        const endpoint = isBundle ? '/api/upload/html-bundle' : '/api/upload/file';
+        const token = localStorage.getItem('token');
 
-        const uploadSingle = async (file: File, retries = 3): Promise<{ name: string; content: string }> => {
-            const token = localStorage.getItem('token');
-            for (let attempt = 0; attempt <= retries; attempt++) {
-                try {
-                    const result = await new Promise<{ name: string; content: string }>((resolve, reject) => {
-                        const xhr = new XMLHttpRequest();
-                        xhr.open('POST', '/api/upload/file');
-                        if (token) {
-                            xhr.setRequestHeader('Authorization', `Bearer ${token}`);
-                        }
-                        xhr.timeout = 180000; // 3 minute timeout per file
+        setSections(prev => prev.map(s => {
+            if (String(s.id) !== String(sectionId)) return s;
+            return {
+                ...s,
+                files: s.files.map(f => f.id === fileItem.id ? { ...f, status: 'uploading' as const, progress: 0, error: undefined } : f)
+            };
+        }));
 
-                        xhr.onload = () => {
-                            if (xhr.status >= 200 && xhr.status < 300) {
-                                try {
-                                    const data = JSON.parse(xhr.responseText);
-                                    resolve({ name: file.name, content: data.url });
-                                } catch {
-                                    reject(new Error('Invalid response from server'));
-                                }
-                            } else {
-                                let errorMsg = `Upload failed (${xhr.status})`;
-                                try {
-                                    const errJson = JSON.parse(xhr.responseText);
-                                    if (errJson.error) errorMsg = errJson.error;
-                                } catch {}
-                                reject(new Error(errorMsg));
-                            }
-                        };
-
-                        xhr.onerror = () => reject(new Error('Network error during upload'));
-                        xhr.ontimeout = () => reject(new Error('Upload timed out. Please try again.'));
-
-                        const formData = new FormData();
-                        formData.append('file', file);
-                        xhr.send(formData);
-                    });
-                    return result;
-                } catch (error: any) {
-                    const msg: string = error?.message ?? '';
-                    const waitMatch = msg.match(/(\d+)\s*seconds/);
-                    const isRateLimit = msg.toLowerCase().includes('rate limit') || msg.includes('429');
-                    if (isRateLimit && attempt < retries) {
-                        const waitSec = waitMatch ? parseInt(waitMatch[1], 10) : 5;
-                        console.warn(`Rate limited on ${file.name}. Waiting ${waitSec}s (attempt ${attempt + 1}/${retries})...`);
-                        await new Promise(res => setTimeout(res, waitSec * 1000));
-                    } else if (attempt === retries) {
-                        console.error('File Upload failed:', error);
-                        return { name: `${file.name} (Failed)`, content: '#' };
-                    }
+        try {
+            const result = await new Promise<{ url: string; fileId?: string; entryName?: string }>((resolve, reject) => {
+                const xhr = new XMLHttpRequest();
+                xhr.open('POST', endpoint);
+                if (token) {
+                    xhr.setRequestHeader('Authorization', `Bearer ${token}`);
                 }
-            }
-            return { name: `${file.name} (Failed)`, content: '#' };
-        };
+                xhr.timeout = 120000; // 2 minute timeout per file
 
-        // Upload all files, collecting results in order
-        const processedFiles: { name: string; content: string }[] = [];
-        for (let i = 0; i < newFiles.length; i++) {
-            const result = await uploadSingle(newFiles[i]);
-            processedFiles.push(result);
+                xhr.upload.onprogress = (event) => {
+                    if (event.lengthComputable) {
+                        const percent = Math.min(99, Math.round((event.loaded / event.total) * 100));
+                        setSections(prev => prev.map(s => {
+                            if (String(s.id) !== String(sectionId)) return s;
+                            return {
+                                ...s,
+                                files: s.files.map(f => f.id === fileItem.id ? { ...f, progress: percent } : f)
+                            };
+                        }));
+                    }
+                };
+
+                xhr.onload = () => {
+                    if (xhr.status >= 200 && xhr.status < 300) {
+                        try {
+                            const data = JSON.parse(xhr.responseText);
+                            resolve(data);
+                        } catch {
+                            reject(new Error('Invalid response from server'));
+                        }
+                    } else {
+                        let errorMsg = `Upload failed (${xhr.status})`;
+                        try {
+                            const errJson = JSON.parse(xhr.responseText);
+                            if (errJson.error) errorMsg = errJson.error;
+                        } catch {}
+                        reject(new Error(errorMsg));
+                    }
+                };
+
+                xhr.onerror = () => reject(new Error('Network error during upload'));
+                xhr.ontimeout = () => reject(new Error('Upload timed out. Please try again.'));
+
+                const formData = new FormData();
+                formData.append('file', file);
+                xhr.send(formData);
+            });
+
+            // Upload success: update the file state
+            setSections(prev => prev.map(s => {
+                if (String(s.id) !== String(sectionId)) return s;
+                return {
+                    ...s,
+                    files: s.files.map(f => f.id === fileItem.id ? {
+                        ...f,
+                        id: result.fileId || f.id,
+                        name: isBundle ? (result.entryName || file.name) : file.name,
+                        content: result.url,
+                        status: 'ready' as const,
+                        progress: 100,
+                        error: undefined
+                    } : f)
+                };
+            }));
+        } catch (err: any) {
+            console.error(`Failed to upload ${file.name}:`, err);
+            setSections(prev => prev.map(s => {
+                if (String(s.id) !== String(sectionId)) return s;
+                return {
+                    ...s,
+                    files: s.files.map(f => f.id === fileItem.id ? {
+                        ...f,
+                        status: 'failed' as const,
+                        progress: 0,
+                        error: err.message || 'Upload failed'
+                    } : f)
+                };
+            }));
         }
+    };
 
-        // Single final pass: swap every temp placeholder for its real result.
-        const resultByTempName = new Map(tempFiles.map((tf, i) => [tf.name, processedFiles[i]]));
-        setSections(prevSections => prevSections.map(s => {
-            if (s.id !== sectionId) return s;
-            const files = s.files.map(f => resultByTempName.get(f.name) ?? f);
-            return { ...s, files };
+    const addFilesToSection = (sectionId: string | number, newFiles: File[]) => {
+        const newItems: NoteModalFile[] = newFiles.map(file => ({
+            id: `upload-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
+            name: file.name,
+            content: '',
+            isFree: false,
+            status: 'uploading' as const,
+            progress: 0,
+            rawFile: file
+        }));
+
+        setSections(prev => prev.map(s => {
+            if (String(s.id) !== String(sectionId)) return s;
+            return { ...s, files: [...s.files, ...newItems] };
+        }));
+
+        newItems.forEach(item => {
+            uploadSingleFile(sectionId, item);
+        });
+    };
+
+    const retryFileUpload = (sectionId: string | number, fileId: string) => {
+        const section = sections.find(s => String(s.id) === String(sectionId));
+        const fileItem = section?.files.find(f => f.id === fileId);
+        if (fileItem && fileItem.rawFile) {
+            uploadSingleFile(sectionId, fileItem);
+        }
+    };
+
+    const removeFileFromSection = (sectionId: string | number, fileId: string) => {
+        setSections(prev => prev.map(s => {
+            if (String(s.id) !== String(sectionId)) return s;
+            return { ...s, files: s.files.filter(f => f.id !== fileId) };
         }));
     };
 
-    const removeFileFromSection = (sectionId: number, fileIndex: number) => {
-         setSections(prevSections => prevSections.map(s => s.id === sectionId ? { ...s, files: s.files.filter((_, idx) => idx !== fileIndex) } : s));
+    const toggleFileFree = (sectionId: string | number, fileId: string) => {
+        setSections(prev => prev.map(s => {
+            if (String(s.id) !== String(sectionId)) return s;
+            return { ...s, files: s.files.map(f => f.id === fileId ? { ...f, isFree: !f.isFree } : f) };
+        }));
     };
 
+    const isAnyFileUploading = sections.some(s => s.files.some(f => f.status === 'uploading'));
+    const isAnyFileFailed = sections.some(s => s.files.some(f => f.status === 'failed'));
+
     const handleSave = async () => {
+        if (isAnyFileUploading) {
+            alert("Please wait for all files to finish uploading before saving.");
+            return;
+        }
+        if (isAnyFileFailed) {
+            if (!confirm("Some files failed to upload. Do you want to save without the failed files?")) {
+                return;
+            }
+        }
+
         let finalNoteThumbnail = editItem?.thumbnailUrl || '';
         if (noteThumbnailFile) {
             setThumbnailUploading(true);
@@ -2687,13 +2785,15 @@ const CreateNoteModal: React.FC<{onClose: () => void; editItem?: Note | null; on
             validityMonths: validityType === 'months' ? validityMonths : 6,
             validityDate: validityType === 'date' && validityDate ? validityDate : undefined,
             sections: sections.map(s => ({
-                id: s.id.toString(), title: s.title,
-                files: s.files.map((f: any) => ({
-                    id: f.id || crypto.randomUUID(),
-                    title: f.name,
-                    url: f.content || '#',
-                    isFree: !!f.isFree
-                }))
+                id: String(s.id), title: s.title,
+                files: s.files
+                    .filter(f => f.status !== 'failed' && f.content && f.content !== '#')
+                    .map((f: any) => ({
+                        id: f.id || crypto.randomUUID(),
+                        title: f.name,
+                        url: f.content,
+                        isFree: !!f.isFree
+                    }))
             }))
         };
         onSave(noteData as unknown as Note);
@@ -2906,19 +3006,84 @@ const CreateNoteModal: React.FC<{onClose: () => void; editItem?: Note | null; on
                                      <div className="border-t border-dashed border-gray-200 pt-3">
                                          {section.files.length > 0 && (
                                              <ul className="mb-3 space-y-2">
-                                                 {section.files.map((file, fIdx) => (
-                                                     <li key={fIdx} className="flex justify-between items-center text-xs bg-gray-50 p-2 rounded">
-                                                         <span className="flex items-center gap-2 flex-grow"><span className="text-red-500">📄</span><input type="text" value={file.name} readOnly className="bg-transparent border-none focus:ring-0 text-gray-600 w-full" /></span>
-                                                         <button onClick={() => removeFileFromSection(section.id, fIdx)} className="text-gray-400 hover:text-red-500 ml-2">&times;</button>
+                                                 {section.files.map((file) => (
+                                                     <li key={file.id} className="flex flex-col sm:flex-row sm:items-center justify-between text-xs bg-gray-50 border border-gray-200 p-2.5 rounded-lg gap-2">
+                                                         <div className="flex items-center gap-2 flex-grow min-w-0">
+                                                             <span className="text-base flex-shrink-0">
+                                                                 {file.name.endsWith('.zip') ? '📦' : file.name.match(/\.(png|jpe?g|webp|gif|svg)$/i) ? '🖼️' : '📄'}
+                                                             </span>
+                                                             <span className="font-medium text-gray-700 truncate" title={file.name}>
+                                                                 {file.name}
+                                                             </span>
+                                                             
+                                                             {file.status === 'uploading' && (
+                                                                 <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200 flex-shrink-0">
+                                                                     <span className="w-1.5 h-1.5 rounded-full bg-indigo-600 animate-ping"></span>
+                                                                     {file.progress === 100 ? 'Encrypting & Storing...' : `Uploading ${file.progress}%`}
+                                                                 </span>
+                                                             )}
+                                                             {file.status === 'failed' && (
+                                                                 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-red-50 text-red-700 border border-red-200 flex-shrink-0" title={file.error}>
+                                                                     ⚠️ Failed {file.error ? `(${file.error})` : ''}
+                                                                 </span>
+                                                             )}
+                                                             {file.status === 'ready' && (
+                                                                 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 flex-shrink-0">
+                                                                     ✓ Encrypted
+                                                                 </span>
+                                                             )}
+                                                         </div>
+
+                                                         {file.status === 'uploading' && (
+                                                             <div className="w-full sm:w-28 bg-gray-200 rounded-full h-1.5 overflow-hidden">
+                                                                 <div 
+                                                                     className="bg-indigo-600 h-1.5 rounded-full transition-all duration-300" 
+                                                                     style={{ width: `${file.progress}%` }}
+                                                                 ></div>
+                                                             </div>
+                                                         )}
+
+                                                         <div className="flex items-center gap-2 flex-shrink-0 self-end sm:self-center">
+                                                             {file.status === 'ready' && (
+                                                                 <label className="flex items-center gap-1 cursor-pointer text-[11px] text-gray-500 hover:text-gray-700">
+                                                                     <input 
+                                                                         type="checkbox" 
+                                                                         checked={file.isFree} 
+                                                                         onChange={() => toggleFileFree(section.id, file.id)}
+                                                                         className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 h-3.5 w-3.5 cursor-pointer"
+                                                                     />
+                                                                     <span>Free Demo</span>
+                                                                 </label>
+                                                             )}
+
+                                                             {file.status === 'failed' && file.rawFile && (
+                                                                 <button 
+                                                                     type="button" 
+                                                                     onClick={() => retryFileUpload(section.id, file.id)}
+                                                                     className="text-[11px] font-bold text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 px-2 py-0.5 rounded transition"
+                                                                 >
+                                                                     Retry
+                                                                 </button>
+                                                             )}
+
+                                                             <button 
+                                                                 type="button" 
+                                                                 onClick={() => removeFileFromSection(section.id, file.id)} 
+                                                                 className="text-gray-400 hover:text-red-500 p-1 text-sm font-bold transition rounded hover:bg-gray-200"
+                                                                 title="Remove file"
+                                                             >
+                                                                 ✕
+                                                             </button>
+                                                         </div>
                                                      </li>
                                                  ))}
                                              </ul>
                                          )}
-                                         <input type="file" multiple accept=".pdf,.doc,.docx,.ppt,.pptx,image/*" id={`note-files-${section.id}`} className="hidden"
+                                         <input type="file" multiple accept=".pdf,.doc,.docx,.ppt,.pptx,.zip,image/*" id={`note-files-${section.id}`} className="hidden"
                                             onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
                                                 if (e.target.files && e.target.files.length > 0) { addFilesToSection(section.id, Array.from(e.target.files) as File[]); e.target.value = ''; }
                                             }} />
-                                         <label htmlFor={`note-files-${section.id}`} className="block w-full py-2 border border-dashed border-gray-300 rounded text-xs text-center text-gray-500 hover:bg-gray-50 font-medium transition cursor-pointer">+ Click to Upload PDF/Images</label>
+                                         <label htmlFor={`note-files-${section.id}`} className="block w-full py-2 border border-dashed border-gray-300 rounded text-xs text-center text-gray-500 hover:bg-gray-50 font-medium transition cursor-pointer">+ Click to Upload PDF / Docs / Images / Zip</label>
                                      </div>
                                  </div>
                              ))}
@@ -2926,9 +3091,9 @@ const CreateNoteModal: React.FC<{onClose: () => void; editItem?: Note | null; on
                     </div>
                 </div>
                 <div className="p-6 border-t border-gray-100 flex justify-end gap-3 bg-gray-50 rounded-b-2xl">
-                    <button onClick={onClose} disabled={thumbnailUploading} className="px-6 py-2.5 font-bold text-gray-600 hover:bg-gray-200 rounded-lg transition disabled:opacity-50">Cancel</button>
-                    <button onClick={handleSave} disabled={thumbnailUploading} className="px-6 py-2.5 font-bold text-white bg-indigo-800 hover:bg-indigo-900 rounded-lg shadow-lg shadow-indigo-200 transition disabled:opacity-50 flex items-center gap-2">
-                        {thumbnailUploading ? 'Uploading Thumbnail...' : 'Save Note'}
+                    <button onClick={onClose} disabled={thumbnailUploading || isAnyFileUploading} className="px-6 py-2.5 font-bold text-gray-600 hover:bg-gray-200 rounded-lg transition disabled:opacity-50">Cancel</button>
+                    <button onClick={handleSave} disabled={thumbnailUploading || isAnyFileUploading} className="px-6 py-2.5 font-bold text-white bg-indigo-800 hover:bg-indigo-900 rounded-lg shadow-lg shadow-indigo-200 transition disabled:opacity-50 flex items-center gap-2">
+                        {thumbnailUploading ? 'Uploading Thumbnail...' : isAnyFileUploading ? 'Uploading Files...' : 'Save Note'}
                     </button>
                 </div>
             </div>

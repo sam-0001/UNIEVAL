@@ -432,6 +432,7 @@ async function startServer() {
 
     server.timeout = 0;
     server.keepAliveTimeout = 65000;
+    server.headersTimeout = 66000;
 
     // ── Graceful shutdown ─────────────────────────────────────────────────────
     const shutdown = (signal: string) => {

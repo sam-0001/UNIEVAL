@@ -33,7 +33,7 @@ const API_BASE_URL = process.env.API_BASE_URL || (
 const ALLOWED_VIDEO_TYPES = ['video/mp4', 'video/webm', 'video/ogg', 'video/quicktime', 'video/x-msvideo'];
 const ALLOWED_VIDEO_EXTENSIONS = ['mp4', 'webm', 'ogg', 'mov', 'avi'];
 
-const ALLOWED_DOC_EXTENSIONS = ['pdf', 'txt', 'md', 'csv', 'doc', 'docx', 'ppt', 'pptx', 'xls', 'xlsx', 'html', 'htm'];
+const ALLOWED_DOC_EXTENSIONS = ['pdf', 'txt', 'md', 'csv', 'doc', 'docx', 'ppt', 'pptx', 'xls', 'xlsx', 'html', 'htm', 'png', 'jpg', 'jpeg', 'webp', 'gif', 'svg'];
 const MAX_DOC_SIZE = 100 * 1024 * 1024; // 100MB per note file
 
 const UPLOADS_DIR = path.join(process.cwd(), 'uploads');
