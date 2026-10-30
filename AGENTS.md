@@ -178,5 +178,13 @@ This file serves as the permanent memory and architectural guide for the UniEval
       - Replaced raw circular buffer spinners with an authentic A4 document skeleton sheet featuring subtle pulsing text paragraphs, diagram blocks, header/footer guides, and a sleek minimal progress status bar.
       - Replaced raw `Loading...` text in `NoteDetail.tsx` with a matching 2-column skeleton screen (header card, unit accordion, and viewer container) ensuring smooth, flicker-free page hydration.
 
+    - **Autofill Null Exception & HTTP/2 Upload Stream Fixes**:
+      - **Autofill Null Exception (`pages/Login.tsx`)**: Removed legacy `onAutoFillStart` handler where `e.currentTarget` was nullified inside asynchronous `setTimeout(300)`, causing `Uncaught TypeError: Cannot read properties of null (reading 'closest')` whenever browsers autofilled credentials.
+      - **HTTP/2 Upload Ping & Timeout Fix (`/api/upload/file`)**:
+        - Replaced brittle `fetch()` with resilient `XMLHttpRequest` in `AdminDashboard.tsx` and added missing `Authorization` header in `TeacherUpload.tsx`, establishing proper 3-minute timeouts and error response parsing.
+        - Exempted `ADMIN` and `SUPER_ADMIN` roles from rate limiting in `server/middleware/userRateLimit.ts`. Created `noteUploadRateLimit` (150 uploads/5m) for document files, reserving the strict 10-request limit exclusively for heavy FFmpeg video processing (`/process-video`).
+        - Updated Nginx configurations (`nginx.app.conf` and `nginx.conf`) with `proxy_request_buffering off;` and `client_body_buffer_size 512k;` so file streams are forwarded directly to Node without stalling HTTP/2 keepalive PING frames.
+        - Synchronized Express JSON body limit to `100mb` on `/api/upload` to match `MAX_DOC_SIZE`.
+
 ---
 *(Note: As an agent, I will update this file whenever major architectural decisions, new features, or critical rules are established.)*

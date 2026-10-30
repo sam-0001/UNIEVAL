@@ -227,11 +227,11 @@ async function startServer() {
         }
     }));
 
-    // ── Body limits — 1mb for API, 50mb only for file operations ─────────────
-    // 50mb on all routes was a DoS vector — any endpoint could receive huge payloads.
+    // ── Body limits — 1mb for API, 100mb only for file operations ─────────────
+    // 100mb on all routes was a DoS vector — any endpoint could receive huge payloads.
     app.use((req, res, next) => {
         const isFileRoute = req.path.startsWith('/api/upload') || req.path.startsWith('/api/process-video') || req.path.startsWith('/api/delete-files');
-        const limit = isFileRoute ? '50mb' : '1mb';
+        const limit = isFileRoute ? '100mb' : '1mb';
         express.json({ limit })(req, res, (err) => {
             if (err) { res.status(413).json({ error: 'Request body too large' }); return; }
             next();

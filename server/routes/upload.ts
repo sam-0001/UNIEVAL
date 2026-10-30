@@ -10,7 +10,7 @@ import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { Course, VideoKey, FileKey } from '../models/index.js'; 
 import { requireAuth, requireRole } from '../middleware/auth.js';
 import { UserRole } from '../../types.js';
-import { uploadRateLimit, presignedUrlLimit } from '../middleware/userRateLimit.js';
+import { uploadRateLimit, noteUploadRateLimit, presignedUrlLimit } from '../middleware/userRateLimit.js';
 import logger from '../logger.js';
 import { enqueueVideoJob, isQueueAvailable } from '../services/queue.service.js';
 
@@ -559,7 +559,16 @@ async function encryptAndStoreFile(
     return fileId;
 }
 
-router.post('/upload/file', requireAuth, requireRole(UserRole.TEACHER, UserRole.ADMIN, UserRole.SUPER_ADMIN), uploadRateLimit, noteFileUpload.single('file'), async (req: Request, res: Response): Promise<void> => {
+router.post('/upload/file', requireAuth, requireRole(UserRole.TEACHER, UserRole.ADMIN, UserRole.SUPER_ADMIN), noteUploadRateLimit, (req: Request, res: Response, next: express.NextFunction) => {
+    noteFileUpload.single('file')(req, res, (err: any) => {
+        if (err) {
+            logger.error('[upload/file] Multer error:', err);
+            res.status(400).json({ error: err.message || 'File upload error' });
+            return;
+        }
+        next();
+    });
+}, async (req: Request, res: Response): Promise<void> => {
     const file = (req as any).file as Express.Multer.File | undefined;
     if (!file) { res.status(400).json({ error: 'No file provided' }); return; }
 
@@ -599,7 +608,16 @@ const bundleUpload = multer({
     },
 });
 
-router.post('/upload/html-bundle', requireAuth, requireRole(UserRole.TEACHER, UserRole.ADMIN, UserRole.SUPER_ADMIN), uploadRateLimit, bundleUpload.single('file'), async (req: Request, res: Response): Promise<void> => {
+router.post('/upload/html-bundle', requireAuth, requireRole(UserRole.TEACHER, UserRole.ADMIN, UserRole.SUPER_ADMIN), noteUploadRateLimit, (req: Request, res: Response, next: express.NextFunction) => {
+    bundleUpload.single('file')(req, res, (err: any) => {
+        if (err) {
+            logger.error('[upload/html-bundle] Multer error:', err);
+            res.status(400).json({ error: err.message || 'Bundle upload error' });
+            return;
+        }
+        next();
+    });
+}, async (req: Request, res: Response): Promise<void> => {
     const file = (req as any).file as Express.Multer.File | undefined;
     if (!file) { res.status(400).json({ error: 'No file provided' }); return; }
 

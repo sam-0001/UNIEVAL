@@ -6,6 +6,13 @@ function userRateLimit(maxRequests: number, windowSeconds: number) {
         const user = (req as any).currentUser;
         if (!user || !isRedisAvailable()) { next(); return; }
 
+        // Platform administrators are never throttled when managing educational materials
+        const role = (user.role || '').toUpperCase();
+        if (role === 'ADMIN' || role === 'SUPER_ADMIN') {
+            next();
+            return;
+        }
+
         const key = `rl:user:${user.id}:${req.path}`;
         try {
             const tx = redis.multi();
@@ -33,7 +40,8 @@ function userRateLimit(maxRequests: number, windowSeconds: number) {
     };
 }
 
-export const aiRateLimit       = userRateLimit(20,  60);  // 20 AI calls/min per user
-export const uploadRateLimit   = userRateLimit(10, 300);  // 10 uploads per 5 min per user
-export const presignedUrlLimit = userRateLimit(30,  60);  // 30 presigned URLs/min per user
-export const quizRateLimit     = userRateLimit(30,  60);  // 30 quiz requests/min per user
+export const aiRateLimit         = userRateLimit(20,  60);  // 20 AI calls/min per user
+export const uploadRateLimit     = userRateLimit(10, 300);  // 10 video processing jobs per 5 min per user
+export const noteUploadRateLimit = userRateLimit(150, 300); // 150 document/PDF uploads per 5 min per user
+export const presignedUrlLimit   = userRateLimit(50,  60);  // 50 presigned URLs/min per user
+export const quizRateLimit       = userRateLimit(30,  60);  // 30 quiz requests/min per user

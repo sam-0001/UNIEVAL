@@ -135,6 +135,11 @@ const TeacherUpload: React.FC = () => {
       return new Promise((resolve, reject) => {
           const xhr = new XMLHttpRequest();
           xhr.open('POST', url);
+          const token = localStorage.getItem('token');
+          if (token) {
+              xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+          }
+          xhr.timeout = 180000; // 3 minutes timeout
 
           xhr.upload.onprogress = (event) => {
               if (event.lengthComputable) {
@@ -144,15 +149,24 @@ const TeacherUpload: React.FC = () => {
           };
 
           xhr.onload = () => {
+              setUploadProgress(prev => {
+                  const newProgress = { ...prev };
+                  delete newProgress[progressKey];
+                  return newProgress;
+              });
               if (xhr.status >= 200 && xhr.status < 300) {
-                  setUploadProgress(prev => {
-                      const newProgress = { ...prev };
-                      delete newProgress[progressKey];
-                      return newProgress;
-                  });
-                  resolve(JSON.parse(xhr.responseText) as UploadResponse);
+                  try {
+                      resolve(JSON.parse(xhr.responseText) as UploadResponse);
+                  } catch {
+                      reject(new Error('Invalid response from server'));
+                  }
               } else {
-                  reject(new Error('Upload failed'));
+                  let errorMsg = `Upload failed (${xhr.status})`;
+                  try {
+                      const errData = JSON.parse(xhr.responseText);
+                      if (errData.error) errorMsg = errData.error;
+                  } catch {}
+                  reject(new Error(errorMsg));
               }
           };
 
@@ -162,7 +176,16 @@ const TeacherUpload: React.FC = () => {
                   delete newProgress[progressKey];
                   return newProgress;
               });
-              reject(new Error('Upload failed'));
+              reject(new Error('Network error during upload'));
+          };
+
+          xhr.ontimeout = () => {
+              setUploadProgress(prev => {
+                  const newProgress = { ...prev };
+                  delete newProgress[progressKey];
+                  return newProgress;
+              });
+              reject(new Error('Upload timed out. Please try again.'));
           };
 
           const formData = new FormData();

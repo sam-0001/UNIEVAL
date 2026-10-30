@@ -2578,24 +2578,46 @@ const CreateNoteModal: React.FC<{onClose: () => void; editItem?: Note | null; on
             const token = localStorage.getItem('token');
             for (let attempt = 0; attempt <= retries; attempt++) {
                 try {
-                    const formData = new FormData();
-                    formData.append('file', file);
-                    const response = await fetch('/api/upload/file', {
-                        method: 'POST',
-                        headers: {
-                            'Authorization': `Bearer ${token}`
-                        },
-                        body: formData
+                    const result = await new Promise<{ name: string; content: string }>((resolve, reject) => {
+                        const xhr = new XMLHttpRequest();
+                        xhr.open('POST', '/api/upload/file');
+                        if (token) {
+                            xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+                        }
+                        xhr.timeout = 180000; // 3 minute timeout per file
+
+                        xhr.onload = () => {
+                            if (xhr.status >= 200 && xhr.status < 300) {
+                                try {
+                                    const data = JSON.parse(xhr.responseText);
+                                    resolve({ name: file.name, content: data.url });
+                                } catch {
+                                    reject(new Error('Invalid response from server'));
+                                }
+                            } else {
+                                let errorMsg = `Upload failed (${xhr.status})`;
+                                try {
+                                    const errJson = JSON.parse(xhr.responseText);
+                                    if (errJson.error) errorMsg = errJson.error;
+                                } catch {}
+                                reject(new Error(errorMsg));
+                            }
+                        };
+
+                        xhr.onerror = () => reject(new Error('Network error during upload'));
+                        xhr.ontimeout = () => reject(new Error('Upload timed out. Please try again.'));
+
+                        const formData = new FormData();
+                        formData.append('file', file);
+                        xhr.send(formData);
                     });
-                    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-                    const data = await response.json();
-                    return { name: file.name, content: data.url };
+                    return result;
                 } catch (error: any) {
                     const msg: string = error?.message ?? '';
                     const waitMatch = msg.match(/(\d+)\s*seconds/);
                     const isRateLimit = msg.toLowerCase().includes('rate limit') || msg.includes('429');
                     if (isRateLimit && attempt < retries) {
-                        const waitSec = waitMatch ? parseInt(waitMatch[1]) : 5;
+                        const waitSec = waitMatch ? parseInt(waitMatch[1], 10) : 5;
                         console.warn(`Rate limited on ${file.name}. Waiting ${waitSec}s (attempt ${attempt + 1}/${retries})...`);
                         await new Promise(res => setTimeout(res, waitSec * 1000));
                     } else if (attempt === retries) {
