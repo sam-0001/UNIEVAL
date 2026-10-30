@@ -39,9 +39,24 @@ const SecurePdfViewer: React.FC<Props> = ({ url, filename, watermarkText, userId
   const containerRef  = useRef<HTMLDivElement>(null);
   const canvasRef     = useRef<HTMLCanvasElement>(null);
   const renderTaskRef = useRef<pdfjsLib.RenderTask | null>(null);
+  const renderTimeoutRef = useRef<number | null>(null);
 
   const [pdfDoc,      setPdfDoc]      = useState<pdfjsLib.PDFDocumentProxy | null>(null);
   const [numPages,    setNumPages]    = useState(0);
+  const [retryCount,  setRetryCount]  = useState(0);
+
+  const loadPdf = useCallback(() => {
+    setRetryCount(c => c + 1);
+  }, []);
+
+  // Cleanup pending zoom render timer on unmount
+  useEffect(() => {
+    return () => {
+      if (renderTimeoutRef.current) {
+        window.clearTimeout(renderTimeoutRef.current);
+      }
+    };
+  }, []);
 
   // Restore last read page for this specific file on reload
   const pageStorageKey = `unieval_pdf_page_${url.split('?')[0]}`;
@@ -168,7 +183,7 @@ const SecurePdfViewer: React.FC<Props> = ({ url, filename, watermarkText, userId
     return () => {
       active = false;
     };
-  }, [url, userId]);
+  }, [url, userId, retryCount]);
 
   // ── Auto-fit width on first page load ───────────────────────────────────────
   useEffect(() => {
