@@ -4,6 +4,7 @@ import React, {
 } from 'react';
 import { User, UserRole } from '../types';
 import { api } from '../services/api';
+import { clearPdfCache } from '../services/pdfCache';
 
 // ─── Credits Context ──────────────────────────────────────────────────────────
 interface CreditsState {
@@ -219,6 +220,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }, []);
 
   const logout = useCallback(() => {
+    clearPdfCache().catch(console.warn);
     setUser(null);
     setDeviceConflict(false);
     setCredits(0); setFreeQuizUsed(0); setUnlimitedPlan({ active: false, expiresAt: null });

@@ -320,6 +320,7 @@ const NoteDetail: React.FC = () => {
           url={secureUrl}
           filename={activeFile.title}
           watermarkText={(user as any)?.phoneNumber || user?.email || 'UNIEVAL DEMO PREVIEW'}
+          userId={user?.id}
         />
       );
     }

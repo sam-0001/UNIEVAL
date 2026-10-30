@@ -16,6 +16,7 @@ import React, {
   useEffect, useRef, useState, useCallback,
 } from 'react';
 import * as pdfjsLib from 'pdfjs-dist';
+import { getCachedPdf, storeCachedPdf } from '../services/pdfCache';
 
 // Local same-origin worker (lightning fast, zero CDN latency or third-party blockage)
 // Uses .js extension so reverse proxies (Nginx/Cloudflare) and Express universally return application/javascript
@@ -27,20 +28,41 @@ interface Props {
   url: string;
   filename?: string;
   watermarkText?: string;
+  userId?: string;
 }
 
 const MIN_SCALE = 0.5;
 const MAX_SCALE = 5.0;
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 
-const SecurePdfViewer: React.FC<Props> = ({ url, filename, watermarkText }) => {
+const SecurePdfViewer: React.FC<Props> = ({ url, filename, watermarkText, userId }) => {
   const containerRef  = useRef<HTMLDivElement>(null);
   const canvasRef     = useRef<HTMLCanvasElement>(null);
   const renderTaskRef = useRef<pdfjsLib.RenderTask | null>(null);
 
   const [pdfDoc,      setPdfDoc]      = useState<pdfjsLib.PDFDocumentProxy | null>(null);
   const [numPages,    setNumPages]    = useState(0);
-  const [currentPage, setCurrentPage] = useState(1);
+
+  // Restore last read page for this specific file on reload
+  const pageStorageKey = `unieval_pdf_page_${url.split('?')[0]}`;
+  const [currentPage, setCurrentPage] = useState<number>(() => {
+    if (typeof window === 'undefined') return 1;
+    try {
+      const saved = sessionStorage.getItem(pageStorageKey);
+      return saved ? Math.max(1, parseInt(saved, 10)) : 1;
+    } catch {
+      return 1;
+    }
+  });
+
+  // Track and persist current page in session storage
+  useEffect(() => {
+    if (typeof window !== 'undefined' && currentPage >= 1) {
+      try {
+        sessionStorage.setItem(pageStorageKey, currentPage.toString());
+      } catch {}
+    }
+  }, [currentPage, pageStorageKey]);
   
   // scale = Instant visual CSS scale
   // renderScale = The actual pixel density currently rendered on the canvas
@@ -54,7 +76,7 @@ const SecurePdfViewer: React.FC<Props> = ({ url, filename, watermarkText }) => {
   const [error,       setError]       = useState('');
   const [animDirection, setAnimDirection] = useState<'next' | 'prev' | null>(null);
 
-  // ── Load PDF: Instant Direct Buffer Fetch (0.2s - 0.4s load time) ────────────
+  // ── Load PDF: Instant Multi-Tier Cache with High-Speed Direct Fallback ────────
   useEffect(() => {
     let active = true;
 
@@ -63,52 +85,67 @@ const SecurePdfViewer: React.FC<Props> = ({ url, filename, watermarkText }) => {
       setError('');
       setPdfDoc(null);
       setNumPages(0);
-      setCurrentPage(1);
       setDownloadProgress(0);
 
       try {
-        // 1. High-speed direct buffer fetch with real-time download progress
-        const resp = await fetch(url);
-        if (!resp.ok) throw new Error(`Failed to load PDF (${resp.status})`);
+        let buffer: ArrayBuffer | null = null;
 
-        const contentLength = resp.headers.get('content-length');
-        const total = contentLength ? parseInt(contentLength, 10) : 0;
+        // 1. Check high-performance browser cache (RAM -> Cache API -> IndexedDB)
+        // Eliminates re-fetching delay on accidental reloads or switching between units
+        buffer = await getCachedPdf(url, userId);
 
-        let buffer: ArrayBuffer;
-        if (resp.body && total > 0 && typeof ReadableStream !== 'undefined') {
-          const reader = resp.body.getReader();
-          const chunks: Uint8Array[] = [];
-          let received = 0;
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-            if (!active) return;
-            if (value) {
-              chunks.push(value);
-              received += value.length;
-              if (active) {
-                setDownloadProgress(Math.min(100, Math.round((received / total) * 100)));
+        if (buffer && active) {
+          setDownloadProgress(100);
+        } else {
+          // 2. High-speed direct buffer fetch with real-time download progress
+          const resp = await fetch(url);
+          if (!resp.ok) throw new Error(`Failed to load PDF (${resp.status})`);
+
+          const contentLength = resp.headers.get('content-length');
+          const total = contentLength ? parseInt(contentLength, 10) : 0;
+
+          if (resp.body && total > 0 && typeof ReadableStream !== 'undefined') {
+            const reader = resp.body.getReader();
+            const chunks: Uint8Array[] = [];
+            let received = 0;
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) break;
+              if (!active) return;
+              if (value) {
+                chunks.push(value);
+                received += value.length;
+                if (active) {
+                  setDownloadProgress(Math.min(100, Math.round((received / total) * 100)));
+                }
               }
             }
+            if (!active) return;
+            const fullBytes = new Uint8Array(received);
+            let offset = 0;
+            for (const chunk of chunks) {
+              fullBytes.set(chunk, offset);
+              offset += chunk.length;
+            }
+            buffer = fullBytes.buffer;
+          } else {
+            buffer = await resp.arrayBuffer();
+            if (active) setDownloadProgress(100);
           }
+
           if (!active) return;
-          const fullBytes = new Uint8Array(received);
-          let offset = 0;
-          for (const chunk of chunks) {
-            fullBytes.set(chunk, offset);
-            offset += chunk.length;
+
+          // Store in multi-tier browser cache for instant reloads and unit switches
+          if (buffer) {
+            storeCachedPdf(url, buffer, userId).catch(console.warn);
           }
-          buffer = fullBytes.buffer;
-        } else {
-          buffer = await resp.arrayBuffer();
-          if (active) setDownloadProgress(100);
         }
 
-        if (!active) return;
+        if (!active || !buffer) return;
 
-        // 2. Parse PDF buffer in memory — instant execution without slow network range handshakes
+        // 3. Parse PDF buffer in memory — instant execution without slow network range handshakes
         const loadingTask = pdfjsLib.getDocument({
-          data: buffer,
+          data: buffer.slice(0), // clone slice to prevent worker detachment of cached buffer
           cMapPacked: true,
         });
 
@@ -116,6 +153,7 @@ const SecurePdfViewer: React.FC<Props> = ({ url, filename, watermarkText }) => {
         if (!active) return;
         setPdfDoc(doc);
         setNumPages(doc.numPages);
+        setCurrentPage(prev => Math.min(Math.max(1, prev), doc.numPages));
       } catch (err: any) {
         if (!active) return;
         console.error('[PDF] Load error:', err);
@@ -130,7 +168,7 @@ const SecurePdfViewer: React.FC<Props> = ({ url, filename, watermarkText }) => {
     return () => {
       active = false;
     };
-  }, [url]);
+  }, [url, userId]);
 
   // ── Auto-fit width on first page load ───────────────────────────────────────
   useEffect(() => {
