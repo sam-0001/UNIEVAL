@@ -7,6 +7,10 @@ import * as AuthCtrl from '../controllers/auth.controller.js';
 import * as ContentCtrl from '../controllers/content.controller.js';
 import * as UserCtrl from '../controllers/user.controller.js';
 import * as AdminCtrl from '../controllers/admin.controller.js';
+import * as ProgressCtrl from '../controllers/courseProgress.controller.js';
+import * as NotifCtrl from '../controllers/notification.controller.js';
+
+
 import { callAI } from '../services/ai.service.js';
 import logger from '../logger.js';
 import couponRouter from './coupon.js';
@@ -79,6 +83,23 @@ router.post(  '/courses/:id/enroll',          requireAuth, UserCtrl.enrollCourse
 router.post(  '/courses/:id/create-order',    requireAuth, UserCtrl.createCourseOrder);
 router.post(  '/courses/:id/verify-payment',  requireAuth, UserCtrl.verifyCoursePayment);
 
+// ─── Course Progress & Lecture Completion ─────────────────────────────────────
+router.get(   '/courses/:courseId/progress',              requireAuth, ProgressCtrl.getCourseProgress);
+router.post(  '/courses/:courseId/progress/toggle',       requireAuth, ProgressCtrl.toggleLectureProgress);
+router.post(  '/courses/:courseId/progress/last-watched', requireAuth, ProgressCtrl.setLastWatchedLecture);
+router.get(   '/users/progress/all',                      requireAuth, ProgressCtrl.getAllStudentProgress);
+
+
+// ─── Combos & Bundles ─────────────────────────────────────────────────────────
+router.get(   '/combos',                      optionalAuth, ContentCtrl.getCombos);
+router.get(   '/combos/:id',                  optionalAuth, ContentCtrl.getComboById);
+router.post(  '/combos',                      requireRole(UserRole.TEACHER, UserRole.ADMIN, UserRole.SUPER_ADMIN), ContentCtrl.createCombo);
+router.put(   '/combos/:id',                  requireRole(UserRole.TEACHER, UserRole.ADMIN, UserRole.SUPER_ADMIN), ContentCtrl.updateCombo);
+router.delete('/combos/:id',                  requireRole(UserRole.TEACHER, UserRole.ADMIN, UserRole.SUPER_ADMIN), ContentCtrl.deleteCombo);
+router.post(  '/combos/:id/enroll',          requireAuth, UserCtrl.enrollComboFree);
+router.post(  '/combos/:id/create-order',     requireAuth, UserCtrl.createComboOrder);
+router.post(  '/combos/:id/verify-purchase',  requireAuth, UserCtrl.verifyComboPurchase);
+
 // ─── Quizzes ──────────────────────────────────────────────────────────────────
 router.get(   '/quizzes',      ContentCtrl.getQuizzes);
 router.get(   '/quizzes/:id',  ContentCtrl.getQuizById);
@@ -104,6 +125,13 @@ router.use('/coupons', couponRouter);
 
 // ─── Video Key (AES-128 HLS) ──────────────────────────────────────────────────
 router.get('/video/key/:videoId', requireAuth, keyLimiter, UserCtrl.getVideoKey);
+
+// ─── Push Notifications ───────────────────────────────────────────────────────
+router.get( '/notifications/vapid-key',         NotifCtrl.getVapidKey);
+router.post('/notifications/subscribe',         optionalAuth, NotifCtrl.subscribe);
+router.post('/notifications/unsubscribe',       NotifCtrl.unsubscribe);
+router.get( '/admin/notifications/stats',       requireRole(UserRole.SUPER_ADMIN), NotifCtrl.getStats);
+router.post('/admin/notifications/broadcast',   requireRole(UserRole.SUPER_ADMIN), NotifCtrl.broadcast);
 
 // ─── AI Proxy ─────────────────────────────────────────────────────────────────
 router.post('/ai/generate', requireAuth, async (req, res) => {

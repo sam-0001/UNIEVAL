@@ -4,7 +4,7 @@ import express from 'express';
 import liveClassRoutes from '../server/routes/liveClass.js';
 import * as auth from '../server/middleware/auth.js';
 import * as daily from '../server/services/daily.js';
-import { LiveClass, Course, User } from '../server/models.js';
+import { LiveClass, Course, User } from '../server/models/index.js';
 
 // Mock auth middleware to set a dummy user
 vi.mock('../server/middleware/auth.js', () => ({
@@ -102,7 +102,7 @@ describe('Live Class Endpoints', () => {
       .post('/api/live-classes/class1/join');
 
     expect(res.status).toBe(200);
-    expect(res.body.token).toBe('dummy-token');
+    expect(res.body.token).toBe('test-token');
   });
 
   it('should not join an inactive live class', async () => {

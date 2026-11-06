@@ -1,4 +1,4 @@
-import { User, UserRole, Subject, Course, Note, Quiz, Viva, PurchaseRecord } from '../types';
+import { User, UserRole, Subject, Course, Note, Quiz, Viva, PurchaseRecord, Combo, CourseProgressData } from '../types';
 
 const API_BASE = '/api';
 
@@ -392,6 +392,65 @@ export const api = {
     });
   },
 
+  // ─── Combos ─────────────────────────────────────────────────────────────────
+  getCombos: async (subjectId?: string): Promise<Combo[]> => {
+    const params = new URLSearchParams();
+    if (subjectId) params.append('subjectId', subjectId);
+    params.append('limit', '100');
+    const res = await fetchJson<{ data: Combo[] } | Combo[]>(`/combos?${params.toString()}`);
+    return Array.isArray(res) ? res : (res as { data: Combo[] }).data ?? [];
+  },
+
+  getComboById: async (comboId: string): Promise<(Combo & { courses?: Course[]; notes?: Note[] }) | undefined> => {
+    return fetchJson<Combo & { courses?: Course[]; notes?: Note[] }>(`/combos/${comboId}`).catch(() => undefined);
+  },
+
+  createCombo: async (combo: Omit<Combo, 'id' | 'createdAt' | 'updatedAt'>): Promise<Combo> => {
+    return fetchJson<Combo>('/combos', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      body: JSON.stringify(combo)
+    });
+  },
+
+  updateCombo: async (combo: Combo): Promise<Combo> => {
+    return fetchJson<Combo>(`/combos/${combo.id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      body: JSON.stringify(combo)
+    });
+  },
+
+  deleteCombo: async (comboId: string): Promise<void> => {
+    return fetchJson<void>(`/combos/${comboId}`, {
+      method: 'DELETE',
+      headers: authHeaders()
+    });
+  },
+
+  enrollComboFree: async (comboId: string): Promise<{ success: boolean; user: User; message?: string }> => {
+    return fetchJson(`/combos/${comboId}/enroll`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    });
+  },
+
+  createComboOrder: async (comboId: string): Promise<{ orderId?: string; paymentSessionId?: string; amount?: number; currency?: string; appId?: string; devMode?: boolean; user?: User; coursesUnlocked?: number; notesUnlocked?: number }> => {
+    return fetchJson(`/combos/${comboId}/create-order`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      body: JSON.stringify({}),
+    });
+  },
+
+  verifyComboPurchase: async (comboId: string, data: { cashfree_order_id: string; cashfree_payment_session_id: string }): Promise<{ success: boolean; user: User; coursesUnlocked?: number; notesUnlocked?: number }> => {
+    return fetchJson(`/combos/${comboId}/verify-purchase`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      body: JSON.stringify(data),
+    });
+  },
+
   createQuiz: async (quiz: Omit<Quiz, 'id'>): Promise<Quiz> => {
     return fetchJson<Quiz>('/quizzes', {
       method: 'POST',
@@ -715,6 +774,34 @@ export const api = {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json', ...authHeaders() },
       body: JSON.stringify({ recordingUrl })
+    });
+  },
+
+  getCourseProgress: async (courseId: string): Promise<CourseProgressData> => {
+    return fetchJson(`/courses/${courseId}/progress`, {
+      headers: authHeaders()
+    });
+  },
+
+  toggleLectureProgress: async (courseId: string, lectureId: string, isCompleted?: boolean): Promise<CourseProgressData> => {
+    return fetchJson(`/courses/${courseId}/progress/toggle`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      body: JSON.stringify({ lectureId, isCompleted })
+    });
+  },
+
+  setLastWatchedLecture: async (courseId: string, lectureId: string): Promise<{ ok: boolean }> => {
+    return fetchJson(`/courses/${courseId}/progress/last-watched`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      body: JSON.stringify({ lectureId })
+    });
+  },
+
+  getAllStudentProgress: async (): Promise<{ progress: Record<string, { completedLectures: string[]; completed: boolean; lastWatchedLectureId: string | null; completedCount: number }> }> => {
+    return fetchJson(`/users/progress/all`, {
+      headers: authHeaders()
     });
   },
 

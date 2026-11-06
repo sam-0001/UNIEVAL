@@ -5,6 +5,7 @@ import { Quiz, getDashboardRoute } from '../types';
 import { useAuth } from '../context/AuthContext';
 import { useCredits } from '../context/AuthContext';
 import { ArrowLeft } from 'lucide-react';
+import { launchCashfreeCheckout } from '../services/cashfreeCheckout';
 
 // ─── Plans ────────────────────────────────────────────────────────────────────
 const PLANS = [
@@ -14,8 +15,6 @@ const PLANS = [
   { id: 'unlimited_24h', label: '24hr Unlimited',  price: 19, icon: '⚡', desc: 'Unlimited quizzes for 24 hrs', badge: 'Flash' },
 ] as const;
 type PlanId = typeof PLANS[number]['id'];
-
-declare const Cashfree: any;
 
 // ─── Shared Buy Credits Modal ─────────────────────────────────────────────────
 export const BuyCreditsModal: React.FC<{
@@ -49,28 +48,27 @@ export const BuyCreditsModal: React.FC<{
         setBuying(false);
         return;
       }
-      const cashfree = Cashfree({ mode: import.meta.env.PROD ? "production" : "sandbox" });
-      cashfree.checkout({
+      launchCashfreeCheckout({
         paymentSessionId: orderData.paymentSessionId,
-        redirectTarget: "_modal"
-      }).then((result: any) => {
-        if(result.error) {
-           setMsg(result.error.message || 'Payment failed');
-           setMsgType('error');
-        } else {
-           api.verifyCreditPayment({
+        onError: (errMsg) => {
+          setMsg(errMsg);
+          setMsgType('error');
+        },
+        onSuccess: async () => {
+          try {
+            await api.verifyCreditPayment({
               cashfree_order_id: orderData.orderId!,
               cashfree_payment_session_id: orderData.paymentSessionId!,
               plan: selected,
-           }).then(() => {
-              refresh();
-              setMsg('✅ Payment successful! Credits added.');
-              setMsgType('success');
-              setTimeout(() => { onSuccess?.(); onClose(); }, 1400);
-           }).catch(() => {
-              setMsg('⚠️ Payment received but verification failed. Contact support.');
-              setMsgType('error');
-           });
+            });
+            refresh();
+            setMsg('✅ Payment successful! Credits added.');
+            setMsgType('success');
+            setTimeout(() => { onSuccess?.(); onClose(); }, 1400);
+          } catch {
+            setMsg('⚠️ Payment received but verification failed. Contact support.');
+            setMsgType('error');
+          }
         }
       });
     } catch (err: any) {

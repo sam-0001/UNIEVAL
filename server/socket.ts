@@ -2,7 +2,7 @@ import { Server as SocketIOServer } from 'socket.io';
 import { Server as HttpServer } from 'http';
 import logger from './logger.js';
 import { redis } from './redis.js';
-import { LiveChat, LiveQuestion, LivePoll, LivePollResponse } from './models.js';
+import { LiveChat, LiveQuestion, LivePoll, LivePollResponse } from './models/index.js';
 
 let ioInstance: SocketIOServer | null = null;
 

@@ -4,6 +4,8 @@ import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { uploadExamIntelligence } from '../services/examIntelligenceApi';
 import AdminBroadcastModal from '../components/AdminBroadcastModal';
+import AdminNotificationModal from '../components/AdminNotificationModal';
+
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -642,6 +644,7 @@ const SuperAdminDashboard: React.FC = () => {
                         <h1 className="text-xl font-bold tracking-tight">Super Admin Dashboard</h1>
                     </div>
                     <div className="flex items-center gap-4">
+                        <AdminNotificationModal />
                         <div className="text-right hidden sm:block">
                             <p className="text-xs text-indigo-300 font-medium uppercase tracking-wider">Logged in as</p>
                             <p className="font-bold">{user.name}</p>
@@ -819,9 +822,16 @@ const SuperAdminDashboard: React.FC = () => {
                 {/* ── STUDENTS TAB ── */}
                 {activeTab === 'STUDENTS' && (
                     <div className="space-y-6 animate-in fade-in duration-500">
-                        {/* WhatsApp Broadcast Module */}
-                        <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-200">
-                            <AdminBroadcastModal />
+                        {/* Broadcast & Communications Center */}
+                        <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                            <div>
+                                <h3 className="text-base font-bold text-slate-900">Broadcast & Notification Center</h3>
+                                <p className="text-xs text-slate-500 mt-0.5">Send instant push notifications to home screen apps & desktops or broadcast WhatsApp campaigns</p>
+                            </div>
+                            <div className="flex flex-wrap items-center gap-3">
+                                <AdminNotificationModal />
+                                <AdminBroadcastModal />
+                            </div>
                         </div>
 
                         {/* Search Bar */}

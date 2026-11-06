@@ -229,7 +229,7 @@ export async function register(req: express.Request, res: express.Response): Pro
             id: generateId(), name, email: email.toLowerCase().trim(),
             password: hashedPassword, role,
             avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random`,
-            purchasedNoteIds: [], purchasedCourseIds: [],
+            purchasedNoteIds: [], purchasedCourseIds: [], purchasedComboIds: [],
             phoneNumber: normalizedPhone
         });
 

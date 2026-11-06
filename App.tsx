@@ -3,6 +3,11 @@ import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'r
 import { AuthProvider, useAuth } from './context/AuthContext';
 import Navbar from './components/Navbar';
 import LoginModal from './components/LoginModal';
+import CookieBanner from './components/CookieBanner';
+import InstallPwaBanner from './components/InstallPwaBanner';
+import NotificationPermissionBanner from './components/NotificationPermissionBanner';
+import { registerServiceWorker } from './services/pwa';
+
 
 // ── Eagerly loaded (small, needed on first paint) ─────────────────────────────
 import Home  from './pages/Home';
@@ -13,6 +18,9 @@ import Login from './pages/Login';
 // Heavy pages (AdminDashboard: 1,791 lines) are now only loaded when the user
 // actually navigates to that route.
 const About               = lazy(() => import('./pages/About'));
+const PrivacyPolicy       = lazy(() => import('./pages/PrivacyPolicy'));
+const TermsAndConditions  = lazy(() => import('./pages/TermsAndConditions'));
+const CookiePolicy        = lazy(() => import('./pages/CookiePolicy'));
 const BrowseCourses       = lazy(() => import('./pages/BrowseCourses'));
 const CourseDetail        = lazy(() => import('./pages/CourseDetail'));
 const NoteDetail          = lazy(() => import('./pages/NoteDetail'));
@@ -25,6 +33,7 @@ const AdminDashboard      = lazy(() => import('./pages/AdminDashboard'));
 const SuperAdminDashboard = lazy(() => import('./pages/SuperAdminDashboard'));
 const ExamIntelligence    = lazy(() => import('./pages/ExamIntelligence'));
 const BEToolkit           = lazy(() => import('./pages/BEToolkit'));
+const Syllabus            = lazy(() => import('./pages/Syllabus'));
 const LiveClassRoom       = lazy(() => import('./pages/LiveClassRoom'));
 const LiveClassLobby      = lazy(() => import('./pages/LiveClassLobby'));
 const TeacherLiveClasses  = lazy(() => import('./pages/TeacherLiveClasses'));
@@ -91,12 +100,17 @@ const AppContent = () => {
     const location = useLocation();
 
     React.useEffect(() => {
+        registerServiceWorker();
+    }, []);
+
+    React.useEffect(() => {
         const isLandingDomain = typeof window !== 'undefined' && 
             (window.location.hostname === 'unieval.in' || window.location.hostname === 'www.unieval.in');
         
         if (isLandingDomain) {
             // Forward any app routes from landing domain to the VPS app domain
-            if (location.pathname !== '/' && location.pathname !== '/about') {
+            const publicLandingRoutes = ['/', '/about', '/privacy', '/terms', '/cookie', '/syllabus'];
+            if (!publicLandingRoutes.includes(location.pathname)) {
                 window.location.href = `https://app.unieval.in${location.pathname}${location.search}`;
             }
         }
@@ -113,12 +127,19 @@ const AppContent = () => {
         <div className={`min-h-screen ${isLiveClass ? 'bg-[#0a0a0a]' : 'bg-slate-50'}`}>
             {!hideNavbar && <Navbar />}
             <AuthModalWrapper />
+            <CookieBanner />
+            <InstallPwaBanner />
+            <NotificationPermissionBanner />
             <ErrorBoundary>
                 <Suspense fallback={<PageLoader />}>
                     <Routes>
                         <Route path="/"                 element={!isLoading && user ? <Navigate to={dashboardTarget} replace /> : <Home />} />
                         <Route path="/login"            element={!isLoading && user ? <Navigate to={dashboardTarget} replace /> : <Login />} />
                         <Route path="/about"            element={<About />} />
+                        <Route path="/syllabus"         element={<Syllabus />} />
+                        <Route path="/privacy"          element={<PrivacyPolicy />} />
+                        <Route path="/terms"            element={<TermsAndConditions />} />
+                        <Route path="/cookie"           element={<CookiePolicy />} />
                         <Route path="/browse"           element={<BrowseCourses />} />
                         <Route path="/course/:id"       element={<CourseDetail />} />
                         <Route path="/note/:id"         element={<NoteDetail />} />

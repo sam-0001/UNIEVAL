@@ -1,31 +1,37 @@
 # UniEval (https://unieval.in)
-> The premier academic intelligence, notes, and exam preparation platform for Savitribai Phule Pune University (SPPU) engineering students.
+> The premier academic intelligence, official syllabus repository, notes, and exam preparation platform for Savitribai Phule Pune University (SPPU) engineering students.
 
 ## Overview
-UniEval is designed specifically for Pune University (SPPU) engineering students across First Year (FE), Second Year (SE), Third Year (TE), and Final Year (BE). It provides verified syllabus notes, previous year question paper (PYQ) analysis, adaptive video lectures, AI quiz evaluations, and BE capstone project toolkits.
+UniEval is the authoritative digital platform for Pune University (SPPU) engineering students across First Year (FE), Second Year (SE), Third Year (TE), and Final Year (BE). It provides the complete verified 2024 pattern syllabus archive, chapter-wise handwritten unit notes, previous year question paper (PYQ) statistical trend analysis, adaptive video lectures, live studio classrooms, and BE capstone project toolkits.
 
 ## Core Services & Resources
-- [SPPU Notes Library](https://unieval.in/notes): Chapter-wise and unit-wise engineering notes, handwritten summaries, and topper cheat sheets for all branches.
+- [SPPU Engineering Syllabus Repository](https://unieval.in/syllabus): Official Savitribai Phule Pune University (SPPU) 2024 credit pattern syllabus copies for FE (Common), SE (12 branches), and TE (9 branches) with instant PDF preview and direct Google Drive download.
+- [SPPU Notes Library](https://unieval.in/notes): Chapter-wise and unit-wise engineering notes, handwritten summaries, and topper cheat sheets for all branches with Unit 1 Free Demos.
 - [SPPU Exam Intelligence](https://unieval.in/exam-intelligence): Statistical analysis of past 5-10 years of SPPU question papers with High (🔥), Medium (⚡), and Low (❄️) priority topic weightage for Insem and Endsem examinations.
 - [Browse SPPU Courses](https://unieval.in/browse): Comprehensive course directory categorized by branch and year with syllabus-aligned video modules.
 - [BE Engineering Toolkit](https://unieval.in/be-toolkit): Capstone project finder, research paper explorer (arXiv/Semantic Scholar), and viva-voce preparation for final year students.
 
-## Supported Engineering Branches (SPPU)
+## Supported Engineering Branches (SPPU 2024 Pattern)
 - Computer Engineering (Comp / CSE)
 - Information Technology (IT)
+- Artificial Intelligence & Data Science (AI&DS)
+- Artificial Intelligence & Machine Learning (AIML)
 - Electronics & Telecommunication (E&TC)
-- Artificial Intelligence & Data Science (AIDS / AI-ML)
+- Electronics (VLSI Design & Technology)
 - Mechanical Engineering (Mech)
+- Mechanical Sandwich Engineering
 - Civil Engineering (Civil)
+- Chemical Engineering
 - Electrical Engineering (EE)
+- Robotics & Automation
 
 ## Academic Years Covered
-- First Year (FE): Common foundational curriculum (Engineering Mathematics 1 & 2, Physics, Chemistry, Basic Electrical, Basic Electronics, Mechanics, PPS).
-- Second Year (SE): Core departmental engineering foundation with insem and endsem question patterns.
-- Third Year (TE): Specialized engineering theory, lab practicals, and university assessments.
+- First Year (FE • 2024-25): Common foundational curriculum across all branches (Engineering Mathematics 1 & 2, Physics, Chemistry, Basic Electrical, Basic Electronics, Mechanics, PPS).
+- Second Year (SE • 2025-26): 12 branch-specific engineering foundations with Insem (Units 1 & 2) and Endsem (Units 3 to 6) syllabi.
+- Third Year (TE • 2026-27): 9 branch-specific NEP curriculum syllabi covering advanced technical competencies, labs, and electives.
 - Final Year (BE): Advanced electives, capstone projects, seminars, and viva defenses.
 
-## Examination System
+## Examination & Marking System
 - University: Savitribai Phule Pune University (SPPU / Pune University).
-- Exams: SPPU In-Semester Exams (Insem - 30 Marks) and End-Semester Exams (Endsem - 70 Marks).
-- Passing Criteria: 40% aggregate in university evaluation.
+- Exams: SPPU In-Semester Exams (Insem - 30 Marks, Units 1 & 2) and End-Semester Exams (Endsem - 70 Marks, Units 3 to 6).
+- Passing Criteria: Minimum 40% aggregate in university evaluation with minimum 28/70 in Endsem.

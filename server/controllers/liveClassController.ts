@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
-import { LiveClass, Course, User } from '../models.js';
+import { LiveClass, Course, User } from '../models/index.js';
+import { UserRole } from '../../types.js';
 import { createWebinar, deleteWebinar, getWebinarToken, getWebinarRecording, getWebinarStatus, isWebinarCompleted } from '../services/webinargg.js';
 import { broadcastClassEnded } from '../socket.js';
 import logger from '../logger.js';
@@ -572,8 +573,8 @@ export const getLiveClassDetails = async (req: Request, res: Response): Promise<
       description: liveClass.description,
       courseId: liveClass.courseId,
       courseTitle: course?.title || 'UniEval Course',
-      courseThumbnail: course?.thumbnail || '',
-      coursePrice: (course as any)?.price ?? (course?.pricing as any)?.amount ?? 0,
+      courseThumbnail: (course as any)?.thumbnailUrl || (course as any)?.thumbnail || '',
+      coursePrice: (course as any)?.price ?? (course as any)?.pricing?.amount ?? 0,
       teacherName: teacher?.name || 'Instructor',
       scheduledStartTime: liveClass.scheduledStartTime,
       scheduledEndTime: liveClass.scheduledEndTime,
@@ -603,7 +604,8 @@ export const getMyLiveClassSchedule = async (req: Request, res: Response): Promi
       return;
     }
     
-    const isAdminOrTeacher = dbUser?.role === 'admin' || dbUser?.role === 'teacher';
+    const userRole = String(dbUser?.role || '').toUpperCase();
+    const isAdminOrTeacher = userRole === UserRole.ADMIN || userRole === UserRole.TEACHER || userRole === UserRole.SUPER_ADMIN;
     let filter: any = {};
 
     if (!isAdminOrTeacher) {
@@ -661,7 +663,7 @@ export const getMyLiveClassSchedule = async (req: Request, res: Response): Promi
         teacherName: teacherMap.get(lc.teacherId) || 'Instructor',
         course: c?.title || 'UniEval Course',
         subject: c?.subjectId || '',
-        thumbnail: c?.thumbnail || '',
+        thumbnail: (c as any)?.thumbnailUrl || (c as any)?.thumbnail || '',
         scheduledStartTime: lc.scheduledStartTime,
         scheduledEndTime: lc.scheduledEndTime,
         status: lc.status,

@@ -17,3 +17,14 @@ export { Payout }            from './payout.model.js';
 export { ExamIntelligence }  from './examIntelligence.model.js';
 export { QuizPool }          from './quizPool.model.js';
 export { BEToolkitItem }     from './beToolkit.model.js';
+export { Combo }             from './combo.model.js';
+export { CourseProgress }    from './courseProgress.model.js';
+export { PushSubscription }  from './pushSubscription.model.js';
+export { LiveClass }         from './liveClass.model.js';
+export { PendingRecording }  from './pendingRecording.model.js';
+export { LiveChat }          from './liveChat.model.js';
+export { LiveQuestion }      from './liveQuestion.model.js';
+export { LivePoll, LivePollResponse } from './livePoll.model.js';
+
+
+

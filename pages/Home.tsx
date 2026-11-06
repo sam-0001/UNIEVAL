@@ -2,135 +2,78 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useSEO } from '../hooks/useSEO';
-import { UserRole } from '../types';
+import { UserRole, Course, Note } from '../types';
+import { api } from '../services/api';
+import Footer from '../components/Footer';
+import { SyllabusSection } from '../components/home/SyllabusSection';
+import { 
+  Search, BookOpen, Video, FileText, CheckCircle2, Award, 
+  ArrowRight, ShieldCheck, Lock, Star, ChevronRight, GraduationCap,
+  Play, Radio, Layers, Laptop, Cpu, Binary, Compass
+} from 'lucide-react';
 
-// ─── Dataset ──────────────────────────────────────────────────────────────────
+// ─── Engineering Branches Dataset (Clean SVG-mapped) ─────────────────────────
 
 interface BranchData {
   id: string;
   title: string;
+  shortName: string;
   category: string;
-  icon: string;
 }
 
 export const BRANCHES: BranchData[] = [
-  { id: 'cse',        title: 'Computer Science Engineering (CSE)',          category: 'Computer & IT',  icon: '💻' },
-  { id: 'it',         title: 'Information Technology (IT)',                  category: 'Computer & IT',  icon: '🖥️' },
-  { id: 'ai',         title: 'Artificial Intelligence (AI)',                 category: 'Computer & IT',  icon: '🧠' },
-  { id: 'aiml',       title: 'Artificial Intelligence & Machine Learning (AI-ML)', category: 'Computer & IT', icon: '🤖' },
-  { id: 'ds',         title: 'Data Science Engineering',                     category: 'Computer & IT',  icon: '📊' },
-  { id: 'cyber',      title: 'Cyber Security',                              category: 'Computer & IT',  icon: '🔒' },
-  { id: 'se',         title: 'Software Engineering',                         category: 'Computer & IT',  icon: '👨‍💻' },
-  { id: 'cloud',      title: 'Cloud Computing',                             category: 'Computer & IT',  icon: '☁️' },
-  { id: 'iot',        title: 'Internet of Things (IoT)',                    category: 'Computer & IT',  icon: '📡' },
-  { id: 'comp_eng',   title: 'Computer Engineering',                        category: 'Computer & IT',  icon: '💾' },
-  { id: 'robotics',   title: 'Robotics Engineering',                        category: 'Computer & IT',  icon: '🦾' },
-  { id: 'blockchain', title: 'Blockchain Technology',                       category: 'Computer & IT',  icon: '🔗' },
-  { id: 'electronics', title: 'Electronics Engineering',                    category: 'Electronics',    icon: '⚡' },
-  { id: 'entc',       title: 'Electronics & Telecommunication (ENTC)',      category: 'Electronics',    icon: '📶' },
-  { id: 'eee',        title: 'Electrical & Electronics Engineering (EEE)',  category: 'Electronics',    icon: '💡' },
-  { id: 'instru',     title: 'Instrumentation Engineering',                 category: 'Electronics',    icon: '🌡️' },
-  { id: 'embedded',   title: 'Embedded Systems Engineering',                category: 'Electronics',    icon: '🔌' },
-  { id: 'vlsi',       title: 'VLSI Design',                                 category: 'Electronics',    icon: '📼' },
-  { id: 'power',      title: 'Power Engineering',                           category: 'Electronics',    icon: '🔋' },
-  { id: 'control',    title: 'Control Systems Engineering',                 category: 'Electronics',    icon: '🎛️' },
-  { id: 'mech',       title: 'Mechanical Engineering',                      category: 'Mechanical',     icon: '⚙️' },
-  { id: 'auto',       title: 'Automobile Engineering',                      category: 'Mechanical',     icon: '🚗' },
-  { id: 'mechatronics', title: 'Mechatronics Engineering',                  category: 'Mechanical',     icon: '🛠️' },
-  { id: 'aerospace',  title: 'Aerospace Engineering',                       category: 'Mechanical',     icon: '🚀' },
-  { id: 'aero',       title: 'Aeronautical Engineering',                    category: 'Mechanical',     icon: '✈️' },
-  { id: 'marine',     title: 'Marine Engineering',                          category: 'Mechanical',     icon: '🚢' },
-  { id: 'manuf',      title: 'Manufacturing Engineering',                   category: 'Mechanical',     icon: '🏭' },
-  { id: 'robo_auto',  title: 'Robotics & Automation',                       category: 'Mechanical',     icon: '🦾' },
-  { id: 'thermal',    title: 'Thermal Engineering',                         category: 'Mechanical',     icon: '🔥' },
-  { id: 'chem',       title: 'Chemical Engineering',                        category: 'Chemical',       icon: '🧪' },
-  { id: 'petro',      title: 'Petrochemical Engineering',                   category: 'Chemical',       icon: '🛢️' },
-  { id: 'biotech',    title: 'Biotechnology Engineering',                   category: 'Chemical',       icon: '🧬' },
-  { id: 'biomed',     title: 'Biomedical Engineering',                      category: 'Chemical',       icon: '🩺' },
-  { id: 'food',       title: 'Food Technology / Food Engineering',          category: 'Chemical',       icon: '🍔' },
-  { id: 'pharma',     title: 'Pharmaceutical Engineering',                  category: 'Chemical',       icon: '💊' },
-  { id: 'polymer',    title: 'Polymer Engineering',                         category: 'Chemical',       icon: '🧪' },
-  { id: 'env_sci',    title: 'Environmental Engineering',                   category: 'Chemical',       icon: '🌿' },
-  { id: 'civil',      title: 'Civil Engineering',                           category: 'Infrastructure', icon: '🏗️' },
-  { id: 'struct',     title: 'Structural Engineering',                      category: 'Infrastructure', icon: '🌉' },
-  { id: 'trans',      title: 'Transportation Engineering',                  category: 'Infrastructure', icon: '🚦' },
-  { id: 'geo',        title: 'Geotechnical Engineering',                    category: 'Infrastructure', icon: '⛰️' },
-  { id: 'urban',      title: 'Urban Planning Engineering',                  category: 'Infrastructure', icon: '🏙️' },
-  { id: 'water',      title: 'Water Resources Engineering',                 category: 'Infrastructure', icon: '💧' },
-  { id: 'ai_eng',     title: 'Artificial Intelligence Engineering',         category: 'Emerging',       icon: '🧠' },
-  { id: 'data_eng',   title: 'Data Engineering',                            category: 'Emerging',       icon: '📉' },
-  { id: 'renew',      title: 'Renewable Energy Engineering',                category: 'Emerging',       icon: '☀️' },
-  { id: 'energy',     title: 'Energy Engineering',                          category: 'Emerging',       icon: '⚡' },
-  { id: 'nano',       title: 'Nanotechnology Engineering',                  category: 'Emerging',       icon: '🔬' },
-  { id: 'quantum',    title: 'Quantum Engineering',                         category: 'Emerging',       icon: '⚛️' },
-  { id: 'space',      title: 'Space Technology Engineering',                category: 'Emerging',       icon: '🛰️' },
-  { id: 'smart_mfg',  title: 'Smart Manufacturing',                         category: 'Emerging',       icon: '🏭' },
-  { id: 'agri',       title: 'Agricultural Engineering',                    category: 'Specialized',    icon: '🚜' },
-  { id: 'mining',     title: 'Mining Engineering',                          category: 'Specialized',    icon: '⛏️' },
-  { id: 'petroleum',  title: 'Petroleum Engineering',                       category: 'Specialized',    icon: '⛽' },
-  { id: 'textile',    title: 'Textile Engineering',                         category: 'Specialized',    icon: '🧵' },
-  { id: 'leather',    title: 'Leather Technology',                          category: 'Specialized',    icon: '👜' },
-  { id: 'printing',   title: 'Printing Technology',                         category: 'Specialized',    icon: '🖨️' },
-  { id: 'ceramic',    title: 'Ceramic Engineering',                         category: 'Specialized',    icon: '🏺' },
-  { id: 'plastic',    title: 'Plastic Engineering',                         category: 'Specialized',    icon: '🥤' },
-  { id: 'ocean',      title: 'Ocean Engineering',                           category: 'Specialized',    icon: '🌊' },
+  { id: 'cse', title: 'Computer Science Engineering (CSE)', shortName: 'CSE', category: 'Computer & IT' },
+  { id: 'it', title: 'Information Technology (IT)', shortName: 'IT', category: 'Computer & IT' },
+  { id: 'aiml', title: 'Artificial Intelligence & Machine Learning', shortName: 'AI-ML', category: 'Computer & IT' },
+  { id: 'ds', title: 'Data Science Engineering', shortName: 'Data Science', category: 'Computer & IT' },
+  { id: 'entc', title: 'Electronics & Telecommunication (ENTC)', shortName: 'ENTC', category: 'Electronics' },
+  { id: 'eee', title: 'Electrical & Electronics Engineering', shortName: 'Electrical', category: 'Electronics' },
+  { id: 'mech', title: 'Mechanical Engineering', shortName: 'Mechanical', category: 'Mechanical' },
+  { id: 'civil', title: 'Civil Engineering', shortName: 'Civil', category: 'Core Engineering' },
+  { id: 'robo', title: 'Robotics & Automation', shortName: 'Robotics', category: 'Emerging' },
+  { id: 'chem', title: 'Chemical Engineering', shortName: 'Chemical', category: 'Core Engineering' },
 ];
 
-// ─── Exam Prep subjects shown on homepage ─────────────────────────────────────
-
-interface ExamPrepSubject {
-  icon: string;
-  name: string;
-  label: string;
-  branch: string;
-}
-
-const EXAM_PREP_SUBJECTS: ExamPrepSubject[] = [
-  { icon: '💻', name: 'Data Structures & Algorithms', label: 'High Weightage',    branch: 'Computer Science Engineering (CSE)' },
-  { icon: '🔌', name: 'Basic Electrical Engineering',  label: 'FE Must-Know',     branch: 'Electrical & Electronics Engineering (EEE)' },
-  { icon: '⚙️', name: 'Engineering Mechanics',         label: 'Core Subject',     branch: 'Mechanical Engineering' },
-  { icon: '🧪', name: 'Engineering Chemistry',         label: 'FE Compulsory',    branch: 'Chemical Engineering' },
-  { icon: '📊', name: 'Applied Mathematics',           label: 'All Branches',     branch: 'Computer Science Engineering (CSE)' },
-  { icon: '🔒', name: 'Network Security',              label: 'Important Topics', branch: 'Cyber Security' },
-  { icon: '📡', name: 'Digital Communication',         label: 'TE / BE Focus',    branch: 'Electronics & Telecommunication (ENTC)' },
-  { icon: '🏗️', name: 'Structural Analysis',           label: 'Core Subject',     branch: 'Civil Engineering' },
+const POPULAR_SUBJECT_TAGS = [
+  { name: 'Engg. Mathematics M3', query: 'Mathematics' },
+  { name: 'Data Structures & OOP', query: 'Data Structures' },
+  { name: 'Basic Electrical Engg.', query: 'Electrical' },
+  { name: 'Engineering Mechanics', query: 'Mechanics' },
+  { name: 'Operating Systems', query: 'Operating Systems' },
 ];
 
-// ─── Sub-components ──────────────────────────────────────────────────────────
+const COLLEGE_PARTNERS = [
+  'COEP Technological University',
+  'Pune Institute of Computer Technology (PICT)',
+  'MIT World Peace University',
+  'Pimpri Chinchwad College of Engineering (PCCOE)',
+  'MKSSS Cummins College of Engineering',
+  'Vishwakarma Institute of Information Tech (VIIT)',
+];
 
-const ExamPrepCard: React.FC<{ subject: ExamPrepSubject; onClick: () => void }> = ({ subject, onClick }) => (
-  <div
-    onClick={onClick}
-    className="group relative bg-white rounded-xl p-5 border border-gray-100 shadow-sm hover:shadow-md hover:-translate-y-1 hover:border-brand-cobalt transition-all duration-200 cursor-pointer flex flex-col gap-3"
-  >
-    <div className="absolute top-0 left-6 right-6 h-0.5 rounded-b bg-gradient-main opacity-0 group-hover:opacity-100 transition-opacity" />
-    <div className="flex items-start justify-between gap-2">
-      <span className="text-3xl leading-none">{subject.icon}</span>
-      <span className="inline-flex items-center text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-lg border bg-blue-50 text-brand-cobalt border-blue-200 whitespace-nowrap">
-        {subject.label}
-      </span>
-    </div>
-    <p className="font-bold text-brand-navy text-sm leading-snug group-hover:text-brand-indigo transition-colors">
-      {subject.name}
-    </p>
-    <button className="mt-auto self-start text-xs font-semibold text-brand-cobalt group-hover:text-brand-indigo flex items-center gap-1 transition-colors">
-      Start Prep
-      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-      </svg>
-    </button>
-  </div>
-);
-
-const FeatureCard: React.FC<{ emoji: string; title: string; desc: string; bg: string }> = ({ emoji, title, desc, bg }) => (
-  <div className="bg-white rounded-xl p-6 border border-gray-100 shadow-sm hover:shadow-md transition-shadow flex flex-col gap-3">
-    <div className={`w-11 h-11 ${bg} rounded-lg flex items-center justify-center text-xl flex-shrink-0`}>{emoji}</div>
-    <h3 className="font-bold text-brand-navy">{title}</h3>
-    <p className="text-sm text-gray-500 leading-relaxed">{desc}</p>
-  </div>
-);
-
-// ─── Main Page ────────────────────────────────────────────────────────────────
+const STUDENT_TESTIMONIALS = [
+  {
+    name: 'Aditya Kulkarni',
+    role: 'Third Year (TE) • Computer Engineering',
+    college: 'PICT, Pune',
+    rating: 5,
+    text: 'The SPPU unit notes and previous year question summaries are spot on. For Insem, studying the unit PYQs on UniEval was literally the difference between an average score and scoring 27/30.',
+  },
+  {
+    name: 'Neha Deshmukh',
+    role: 'Second Year (SE) • ENTC',
+    college: 'Cummins College of Engineering',
+    rating: 5,
+    text: 'Engineering Mathematics 3 was causing so much stress across our batch. The step-by-step video solutions and clean PDF notes made the entire syllabus crystal clear.',
+  },
+  {
+    name: 'Sanket Patil',
+    role: 'Final Year (BE) • Mechanical Engineering',
+    college: 'PCCOE, Pune',
+    rating: 5,
+    text: 'Having verified notes with the exact SPPU marking scheme format is a lifesaver. No outdated syllabus copies or missing diagrams — everything is updated and reliable.',
+  },
+];
 
 const Home: React.FC = () => {
   const { user, setShowLoginModal, setOnLoginSuccess } = useAuth();
@@ -143,39 +86,47 @@ const Home: React.FC = () => {
   }
 
   useSEO({
-    title: 'SPPU Notes & Engineering Study Material | Pune University (SPPU) Exam Prep',
-    description: 'Top-ranked SPPU Engineering notes, previous year question papers (PYQs), insem & endsem syllabus, and high-weightage topics for Computer, IT, Mechanical, Civil, ENTC & AIDS (FE, SE, TE, BE).',
+    title: 'SPPU Notes, Engineering Syllabus 2024 Pattern & Exam Prep',
+    description: 'Top-ranked SPPU Engineering notes, official 2024 pattern syllabus PDFs (FE, SE, TE), previous year question papers (PYQs), and insem & endsem exam intelligence for Computer, IT, Mechanical, Civil, ENTC & AIDS.',
+    keywords: 'engineering syllabus, sppu syllabus, fe syllabus, se syllabus, te syllabus, sppu 2024 pattern syllabus, sppu engineering syllabus pdf, pune university engineering syllabus, sppu notes, sppu pyq, unieval, unieval sppu',
     canonical: 'https://unieval.in/',
+    ogTitle: 'SPPU Notes, Engineering Syllabus 2024 Pattern & Exam Prep | Pune University - UniEval',
+    ogDescription: 'Official SPPU Engineering Syllabus 2024 Pattern (FE, SE, TE), verified Pune University notes, PYQs, exam intelligence, and video courses on UniEval.',
+    ogUrl: 'https://unieval.in/',
   });
 
-  const [searchTerm,     setSearchTerm]     = useState('');
-  const [startIndex,     setStartIndex]     = useState(0);
-  const [activeCategory, setActiveCategory] = useState<string>('All');
-
-  const ITEMS_PER_PAGE = 8;
-
-  const filteredBranches =
-    activeCategory === 'All'
-      ? BRANCHES.filter((b) => b.title.toLowerCase().includes(searchTerm.toLowerCase()))
-      : BRANCHES.filter((b) => b.category === activeCategory && b.title.toLowerCase().includes(searchTerm.toLowerCase()));
-
-  const categories    = ['All', ...Array.from(new Set(BRANCHES.map((b) => b.category)))];
-  const visibleBranches = filteredBranches.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [featuredCourses, setFeaturedCourses] = useState<Course[]>([]);
+  const [featuredNotes, setFeaturedNotes] = useState<Note[]>([]);
+  const [loadingContent, setLoadingContent] = useState(true);
 
   useEffect(() => {
-    if (activeCategory !== 'All' || searchTerm) return;
-    const interval = setInterval(() => {
-      setStartIndex((prev) => {
-        const next = prev + ITEMS_PER_PAGE;
-        return next >= filteredBranches.length ? 0 : next;
-      });
-    }, 5000);
-    return () => clearInterval(interval);
-  }, [filteredBranches.length, activeCategory, searchTerm]);
+    let isMounted = true;
+    Promise.all([
+      api.getCourses().catch(() => []),
+      api.getNotes().catch(() => [])
+    ]).then(([courses, notes]) => {
+      if (isMounted) {
+        setFeaturedCourses(courses.slice(0, 4));
+        setFeaturedNotes(notes.slice(0, 4));
+        setLoadingContent(false);
+      }
+    });
+    return () => { isMounted = false; };
+  }, []);
 
-  useEffect(() => {
-    setTimeout(() => { if (startIndex !== 0) setStartIndex(0); }, 0);
-  }, [activeCategory, searchTerm]);
+  const handleSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (searchQuery.trim()) {
+      navigate(`/browse?q=${encodeURIComponent(searchQuery.trim())}`);
+    } else {
+      navigate('/browse');
+    }
+  };
+
+  const handleQuickTagClick = (tag: string) => {
+    navigate(`/browse?q=${encodeURIComponent(tag)}`);
+  };
 
   const requireAuth = (destination: string) => {
     if (!user) {
@@ -186,289 +137,454 @@ const Home: React.FC = () => {
     }
   };
 
-  const handleBranchClick = (e: React.MouseEvent, branchTitle: string) => {
-    e.preventDefault();
-    requireAuth(`/browse?branch=${encodeURIComponent(branchTitle)}`);
-  };
-
-  const handleExamPrepClick = (branch: string) =>
-    requireAuth(`/exam-intelligence?branch=${encodeURIComponent(branch)}`);
-
-  const handleStartExamPrep = () => requireAuth('/exam-intelligence');
-
   return (
-    <div className="flex flex-col min-h-screen bg-slate-50">
+    <div className="flex flex-col min-h-screen bg-slate-50 text-slate-800">
 
-      {/* ── 1. HERO ─────────────────────────────────────────────────────── */}
-      <section className="relative overflow-hidden bg-brand-navy text-white">
-        <div className="absolute inset-0 bg-gradient-to-br from-brand-navy via-[#131A3F] to-[#0f172a] pointer-events-none" />
+      {/* ── 1. HERO SECTION (Minimalist, Crisp & Academic) ────────────────── */}
+      <section className="relative pt-16 pb-20 md:pt-24 md:pb-28 bg-gradient-to-b from-blue-50/70 via-slate-50/30 to-slate-50 border-b border-slate-200/60 overflow-hidden">
+        {/* Subtle grid pattern background */}
+        <div 
+          className="absolute inset-0 opacity-[0.03] pointer-events-none" 
+          style={{ backgroundImage: 'radial-gradient(#1e293b 1px, transparent 1px)', backgroundSize: '24px 24px' }} 
+        />
 
-        <div className="relative max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-24 sm:py-32 text-center flex flex-col items-center gap-6">
-          {/* Audience pill */}
-          <div className="inline-flex items-center gap-2 bg-white/10 border border-white/15 rounded-lg px-4 py-1.5 text-xs font-semibold text-white tracking-wide">
-            <span className="w-1.5 h-1.5 rounded-full bg-brand-cobalt animate-pulse shrink-0" />
-            Built for SPPU (Pune University) Engineering Students — FE · SE · TE · BE
+        <div className="relative max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center flex flex-col items-center">
+          
+          {/* Academic Badge */}
+          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-blue-50 border border-blue-200 text-blue-700 text-xs font-semibold tracking-wide mb-6 shadow-sm">
+            <span className="w-2 h-2 rounded-full bg-blue-600"></span>
+            SPPU (Pune University) Curriculum • FE · SE · TE · BE
           </div>
 
-          {/* Headline */}
-          <h1 className="text-4xl sm:text-5xl lg:text-[3.5rem] font-extrabold tracking-tight leading-[1.1]">
-            SPPU Exam Prep & SPPU Notes,{' '}
-            <span className="text-gradient-main">simplified.</span>
+          {/* Main Headline */}
+          <h1 className="text-3xl sm:text-5xl lg:text-6xl font-extrabold text-slate-900 tracking-tight leading-[1.15] max-w-4xl">
+            Ace Your Engineering Exams With{' '}
+            <span className="text-blue-600 underline decoration-blue-200 underline-offset-8">Verified SPPU Notes</span> & Courses.
           </h1>
 
           {/* Subtext */}
-          <p className="text-lg sm:text-xl text-slate-300 max-w-xl leading-relaxed">
-            Get top-quality SPPU notes, PYQs, and exam intelligence. Only study what matters. Skip the rest.
+          <p className="mt-5 text-base sm:text-lg text-slate-600 max-w-2xl leading-relaxed">
+            Curated chapter-wise notes, previous year solved question papers, and in-depth video lectures engineered specifically for Savitribai Phule Pune University students.
           </p>
 
-          {/* CTAs */}
-          <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto mt-2">
-            <button
-              onClick={handleStartExamPrep}
-              className="w-full sm:w-auto bg-gradient-main text-white font-bold px-8 py-3.5 rounded-lg text-base shadow-lg shadow-brand-indigo/25 transition-all hover:scale-[1.02] active:scale-100"
-            >
-              🚀 Start Exam Prep
-            </button>
-            <Link
-              to="/browse"
-              className="w-full sm:w-auto bg-white/10 hover:bg-white/20 border border-white/20 text-white font-semibold px-8 py-3.5 rounded-lg text-base transition-all text-center"
-            >
-              Browse Subjects
-            </Link>
-          </div>
-
-          {/* Quick feature pills */}
-          <div className="flex flex-wrap justify-center gap-x-6 gap-y-2 mt-2 text-sm text-slate-400">
-            <span className="text-rose-400 font-semibold flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse"></span>🔴 Live Classes</span>
-            <span>📚 Notes & PYQs</span>
-            <span>🎥 Video Lectures</span>
-            <span>🤖 AI Quiz Generator</span>
-            <span>🎓 All Branches</span>
-          </div>
-        </div>
-      </section>
-
-      {/* ── 2. EXAM PREP SPOTLIGHT ──────────────────────────────────────── */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 w-full">
-        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-8">
-          <div>
-            <div className="flex items-center gap-2 mb-2">
-              <span className="w-1.5 h-5 bg-brand-cobalt rounded-lg" />
-              <p className="text-xs font-bold uppercase tracking-widest text-brand-cobalt">Exam Prep</p>
-            </div>
-            <h2 className="text-2xl sm:text-3xl font-extrabold text-brand-navy">Start Your Preparation</h2>
-            <p className="text-gray-500 mt-1 text-sm">Jump straight into high-weightage topics for your semester.</p>
-          </div>
-          <Link
-            to="/exam-intelligence"
-            className="shrink-0 text-sm font-semibold text-brand-cobalt hover:text-brand-indigo flex items-center gap-1 transition-colors"
-          >
-            View all subjects
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-            </svg>
-          </Link>
-        </div>
-
-        {/* 4-col subject grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-          {EXAM_PREP_SUBJECTS.map((subject) => (
-            <ExamPrepCard
-              key={subject.name}
-              subject={subject}
-              onClick={() => handleExamPrepClick(subject.branch)}
-            />
-          ))}
-        </div>
-
-        {/* AI nudge strip */}
-        <div className="mt-8 bg-gradient-main rounded-xl p-6 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-lg shadow-brand-indigo/20">
-          <div>
-            <p className="text-white font-bold text-lg">Not sure where to start?</p>
-            <p className="text-white/80 text-sm mt-0.5">Let our AI pick the most important topics for your exam.</p>
-          </div>
-          <button
-            onClick={handleStartExamPrep}
-            className="shrink-0 bg-white text-brand-indigo font-bold px-6 py-2.5 rounded-lg hover:bg-slate-50 transition-colors shadow-sm whitespace-nowrap"
-          >
-            Try Exam Intelligence →
-          </button>
-        </div>
-      </section>
-
-      {/* ── 3. YEAR QUICK ACCESS ────────────────────────────────────────── */}
-      <section className="bg-white border-y border-gray-100">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-          <h2 className="text-xl font-extrabold text-brand-navy mb-6 text-center">Browse by Year</h2>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            {([
-              { year: '1', label: 'First Year',  sub: 'FE — Common for all',       emoji: '🎓', from: '#131A3F', to: '#1e293b' },
-              { year: '2', label: 'Second Year', sub: 'SE — Branch starts',        emoji: '📐', from: '#1F81FC', to: '#3b82f6' },
-              { year: '3', label: 'Third Year',  sub: 'TE — Core subjects',        emoji: '⚡', from: '#7F26FE', to: '#8b5cf6' },
-              { year: '4', label: 'Final Year',  sub: 'BE — Advanced electives',   emoji: '🚀', from: '#0ea5e9', to: '#0284c7' },
-            ] as const).map(({ year, label, sub, emoji, from: f, to: t }) => (
-              <Link
-                key={year}
-                to={`/browse?year=${year}`}
-                className="group relative overflow-hidden rounded-xl p-5 text-white shadow-sm hover:shadow-md hover:-translate-y-1 transition-all duration-200 flex flex-col gap-1"
-                style={{ background: `linear-gradient(135deg, ${f}, ${t})` }}
-              >
-                <span className="text-3xl block mb-2">{emoji}</span>
-                <p className="font-bold text-base leading-tight">{label}</p>
-                <p className="text-white/70 text-xs mt-0.5">{sub}</p>
-                <div className="absolute bottom-3 right-3 text-white/20 text-5xl font-black leading-none select-none">{year}</div>
-              </Link>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ── 4. FEATURES ──────────────────────────────────────────────────── */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 w-full">
-        <div className="text-center mb-10">
-          <p className="text-xs font-bold uppercase tracking-widest text-brand-cobalt mb-2">Platform Features</p>
-          <h2 className="text-2xl sm:text-3xl font-extrabold text-brand-navy">Everything you need to ace your exams</h2>
-        </div>
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
-          <FeatureCard emoji="🔴" bg="bg-rose-50"    title="Live Interactive Classes" desc="Scheduled live classes with experienced engineering teachers. Real-time doubt resolution and exam guidance." />
-          <FeatureCard emoji="🤖" bg="bg-indigo-50" title="AI Quiz Generator"    desc="Generate smart MCQs from any topic in seconds. Adaptive difficulty based on your performance." />
-          <FeatureCard emoji="🎯" bg="bg-amber-50"  title="Important Questions"  desc="Curated PYQs and high-weightage questions for every subject — reviewed by toppers." />
-          <FeatureCard emoji="📝" bg="bg-emerald-50" title="Concise Notes"       desc="Exam-focused notes crafted for SPPU syllabus. No fluff, straight to the point." />
-          <FeatureCard emoji="🎥" bg="bg-sky-50"    title="Video Lectures"       desc="Topic-wise video courses from experienced educators. Watch at your own pace." />
-          <FeatureCard emoji="🏆" bg="bg-violet-50" title="BE Toolkit & Viva"    desc="Comprehensive oral viva prep, final-year project guidance, seminar topics, and placement tools." />
-        </div>
-      </section>
-
-      {/* ── 5. BRANCH EXPLORER ───────────────────────────────────────────── */}
-      <section className="bg-white border-t border-gray-100">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 w-full">
-          {/* Header + search */}
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
-            <div>
-              <p className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-1">All Engineering Branches</p>
-              <h2 className="text-2xl font-extrabold text-gray-900">Explore by Branch</h2>
-            </div>
-            <div className="w-full md:w-80 relative group">
-              <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                <svg className="h-4 w-4 text-gray-400 group-focus-within:text-indigo-500 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
-              </div>
+          {/* Prominent Search Bar */}
+          <form onSubmit={handleSearchSubmit} className="w-full max-w-2xl mt-8">
+            <div className="relative flex items-center bg-white rounded-2xl border border-slate-200 shadow-sm hover:border-slate-300 focus-within:border-blue-500 focus-within:ring-4 focus-within:ring-blue-100 transition-all p-1.5">
+              <Search className="w-5 h-5 text-slate-400 ml-3.5 shrink-0" />
               <input
                 type="text"
-                placeholder="Search your branch..."
-                className="block w-full pl-11 pr-4 py-3 rounded-xl bg-slate-50 text-gray-900 border border-gray-200 placeholder:text-gray-400 focus:ring-2 focus:ring-indigo-500 focus:border-transparent focus:bg-white transition-all text-sm"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search by subject, code, or topic (e.g. M3, DSA, Mechanics)..."
+                className="w-full px-3.5 py-2.5 text-sm sm:text-base text-slate-800 placeholder-slate-400 focus:outline-none bg-transparent"
               />
-            </div>
-          </div>
-
-          {/* Category filter pills */}
-          <div className="flex overflow-x-auto pb-3 mb-6 gap-2 no-scrollbar">
-            {categories.map((cat) => (
               <button
-                key={cat}
-                onClick={() => setActiveCategory(cat)}
-                className={`px-4 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all border ${
-                  activeCategory === cat
-                    ? 'bg-slate-900 text-white border-slate-900'
-                    : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300 hover:bg-gray-50'
-                }`}
+                type="submit"
+                className="inline-flex items-center justify-center px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm rounded-xl transition-colors shadow-sm shrink-0"
               >
-                {cat}
+                Search
+              </button>
+            </div>
+          </form>
+
+          {/* Popular Search Tags */}
+          <div className="flex flex-wrap items-center justify-center gap-2 mt-4 text-xs text-slate-500">
+            <span className="font-medium text-slate-400">Popular:</span>
+            {POPULAR_SUBJECT_TAGS.map((tag) => (
+              <button
+                key={tag.name}
+                onClick={() => handleQuickTagClick(tag.query)}
+                className="px-2.5 py-1 rounded-md bg-white border border-slate-200 hover:border-blue-300 hover:text-blue-600 transition-colors shadow-2xs font-medium"
+              >
+                {tag.name}
               </button>
             ))}
           </div>
 
-          {/* Branch Grid / Slider */}
-          <div className="flex overflow-x-auto pb-6 gap-4 no-scrollbar snap-x snap-mandatory min-h-[160px]">
-            {filteredBranches.map((branch) => (
-              <a
-                key={branch.id}
-                href="#"
-                onClick={(e) => handleBranchClick(e, branch.title)}
-                className="group bg-white border border-gray-100 rounded-xl p-5 hover:shadow-lg hover:border-indigo-200 transition-all duration-200 flex flex-col items-center text-center cursor-pointer min-w-[160px] flex-shrink-0 snap-start"
-              >
-                <div className="w-14 h-14 bg-indigo-50 rounded-full flex items-center justify-center text-2xl mb-3 group-hover:scale-110 group-hover:bg-indigo-100 transition-all">
-                  {branch.icon}
-                </div>
-                <h3 className="font-semibold text-gray-900 text-sm mb-1 group-hover:text-indigo-600 transition-colors leading-snug">
-                  {branch.title}
-                </h3>
-                <p className="text-[10px] text-gray-400 uppercase tracking-widest font-semibold mt-auto pt-2">
-                  {branch.category}
-                </p>
-              </a>
-            ))}
-            {filteredBranches.length === 0 && (
-              <div className="w-full flex flex-col items-center justify-center py-8 text-gray-400 gap-2">
-                <span className="text-4xl">🔍</span>
-                <p className="text-sm font-medium">No branches match your search.</p>
-              </div>
-            )}
-          </div>
-        </div>
-      </section>
-
-      {/* ── 6. FINAL CTA ────────────────────────────────────────────────── */}
-      <section className="bg-brand-navy text-white">
-        <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-20 text-center flex flex-col items-center gap-6">
-          <span className="text-5xl">🎓</span>
-          <h2 className="text-3xl sm:text-4xl font-extrabold leading-tight">
-            Your next exam is closer than you think.
-          </h2>
-          <p className="text-slate-400 text-lg max-w-xl leading-relaxed">
-            Thousands of SPPU students use UNIEVAL to study smarter, not harder. Start today — it's free.
-          </p>
-          <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
-            {!user && (
-              <Link
-                to="/login"
-                className="w-full sm:w-auto bg-gradient-main text-white font-bold px-8 py-3.5 rounded-lg text-base transition-all hover:scale-[1.02] text-center shadow-lg shadow-brand-indigo/20"
-              >
-                Create Free Account
-              </Link>
-            )}
-            <button
-              onClick={handleStartExamPrep}
-              className="w-full sm:w-auto bg-white/10 hover:bg-white/20 border border-white/20 text-white font-semibold px-8 py-3.5 rounded-lg text-base transition-all"
+          {/* Core Action Links */}
+          <div className="flex flex-wrap justify-center gap-4 mt-8">
+            <Link
+              to="/browse"
+              className="inline-flex items-center gap-2 px-6 py-3 bg-slate-900 hover:bg-slate-800 text-white text-sm font-semibold rounded-xl shadow-sm transition-all"
             >
-              Start Exam Prep Now
-            </button>
+              Browse Complete Catalog
+              <ArrowRight className="w-4 h-4" />
+            </Link>
+            <Link
+              to="/notes"
+              className="inline-flex items-center gap-2 px-6 py-3 bg-white hover:bg-slate-50 text-slate-700 text-sm font-semibold rounded-xl border border-slate-200 shadow-2xs transition-all"
+            >
+              <FileText className="w-4 h-4 text-blue-600" />
+              1st PDF Free Demos
+            </Link>
+            <Link
+              to="/syllabus"
+              className="inline-flex items-center gap-2 px-6 py-3 bg-blue-50 hover:bg-blue-100/80 text-blue-700 text-sm font-semibold rounded-xl border border-blue-200/80 shadow-2xs transition-all"
+            >
+              <BookOpen className="w-4 h-4 text-blue-600" />
+              SPPU Syllabus (2024)
+            </Link>
+          </div>
+
+        </div>
+      </section>
+
+      {/* ── 2. TRUSTED BY SPPU STUDENTS BANNER ───────────────────────────── */}
+      <section className="bg-white border-b border-slate-200/60 py-6">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <p className="text-center text-xs font-semibold text-slate-400 uppercase tracking-wider mb-4">
+            Trusted by 10,000+ engineering students across top SPPU colleges
+          </p>
+          <div className="flex flex-wrap items-center justify-center gap-x-8 gap-y-3">
+            {COLLEGE_PARTNERS.map((college) => (
+              <span 
+                key={college} 
+                className="text-xs sm:text-sm font-medium text-slate-500 hover:text-slate-800 transition-colors"
+              >
+                {college}
+              </span>
+            ))}
           </div>
         </div>
       </section>
 
-      {/* ── FOOTER ──────────────────────────────────────────────────────── */}
-      <footer className="bg-brand-navy border-t border-white/10 text-gray-400 py-12">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid grid-cols-1 md:grid-cols-3 gap-8">
+      {/* ── 3. ACADEMIC YEAR PATHWAYS (FE · SE · TE · BE) ────────────────── */}
+      <section className="py-16 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-10">
           <div>
-            <div className="flex items-center gap-2 mb-3">
-              <img src="/img/logo.jpeg" alt="UNIEVAL" className="w-7 h-7 rounded-md object-cover" />
-              <span className="text-white font-bold">UNIEVAL</span>
+            <div className="flex items-center gap-2 mb-2">
+              <span className="w-1.5 h-4 bg-blue-600 rounded-full" />
+              <p className="text-xs font-bold uppercase tracking-wider text-blue-600">Engineering Curriculum</p>
             </div>
-            <p className="text-sm leading-relaxed">Empowering SPPU (Savitribai Phule Pune University) engineering students with smart SPPU notes, SPPU exam prep tools, and syllabus guides to crack exams easily.</p>
+            <h2 className="text-2xl sm:text-3xl font-bold text-slate-900">Select Your Academic Year</h2>
+            <p className="text-slate-500 text-sm mt-1">Direct syllabus access mapped to Pune University 2019 & 2024 credit patterns.</p>
           </div>
-          <div>
-            <h4 className="text-gray-300 font-semibold mb-4 text-sm">Quick Links</h4>
-            <ul className="space-y-2 text-sm">
-              <li><Link to="/"                  className="hover:text-white transition-colors">Home</Link></li>
-              <li><Link to="/exam-intelligence" className="hover:text-white transition-colors">Exam Prep</Link></li>
-              <li><Link to="/browse"            className="hover:text-white transition-colors">Browse Courses</Link></li>
-              <li><Link to="/notes"             className="hover:text-white transition-colors">Notes Library</Link></li>
-            </ul>
+          <Link to="/browse" className="text-sm font-semibold text-blue-600 hover:text-blue-700 flex items-center gap-1 transition-colors">
+            View all subjects <ChevronRight className="w-4 h-4" />
+          </Link>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+          {/* FE Card */}
+          <Link 
+            to="/browse?year=1" 
+            className="group bg-white rounded-2xl p-6 border border-slate-200 shadow-sm hover:shadow-md hover:border-blue-400 transition-all flex flex-col"
+          >
+            <div className="w-10 h-10 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600 font-bold mb-4 group-hover:bg-blue-600 group-hover:text-white transition-colors">
+              FE
+            </div>
+            <h3 className="text-lg font-bold text-slate-900 group-hover:text-blue-600 transition-colors">
+              First Year Engineering
+            </h3>
+            <p className="text-xs text-slate-500 mt-2 leading-relaxed flex-grow">
+              Common curriculum across all branches. Engineering Mathematics 1 & 2, Physics, Chemistry, Mechanics, and Basic Electrical.
+            </p>
+            <div className="mt-5 pt-4 border-t border-slate-100 flex items-center justify-between text-xs font-semibold text-blue-600">
+              <span>Explore FE Subjects</span>
+              <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
+            </div>
+          </Link>
+
+          {/* SE Card */}
+          <Link 
+            to="/browse?year=2" 
+            className="group bg-white rounded-2xl p-6 border border-slate-200 shadow-sm hover:shadow-md hover:border-blue-400 transition-all flex flex-col"
+          >
+            <div className="w-10 h-10 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 font-bold mb-4 group-hover:bg-indigo-600 group-hover:text-white transition-colors">
+              SE
+            </div>
+            <h3 className="text-lg font-bold text-slate-900 group-hover:text-indigo-600 transition-colors">
+              Second Year Engineering
+            </h3>
+            <p className="text-xs text-slate-500 mt-2 leading-relaxed flex-grow">
+              Core branch fundamentals. Data Structures, Logic Design, Thermodynamics, Solid Mechanics, Math 3, and Circuit Theory.
+            </p>
+            <div className="mt-5 pt-4 border-t border-slate-100 flex items-center justify-between text-xs font-semibold text-indigo-600">
+              <span>Explore SE Subjects</span>
+              <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
+            </div>
+          </Link>
+
+          {/* TE Card */}
+          <Link 
+            to="/browse?year=3" 
+            className="group bg-white rounded-2xl p-6 border border-slate-200 shadow-sm hover:shadow-md hover:border-blue-400 transition-all flex flex-col"
+          >
+            <div className="w-10 h-10 rounded-xl bg-purple-50 border border-purple-100 flex items-center justify-center text-purple-600 font-bold mb-4 group-hover:bg-purple-600 group-hover:text-white transition-colors">
+              TE
+            </div>
+            <h3 className="text-lg font-bold text-slate-900 group-hover:text-purple-600 transition-colors">
+              Third Year Engineering
+            </h3>
+            <p className="text-xs text-slate-500 mt-2 leading-relaxed flex-grow">
+              In-depth professional subjects, Insem question paper strategies, DBMS, Computer Networks, Control Systems, and Design.
+            </p>
+            <div className="mt-5 pt-4 border-t border-slate-100 flex items-center justify-between text-xs font-semibold text-purple-600">
+              <span>Explore TE Subjects</span>
+              <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
+            </div>
+          </Link>
+
+          {/* BE Card */}
+          <Link 
+            to="/browse?year=4" 
+            className="group bg-white rounded-2xl p-6 border border-slate-200 shadow-sm hover:shadow-md hover:border-blue-400 transition-all flex flex-col"
+          >
+            <div className="w-10 h-10 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-600 font-bold mb-4 group-hover:bg-emerald-600 group-hover:text-white transition-colors">
+              BE
+            </div>
+            <h3 className="text-lg font-bold text-slate-900 group-hover:text-emerald-600 transition-colors">
+              Final Year Engineering
+            </h3>
+            <p className="text-xs text-slate-500 mt-2 leading-relaxed flex-grow">
+              Advanced electives, Machine Learning, Cloud Computing, Project Viva assessments, and comprehensive toolkit resources.
+            </p>
+            <div className="mt-5 pt-4 border-t border-slate-100 flex items-center justify-between text-xs font-semibold text-emerald-600">
+              <span>Explore BE Subjects</span>
+              <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
+            </div>
+          </Link>
+        </div>
+      </section>
+
+      {/* ── 4. OFFICIAL SPPU SYLLABUS ARCHIVE (2024 Pattern • Google Drive Sync) ── */}
+      <SyllabusSection />
+
+      {/* ── 5. FEATURED STUDY MATERIALS & COURSES ────────────────────────── */}
+      <section className="py-16 bg-white border-y border-slate-200/60 w-full">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          
+          <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-10">
+            <div>
+              <div className="flex items-center gap-2 mb-2">
+                <span className="w-1.5 h-4 bg-blue-600 rounded-full" />
+                <p className="text-xs font-bold uppercase tracking-wider text-blue-600">Top-Rated Materials</p>
+              </div>
+              <h2 className="text-2xl sm:text-3xl font-bold text-slate-900">Featured SPPU Courses & Notes</h2>
+              <p className="text-slate-500 text-sm mt-1">High-yield preparation packages reviewed by Pune University educators.</p>
+            </div>
+            <Link to="/browse" className="text-sm font-semibold text-blue-600 hover:text-blue-700 flex items-center gap-1 transition-colors">
+              Browse All Courses <ChevronRight className="w-4 h-4" />
+            </Link>
           </div>
-          <div>
-            <h4 className="text-gray-300 font-semibold mb-4 text-sm">Contact</h4>
-            <p className="text-sm">support@unieval.edu</p>
-            <p className="text-sm mt-1">Campus Main Building</p>
+
+          {/* Cards Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            {featuredCourses.length > 0 ? (
+              featuredCourses.map((course) => (
+                <Link
+                  key={course.id}
+                  to={`/course/${course.id}`}
+                  className="group bg-white rounded-xl border border-slate-200 overflow-hidden shadow-xs hover:shadow-md hover:border-slate-300 transition-all flex flex-col"
+                >
+                  <div className="aspect-video w-full bg-slate-100 relative overflow-hidden flex items-center justify-center">
+                    {course.thumbnailUrl ? (
+                      <img 
+                        src={course.thumbnailUrl} 
+                        alt={course.title} 
+                        className="w-full h-full object-contain group-hover:scale-102 transition-transform duration-300" 
+                      />
+                    ) : (
+                      <div className="flex flex-col items-center justify-center text-slate-400 p-4 text-center">
+                        <Video className="w-8 h-8 mb-1 text-slate-300" />
+                        <span className="text-[11px] font-medium">Video Course</span>
+                      </div>
+                    )}
+                    <span className="absolute top-2.5 left-2.5 bg-slate-900/80 backdrop-blur-xs text-white text-[10px] font-semibold px-2 py-0.5 rounded-md">
+                      {course.modules?.length || 0} Modules
+                    </span>
+                  </div>
+
+                  <div className="p-4 flex flex-col flex-grow">
+                    <h3 className="font-bold text-sm text-slate-900 group-hover:text-blue-600 transition-colors line-clamp-2">
+                      {course.title}
+                    </h3>
+                    <p className="text-xs text-slate-500 mt-1 line-clamp-2 flex-grow">
+                      {course.description}
+                    </p>
+
+                    <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between">
+                      <div className="flex items-center gap-1 text-amber-500 text-xs font-semibold">
+                        <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
+                        <span>4.9</span>
+                        <span className="text-slate-400 font-normal">(SPPU)</span>
+                      </div>
+                      <div className="text-right">
+                        {course.price && course.price > 0 ? (
+                          <div className="flex items-baseline gap-1.5">
+                            {course.originalPrice && course.originalPrice > course.price && (
+                              <span className="text-xs text-slate-400 line-through">₹{course.originalPrice}</span>
+                            )}
+                            <span className="text-base font-bold text-slate-900">₹{course.price}</span>
+                          </div>
+                        ) : (
+                          <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded">
+                            FREE
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </Link>
+              ))
+            ) : (
+              // Clean Skeleton Placeholders while loading
+              Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="bg-white rounded-xl border border-slate-200 p-4 animate-pulse">
+                  <div className="aspect-video bg-slate-100 rounded-lg mb-3" />
+                  <div className="h-4 bg-slate-200 rounded w-3/4 mb-2" />
+                  <div className="h-3 bg-slate-100 rounded w-1/2" />
+                </div>
+              ))
+            )}
+          </div>
+
+          {/* Featured Notes Bar */}
+          <div className="mt-10 p-5 rounded-2xl bg-blue-50/60 border border-blue-100 flex flex-col md:flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center shrink-0">
+                <FileText className="w-5 h-5" />
+              </div>
+              <div>
+                <h4 className="font-bold text-sm text-slate-900">Unit 1 PDF Free Demo Preview on All Note Packages</h4>
+                <p className="text-xs text-slate-600">Sample verified handwritten notes before purchasing. Instant preview without registration.</p>
+              </div>
+            </div>
+            <Link
+              to="/notes"
+              className="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-lg shadow-2xs transition-colors shrink-0"
+            >
+              Explore Free Demos <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
+          </div>
+
+        </div>
+      </section>
+
+      {/* ── 5. WHY UNIEVAL (Platform Superpowers) ─────────────────────────── */}
+      <section className="py-20 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
+        <div className="text-center max-w-2xl mx-auto mb-14">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-100 text-slate-700 text-xs font-semibold mb-3">
+            <ShieldCheck className="w-3.5 h-3.5 text-blue-600" /> Engineered for University Exams
+          </div>
+          <h2 className="text-3xl font-extrabold text-slate-900 tracking-tight">
+            Why SPPU Toppers Choose UniEval
+          </h2>
+          <p className="text-slate-500 text-sm mt-3 leading-relaxed">
+            Standard textbooks are 800 pages long. UniEval extracts exactly what Pune University examiners look for in 5-mark and 10-mark answers.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="bg-white rounded-2xl p-6 border border-slate-200/90 shadow-2xs hover:shadow-sm transition-shadow">
+            <div className="w-10 h-10 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600 mb-4">
+              <Award className="w-5 h-5" />
+            </div>
+            <h3 className="font-bold text-base text-slate-900">SPPU Syllabus Aligned</h3>
+            <p className="text-xs text-slate-500 mt-2 leading-relaxed">
+              Mapped unit-by-unit to Savitribai Phule Pune University course outcomes and recent 2019/2024 credit pattern revisions.
+            </p>
+          </div>
+
+          <div className="bg-white rounded-2xl p-6 border border-slate-200/90 shadow-2xs hover:shadow-sm transition-shadow">
+            <div className="w-10 h-10 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-600 mb-4">
+              <FileText className="w-5 h-5" />
+            </div>
+            <h3 className="font-bold text-base text-slate-900">Topper-Verified Study Notes</h3>
+            <p className="text-xs text-slate-500 mt-2 leading-relaxed">
+              Concise handwritten and digital notes with point-to-point university marking scheme summaries, formulas, and diagrams.
+            </p>
+          </div>
+
+          <div className="bg-white rounded-2xl p-6 border border-slate-200/90 shadow-2xs hover:shadow-sm transition-shadow">
+            <div className="w-10 h-10 rounded-xl bg-rose-50 border border-rose-100 flex items-center justify-center text-rose-600 mb-4">
+              <Radio className="w-5 h-5" />
+            </div>
+            <h3 className="font-bold text-base text-slate-900">Live Studio Classrooms</h3>
+            <p className="text-xs text-slate-500 mt-2 leading-relaxed">
+              Real-time WebRTC sessions before Insem and Endsem exams with automatic landscape lock and instant recording sync.
+            </p>
+          </div>
+
+          <div className="bg-white rounded-2xl p-6 border border-slate-200/90 shadow-2xs hover:shadow-sm transition-shadow">
+            <div className="w-10 h-10 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 mb-4">
+              <CheckCircle2 className="w-5 h-5" />
+            </div>
+            <h3 className="font-bold text-base text-slate-900">Solved Previous Papers</h3>
+            <p className="text-xs text-slate-500 mt-2 leading-relaxed">
+              High-weightage recurring questions from past university exams with point-by-point marking scheme answer templates.
+            </p>
           </div>
         </div>
-        <div className="mt-10 text-center text-xs border-t border-gray-800 pt-8">
-          &copy; 2024 UNIEVAL. All rights reserved.
+      </section>
+
+      {/* ── 6. VERIFIED STUDENT TESTIMONIALS ─────────────────────────────── */}
+      <section className="py-20 bg-slate-100/70 border-t border-slate-200/70 w-full">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          
+          <div className="text-center max-w-xl mx-auto mb-12">
+            <p className="text-xs font-bold uppercase tracking-wider text-blue-600 mb-2">Student Feedback</p>
+            <h2 className="text-2xl sm:text-3xl font-bold text-slate-900">Proven Results Across Pune Colleges</h2>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {STUDENT_TESTIMONIALS.map((t, idx) => (
+              <div 
+                key={idx} 
+                className="bg-white rounded-2xl p-6 border border-slate-200 shadow-xs flex flex-col justify-between"
+              >
+                <div>
+                  <div className="flex gap-1 text-amber-400 mb-3">
+                    {Array.from({ length: t.rating }).map((_, i) => (
+                      <Star key={i} className="w-4 h-4 fill-amber-400" />
+                    ))}
+                  </div>
+                  <p className="text-sm text-slate-600 leading-relaxed italic">
+                    "{t.text}"
+                  </p>
+                </div>
+                <div className="mt-6 pt-4 border-t border-slate-100">
+                  <h4 className="font-bold text-sm text-slate-900">{t.name}</h4>
+                  <p className="text-xs text-slate-500">{t.role}</p>
+                  <p className="text-xs font-medium text-blue-600 mt-0.5">{t.college}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+
         </div>
-      </footer>
+      </section>
+
+      {/* ── 7. CALL TO ACTION BANNER ─────────────────────────────────────── */}
+      <section className="py-20 bg-slate-900 text-white w-full">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center flex flex-col items-center">
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-800 text-blue-400 text-xs font-semibold mb-4 border border-slate-700">
+            <GraduationCap className="w-3.5 h-3.5" /> Start Preparing Today
+          </span>
+          <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight max-w-2xl">
+            Stop Worrying About Exam Clearances. Start Scoring SGPA 9+.
+          </h2>
+          <p className="mt-4 text-slate-400 text-sm sm:text-base max-w-xl leading-relaxed">
+            Join thousands of Savitribai Phule Pune University engineering students learning with structured, high-yield study materials.
+          </p>
+          <div className="flex flex-col sm:flex-row gap-3 mt-8 w-full sm:w-auto">
+            <Link
+              to="/browse"
+              className="px-8 py-3.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm rounded-xl shadow-md transition-all text-center"
+            >
+              Explore Course Catalog
+            </Link>
+            <Link
+              to="/notes"
+              className="px-8 py-3.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-semibold text-sm rounded-xl transition-all text-center"
+            >
+              Preview Free Unit PDFs
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      <Footer />
     </div>
   );
 };

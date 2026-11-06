@@ -1,18 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { api } from '../services/api';
-import { Course, CourseModule, CourseVideo, User, UserRole, getDashboardRoute } from '../types';
+import { Course, CourseModule, CourseVideo, User, UserRole, getDashboardRoute, CourseProgressData } from '../types';
 import { useAuth } from '../context/AuthContext';
 import CustomVideoPlayer from '../components/CustomVideoPlayer';
 import { useSEO } from '../hooks/useSEO';
-import { Clock, ArrowLeft } from 'lucide-react';
-
-// Extend window object to support Cashfree
-declare global {
-  interface Window {
-    Cashfree: (options: { mode: string }) => { checkout: (options: any) => Promise<any> };
-  }
-}
+import { Clock, ArrowLeft, CheckCircle2, ShieldCheck, PlayCircle, Award, Check } from 'lucide-react';
+import { launchCashfreeCheckout } from '../services/cashfreeCheckout';
 
 type AppliedCoupon = {
   couponId: string;
@@ -43,6 +37,10 @@ const CourseDetail: React.FC = () => {
   const [appliedCoupon, setAppliedCoupon] = useState<AppliedCoupon | null>(null);
   const [couponError, setCouponError] = useState('');
   const [paymentError, setPaymentError] = useState('');
+
+  // Course Progress state
+  const [courseProgress, setCourseProgress] = useState<CourseProgressData | null>(null);
+
 
   useEffect(() => {
     if (id) {
@@ -163,23 +161,23 @@ const CourseDetail: React.FC = () => {
           return;
         }
 
-        const cashfree = window.Cashfree({ mode: import.meta.env.PROD ? "production" : "sandbox" }); // or production based on your need
-        cashfree.checkout({
+        launchCashfreeCheckout({
           paymentSessionId: orderData.paymentSessionId,
-          redirectTarget: "_modal"
-        }).then((result: any) => {
-          if(result.error) {
-             setPaymentError(result.error.message || 'Payment failed');
-          } else {
-             api.verifyCoursePayment(course.id, {
+          onError: (errMsg) => setPaymentError(errMsg),
+          onSuccess: async () => {
+            try {
+              const res = await api.verifyCoursePayment(course.id, {
                 cashfree_order_id: orderData.orderId!,
                 cashfree_payment_session_id: orderData.paymentSessionId!,
                 couponId: appliedCoupon?.couponId,
-             }).then((res: any) => {
-                if (res.success) { updateUser(res.user); navigate('/dashboard'); }
-             }).catch((e: any) => {
-                setPaymentError(e.message || 'Payment verification failed. Please contact support.');
-             });
+              });
+              if (res.success) {
+                updateUser(res.user);
+                navigate('/dashboard');
+              }
+            } catch (e: any) {
+              setPaymentError(e.message || 'Payment verification failed. Please contact support.');
+            }
           }
         });
       })
@@ -218,6 +216,44 @@ const CourseDetail: React.FC = () => {
 
   const handleNext = () => { if (nextVideoItem) { setActiveModule(nextVideoItem.module); setActiveVideo(nextVideoItem.video); } };
   const handlePrev = () => { if (prevVideoItem) { setActiveModule(prevVideoItem.module); setActiveVideo(prevVideoItem.video); } };
+
+  // Fetch course progress when course & user access are ready
+  useEffect(() => {
+    if (id && user && hasAccess) {
+      api.getCourseProgress(id)
+        .then(prog => {
+          setCourseProgress(prog);
+          if (prog?.lastWatchedLectureId && course) {
+            const allVideos = getFlatVideos();
+            const target = allVideos.find(v => v.video.id === prog.lastWatchedLectureId);
+            if (target) {
+              setActiveModule(target.module);
+              setActiveVideo(target.video);
+            }
+          }
+        })
+        .catch(console.error);
+    }
+  }, [id, user, hasAccess, !!course]);
+
+  // Keep last watched lecture updated
+  useEffect(() => {
+    if (id && activeVideo?.id && hasAccess) {
+      api.setLastWatchedLecture(id, activeVideo.id).catch(() => {});
+    }
+  }, [id, activeVideo?.id, hasAccess]);
+
+  const handleToggleLectureCompletion = async (lectureId: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    if (!id || !hasAccess) return;
+    try {
+      const updated = await api.toggleLectureProgress(id, lectureId);
+      setCourseProgress(updated);
+    } catch (err) {
+      console.error('Failed to toggle lecture completion:', err);
+    }
+  };
+
 
   if (!course) return <div className="p-8 text-center">Loading course...</div>;
 
@@ -282,7 +318,39 @@ const CourseDetail: React.FC = () => {
             )}
           </div>
 
-          <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-4 sm:p-6 mb-6 sm:mb-8">
+            {hasAccess && activeVideo && (
+              <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-3.5 rounded-xl border border-slate-200/80 shadow-2xs mb-6">
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="text-xs font-semibold text-slate-500 shrink-0">Playing:</span>
+                  <span className="text-xs font-bold text-slate-900 truncate">{activeVideo.title}</span>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => handleToggleLectureCompletion(activeVideo.id)}
+                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+                      courseProgress?.completedLectures?.includes(activeVideo.id)
+                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100'
+                        : 'bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200/80'
+                    }`}
+                  >
+                    <CheckCircle2 className={`w-3.5 h-3.5 ${courseProgress?.completedLectures?.includes(activeVideo.id) ? 'text-emerald-600' : 'text-slate-400'}`} />
+                    {courseProgress?.completedLectures?.includes(activeVideo.id) ? 'Completed' : 'Mark as Completed'}
+                  </button>
+                  {nextVideoItem && (
+                    <button
+                      type="button"
+                      onClick={handleNext}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-blue-600 text-white hover:bg-blue-700 transition shadow-xs"
+                    >
+                      Next Lecture →
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+
+            <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-4 sm:p-6 mb-6 sm:mb-8">
             <div className="flex flex-col md:flex-row justify-between items-start gap-4 sm:gap-6">
               <div className="flex-1 w-full">
                 <div className="flex items-center gap-3 mb-2 sm:mb-3">
@@ -318,18 +386,31 @@ const CourseDetail: React.FC = () => {
                     Enrolled
                   </div>
                 ) : (
-                  <div className="bg-slate-50 rounded-xl p-5 border border-slate-100">
+                  <div className="bg-slate-50/80 rounded-2xl p-5 sm:p-6 border border-slate-200/90 shadow-xs">
+                    {/* Urgency indicator */}
+                    <div className="flex items-center gap-1.5 text-xs font-semibold text-rose-600 bg-rose-50 border border-rose-200/60 px-3 py-1.5 rounded-lg mb-4">
+                      <Clock className="w-3.5 h-3.5 shrink-0" />
+                      <span>Limited-time semester pricing</span>
+                    </div>
+
                     {/* Price */}
-                    <div className="flex items-baseline justify-end gap-2 mb-4">
-                      {course.originalPrice && course.originalPrice > (course.price || 0) && !appliedCoupon && (
-                        <span className="text-lg text-slate-400 line-through">₹{course.originalPrice}</span>
+                    <div className="flex items-baseline justify-between gap-2 mb-4">
+                      <div className="flex items-baseline gap-2">
+                        <span className="text-3xl font-extrabold text-slate-900">
+                          {displayPrice === 0 ? 'Free' : `₹${displayPrice}`}
+                        </span>
+                        {course.originalPrice && course.originalPrice > (course.price || 0) && !appliedCoupon && (
+                          <span className="text-base text-slate-400 line-through">₹{course.originalPrice}</span>
+                        )}
+                        {appliedCoupon && (
+                          <span className="text-base text-slate-400 line-through">₹{course.price}</span>
+                        )}
+                      </div>
+                      {course.originalPrice && course.originalPrice > (course.price || 0) && (
+                        <span className="px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-xs font-bold border border-emerald-200">
+                          {Math.round(((course.originalPrice - (appliedCoupon ? appliedCoupon.discountedPrice : (course.price || 0))) / course.originalPrice) * 100)}% OFF
+                        </span>
                       )}
-                      {appliedCoupon && (
-                        <span className="text-lg text-slate-400 line-through">₹{course.price}</span>
-                      )}
-                      <span className="text-3xl font-bold text-slate-900">
-                        {displayPrice === 0 ? 'Free' : `₹${displayPrice}`}
-                      </span>
                     </div>
 
                     {/* Coupon row */}
@@ -350,12 +431,12 @@ const CourseDetail: React.FC = () => {
                           onChange={e => setCouponCode(e.target.value.toUpperCase())}
                           onKeyDown={e => { if (e.key === 'Enter') handleApplyCoupon(); }}
                           placeholder="Coupon code"
-                          className="flex-1 min-w-0 border border-slate-300 rounded-lg px-3 py-2 text-sm font-mono uppercase focus:outline-none focus:ring-2 focus:ring-brand-cobalt bg-white"
+                          className="flex-1 min-w-0 border border-slate-300 rounded-lg px-3 py-2 text-sm font-mono uppercase focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
                         />
                         <button
                           onClick={handleApplyCoupon}
                           disabled={couponLoading || !couponCode.trim()}
-                          className="text-sm font-bold px-4 py-2 bg-slate-900 text-white hover:bg-slate-800 disabled:opacity-50 rounded-lg transition-colors shrink-0 shadow-sm"
+                          className="text-sm font-bold px-4 py-2 bg-slate-900 text-white hover:bg-slate-800 disabled:opacity-50 rounded-lg transition-colors shrink-0 shadow-xs"
                         >
                           {couponLoading ? '...' : 'Apply'}
                         </button>
@@ -366,10 +447,35 @@ const CourseDetail: React.FC = () => {
 
                     <button
                       onClick={() => handlePayment()}
-                      className="w-full bg-gradient-main hover:opacity-90 text-white px-6 py-3 rounded-xl font-bold text-lg shadow-md transition-transform hover:scale-[1.02] active:scale-[0.98]"
+                      className="w-full bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-bold text-base shadow-sm transition-all hover:shadow active:scale-[0.98]"
                     >
                       {!user ? 'Login to Enroll' : (course.price === 0 ? 'Enroll for Free' : 'Enroll Now')}
                     </button>
+
+                    {/* What's included checklist */}
+                    <div className="pt-5 mt-5 border-t border-slate-200/80 text-left">
+                      <p className="text-xs font-bold uppercase tracking-wider text-slate-700 mb-2.5">
+                        What's Included:
+                      </p>
+                      <ul className="space-y-2 text-xs text-slate-600">
+                        <li className="flex items-start gap-2">
+                          <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
+                          <span>Complete SPPU Insem & Endsem syllabus coverage</span>
+                        </li>
+                        <li className="flex items-start gap-2">
+                          <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
+                          <span>High-definition video lectures (360p to 1080p buffer-free)</span>
+                        </li>
+                        <li className="flex items-start gap-2">
+                          <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
+                          <span>Downloadable unit revision notes & PYQ solutions</span>
+                        </li>
+                        <li className="flex items-start gap-2">
+                          <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
+                          <span>Scheduled live pre-exam interactive review sessions</span>
+                        </li>
+                      </ul>
+                    </div>
                   </div>
                 )}
               </div>
@@ -420,11 +526,35 @@ const CourseDetail: React.FC = () => {
             </div>
           )}
 
-          <div className="bg-white rounded-lg shadow overflow-hidden sticky top-6">
-            <div className="p-4 border-b border-gray-200 bg-gray-50">
-              <h3 className="text-lg font-medium text-gray-900">Course Content</h3>
+          <div className="bg-white rounded-2xl shadow-2xs border border-slate-200/80 overflow-hidden sticky top-6">
+            <div className="p-4 border-b border-slate-100 bg-slate-50/70 flex items-center justify-between">
+              <h3 className="text-base font-bold text-slate-900">Course Content</h3>
+              <span className="text-xs text-slate-500 font-medium">{flatVideos.length} Lectures</span>
             </div>
-            <ul className="divide-y divide-gray-200 max-h-[600px] overflow-y-auto">
+
+            {hasAccess && (
+              <div className="p-4 bg-white border-b border-slate-100">
+                <div className="flex items-center justify-between text-xs font-semibold mb-2">
+                  <span className="text-slate-700 flex items-center gap-1.5">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                    Course Progress
+                  </span>
+                  <span className="text-blue-600 font-bold">{courseProgress?.percentage ?? 0}%</span>
+                </div>
+                <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
+                  <div 
+                    className="bg-blue-600 h-2 rounded-full transition-all duration-500 ease-out" 
+                    style={{ width: `${courseProgress?.percentage ?? 0}%` }}
+                  />
+                </div>
+                <div className="text-[11px] text-slate-400 mt-1.5 flex justify-between">
+                  <span>{courseProgress?.completedCount ?? 0} of {flatVideos.length} lectures watched</span>
+                  {courseProgress?.completed && <span className="text-emerald-600 font-semibold">✓ Completed</span>}
+                </div>
+              </div>
+            )}
+
+            <ul className="divide-y divide-slate-100 max-h-[600px] overflow-y-auto">
               {course.modules.map((module, idx) => {
                 const isModuleLocked = !hasAccess && idx > 0;
                 const videos = module.videos && module.videos.length > 0 ? module.videos : (module.videoUrl ? [{
@@ -436,55 +566,71 @@ const CourseDetail: React.FC = () => {
                 }] : []);
 
                 return (
-                  <li key={module.id} className={`bg-white border-b border-slate-100 ${module.videos?.some(v => v.id === activeVideo?.id) || (module.videoUrl && 'legacy-' + module.id === activeVideo?.id) ? 'border-l-4 border-l-brand-cobalt' : 'border-l-4 border-l-transparent'}`}>
-                    <div className="p-4 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
-                      <h4 className="text-sm font-bold text-gray-800">Module {idx + 1}: {module.title}</h4>
-                      {isModuleLocked && <span className="text-[10px] text-brand-cobalt font-bold uppercase tracking-wider">Locked</span>}
+                  <li key={module.id} className={`bg-white border-b border-slate-100 ${module.videos?.some(v => v.id === activeVideo?.id) || (module.videoUrl && 'legacy-' + module.id === activeVideo?.id) ? 'border-l-4 border-l-blue-600' : 'border-l-4 border-l-transparent'}`}>
+                    <div className="p-3.5 bg-slate-50/80 border-b border-slate-100 flex items-center justify-between">
+                      <h4 className="text-xs sm:text-sm font-bold text-slate-900">Module {idx + 1}: {module.title}</h4>
+                      {isModuleLocked && <span className="text-[10px] text-blue-600 font-bold uppercase tracking-wider">Locked</span>}
                     </div>
-                    <ul className="divide-y divide-gray-100">
-                      {videos.map((video) => (
-                        <li
-                          key={video.id}
-                          className={`p-3 pl-6 transition-all ${activeVideo?.id === video.id ? 'bg-blue-50' : 'hover:bg-slate-50'} ${isModuleLocked ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}
-                          onClick={() => { if (!isModuleLocked) { setActiveModule(module); setActiveVideo(video); } else { handlePayment(); } }}
-                        >
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center">
-                              {(video as any).thumbnailUrl ? (
-                                <div className="relative flex-shrink-0 w-20 aspect-video mr-3 rounded overflow-hidden shadow-sm border border-gray-200 group-hover:scale-105 transition-transform duration-300">
-                                  <img src={(video as any).thumbnailUrl} alt={video.title} className="absolute inset-0 w-full h-full object-contain cursor-pointer" />
-                                  {isModuleLocked && (
-                                    <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-                                      <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <ul className="divide-y divide-slate-100">
+                      {videos.map((video) => {
+                        const isCompleted = courseProgress?.completedLectures?.includes(video.id);
+                        return (
+                          <li
+                            key={video.id}
+                            className={`p-3 pl-4 sm:pl-6 transition-all ${activeVideo?.id === video.id ? 'bg-blue-50/70' : 'hover:bg-slate-50'} ${isModuleLocked ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}
+                            onClick={() => { if (!isModuleLocked) { setActiveModule(module); setActiveVideo(video); } else { handlePayment(); } }}
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="flex items-center min-w-0">
+                                {hasAccess && (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => handleToggleLectureCompletion(video.id, e)}
+                                    className={`p-1 rounded-md transition-colors mr-2 shrink-0 ${
+                                      isCompleted ? 'text-emerald-600 hover:text-emerald-700' : 'text-slate-300 hover:text-slate-500'
+                                    }`}
+                                    title={isCompleted ? "Mark as Incomplete" : "Mark as Complete"}
+                                  >
+                                    <CheckCircle2 className={`w-4 h-4 ${isCompleted ? 'text-emerald-600 fill-emerald-100' : 'text-slate-300'}`} />
+                                  </button>
+                                )}
+
+                                {(video as any).thumbnailUrl ? (
+                                  <div className="relative flex-shrink-0 w-16 aspect-video mr-2.5 rounded-lg overflow-hidden shadow-2xs border border-slate-200 group-hover:scale-105 transition-transform duration-300">
+                                    <img src={(video as any).thumbnailUrl} alt={video.title} className="absolute inset-0 w-full h-full object-contain cursor-pointer" />
+                                    {isModuleLocked && (
+                                      <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                                        <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                                        </svg>
+                                      </div>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <div className={`flex-shrink-0 h-6 w-6 rounded-md flex items-center justify-center mr-2.5 ${activeVideo?.id === video.id ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-600'}`}>
+                                    {activeVideo?.id === video.id ? (
+                                      <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" /></svg>
+                                    ) : isModuleLocked ? (
+                                      <svg className="w-3 h-3 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                                       </svg>
-                                    </div>
-                                  )}
+                                    ) : (
+                                      <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                      </svg>
+                                    )}
+                                  </div>
+                                )}
+                                <div className="flex-1 min-w-0">
+                                  <p className={`text-xs sm:text-sm truncate ${activeVideo?.id === video.id ? 'font-bold text-blue-600' : 'font-medium text-slate-700'}`}>{video.title}</p>
                                 </div>
-                              ) : (
-                                <div className={`flex-shrink-0 h-6 w-6 rounded-md flex items-center justify-center mr-3 ${activeVideo?.id === video.id ? 'bg-brand-cobalt text-white' : 'bg-gray-200 text-gray-600'}`}>
-                                  {activeVideo?.id === video.id ? (
-                                    <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" /></svg>
-                                  ) : isModuleLocked ? (
-                                    <svg className="w-3 h-3 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                                    </svg>
-                                  ) : (
-                                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                    </svg>
-                                  )}
-                                </div>
-                              )}
-                              <div className="flex-1">
-                                <p className={`text-sm ${activeVideo?.id === video.id ? 'font-bold text-brand-cobalt' : 'font-medium text-gray-700'}`}>{video.title}</p>
                               </div>
+                              <span className="text-[11px] text-slate-400 shrink-0">{video.duration}</span>
                             </div>
-                            <span className="text-xs text-gray-400">{video.duration}</span>
-                          </div>
-                        </li>
-                      ))}
+                          </li>
+                        );
+                      })}
                     </ul>
                   </li>
                 );

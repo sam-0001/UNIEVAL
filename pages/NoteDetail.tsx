@@ -7,12 +7,7 @@ import SecurePdfViewer from '../components/SecurePdfViewer';
 import SecureHtmlViewer from '../components/SecureHtmlViewer';
 import { useSEO } from '../hooks/useSEO';
 import { Clock, ArrowLeft } from 'lucide-react';
-
-declare global {
-  interface Window {
-    Cashfree: (options: { mode: string }) => { checkout: (options: any) => Promise<any> };
-  }
-}
+import { launchCashfreeCheckout } from '../services/cashfreeCheckout';
 
 type AppliedCoupon = {
   couponId: string;
@@ -204,23 +199,23 @@ const NoteDetail: React.FC = () => {
         setPaymentError('Could not initialize payment session. Please try again.');
         return;
       }
-      const cashfree = window.Cashfree({ mode: import.meta.env.PROD ? "production" : "sandbox" });
-      cashfree.checkout({
+      launchCashfreeCheckout({
         paymentSessionId: orderData.paymentSessionId,
-        redirectTarget: "_modal"
-      }).then((result: any) => {
-        if(result.error) {
-           setPaymentError(result.error.message || 'Payment failed');
-        } else {
-           api.verifyNotePurchase(note.id, {
+        onError: (errMsg) => setPaymentError(errMsg),
+        onSuccess: async () => {
+          try {
+            const res = await api.verifyNotePurchase(note.id, {
               cashfree_order_id: orderData.orderId!,
               cashfree_payment_session_id: orderData.paymentSessionId!,
               couponId: appliedCoupon?.couponId,
-           }).then((res: any) => {
-              if (res.success) { updateUser(res.user); navigate('/dashboard'); }
-           }).catch((e: any) => {
-              setPaymentError('Payment received but verification failed. Contact support with your payment ID: ' + orderData.orderId);
-           });
+            });
+            if (res.success) {
+              updateUser(res.user);
+              navigate('/dashboard');
+            }
+          } catch (e: any) {
+            setPaymentError('Payment received but verification failed. Contact support with your payment ID: ' + orderData.orderId);
+          }
         }
       });
     } catch (e: any) {

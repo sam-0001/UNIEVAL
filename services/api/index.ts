@@ -8,7 +8,7 @@
  * The legacy `api` object is also exported for backward compatibility during migration.
  */
 export { authApi }               from './auth.api';
-export { subjectApi, courseApi, noteApi, quizApi, vivaApi } from './content.api';
+export { subjectApi, courseApi, noteApi, quizApi, vivaApi, comboApi } from './content.api';
 export { userApi, creditsApi, payoutApi, uploadApi }        from './user.api';
 export { adminApi }              from './admin.api';
 export type { CreditsInfo }      from './user.api';
@@ -18,7 +18,7 @@ export { fetchJson, authHeaders } from './client';
 // Keeps existing call sites (`api.getCourses()` etc.) working without changes.
 // Remove once all call sites are migrated to the named modules above.
 import { authApi }                                           from './auth.api';
-import { subjectApi, courseApi, noteApi, quizApi, vivaApi } from './content.api';
+import { subjectApi, courseApi, noteApi, quizApi, vivaApi, comboApi } from './content.api';
 import { userApi, creditsApi, payoutApi, uploadApi }        from './user.api';
 import { adminApi }                                          from './admin.api';
 
@@ -78,6 +78,16 @@ export const api = {
     createViva:         vivaApi.create,
     updateViva:         vivaApi.update,
     deleteViva:         vivaApi.delete,
+
+    // Combos
+    getCombos:          comboApi.getAll,
+    getComboById:       comboApi.getById,
+    createCombo:        comboApi.create,
+    updateCombo:        comboApi.update,
+    deleteCombo:        comboApi.delete,
+    enrollComboFree:    comboApi.enrollFree,
+    createComboOrder:   comboApi.createOrder,
+    verifyComboPurchase: comboApi.verifyPurchase,
 
     // Credits
     getCredits:         creditsApi.get,

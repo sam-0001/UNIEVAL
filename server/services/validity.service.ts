@@ -72,6 +72,7 @@ export async function syncUserExpiredPurchases(userId: string): Promise<{
 
         const currentCourseIds = Array.isArray(user.purchasedCourseIds) ? user.purchasedCourseIds : [];
         const currentNoteIds = Array.isArray(user.purchasedNoteIds) ? user.purchasedNoteIds : [];
+        const currentComboIds = Array.isArray((user as any).purchasedComboIds) ? (user as any).purchasedComboIds : [];
 
         if (purchases.length === 0) {
             return { activeCourseIds: currentCourseIds, activeNoteIds: currentNoteIds };
@@ -99,23 +100,27 @@ export async function syncUserExpiredPurchases(userId: string): Promise<{
 
         const filteredCourseIds = currentCourseIds.filter(id => !expiredProductIds.has(id));
         const filteredNoteIds = currentNoteIds.filter(id => !expiredProductIds.has(id));
+        const filteredComboIds = currentComboIds.filter((id: string) => !expiredProductIds.has(id));
 
         const coursesRemoved = currentCourseIds.length - filteredCourseIds.length;
         const notesRemoved = currentNoteIds.length - filteredNoteIds.length;
+        const combosRemoved = currentComboIds.length - filteredComboIds.length;
 
-        if (coursesRemoved > 0 || notesRemoved > 0) {
+        if (coursesRemoved > 0 || notesRemoved > 0 || combosRemoved > 0) {
             user.purchasedCourseIds = filteredCourseIds;
             user.purchasedNoteIds = filteredNoteIds;
+            (user as any).purchasedComboIds = filteredComboIds;
             await User.updateOne(
                 { id: userId },
                 {
                     $set: {
                         purchasedCourseIds: filteredCourseIds,
-                        purchasedNoteIds: filteredNoteIds
+                        purchasedNoteIds: filteredNoteIds,
+                        purchasedComboIds: filteredComboIds
                     }
                 }
             );
-            logger.info(`[Validity] Pruned expired purchases for user ${userId}: -${coursesRemoved} courses, -${notesRemoved} notes`);
+            logger.info(`[Validity] Pruned expired purchases for user ${userId}: -${coursesRemoved} courses, -${notesRemoved} notes, -${combosRemoved} combos`);
         }
 
         return { activeCourseIds: filteredCourseIds, activeNoteIds: filteredNoteIds };

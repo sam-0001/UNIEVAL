@@ -150,9 +150,14 @@ async function startServer() {
                     "https://*.webinar-api.webinar.gg",
                     "https://*.classx.co.in",
                     "https://classx.co.in",
-                    "https://*.daily.co"
+                    "https://*.daily.co",
+                    "https://drive.google.com",
+                    "https://docs.google.com",
+                    "https://*.google.com"
                 ],
                 workerSrc:  ["'self'", "blob:"],
+                manifestSrc: ["'self'"],
+
                 // NOTE: upgradeInsecureRequests is intentionally omitted — server runs plain HTTP
             },
         } : false, // disable CSP in dev (Vite HMR needs it off)
@@ -179,6 +184,35 @@ async function startServer() {
     };
     app.get('/pdf.worker.min.js', (_req, res) => serveWorker(res, 'pdf.worker.min.js'));
     app.get('/pdf.worker.min.mjs', (_req, res) => serveWorker(res, 'pdf.worker.min.mjs'));
+
+    // ── PWA: Service Worker & Web Manifest with strict MIME types & scope headers ──
+    app.get('/sw.js', (_req, res) => {
+        const distSw = path.resolve(__dirname, 'dist', 'sw.js');
+        const publicSw = path.resolve(__dirname, 'public', 'sw.js');
+        const target = fs.existsSync(distSw) ? distSw : (fs.existsSync(publicSw) ? publicSw : null);
+        if (target) {
+            res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
+            res.setHeader('Service-Worker-Allowed', '/');
+            res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+            res.sendFile(target);
+        } else {
+            res.status(404).end();
+        }
+    });
+
+    app.get(['/manifest.webmanifest', '/manifest.json'], (_req, res) => {
+        const distM = path.resolve(__dirname, 'dist', 'manifest.webmanifest');
+        const publicM = path.resolve(__dirname, 'public', 'manifest.webmanifest');
+        const target = fs.existsSync(distM) ? distM : (fs.existsSync(publicM) ? publicM : null);
+        if (target) {
+            res.setHeader('Content-Type', 'application/manifest+json; charset=utf-8');
+            res.setHeader('Cache-Control', 'public, max-age=86400');
+            res.sendFile(target);
+        } else {
+            res.status(404).end();
+        }
+    });
+
 
     if (NODE_ENV === 'production') {
         const distPath = path.resolve(__dirname, 'dist');

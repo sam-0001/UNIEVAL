@@ -197,5 +197,130 @@ This file serves as the permanent memory and architectural guide for the UniEval
         - `SecurePdfViewer.tsx` tracks active reading page in `sessionStorage` per note file.
         - If a student accidentally reloads the page or browser while reading (e.g. Page 18 of Unit 2), the viewer restores Page 18 instantly.
 
+    - **Teacher Subject Combos & Bundles System**:
+      - **Teacher & Admin Management (`pages/AdminDashboard.tsx`)**:
+        - Teachers and Admins have a dedicated `'combos'` tab with live count badges, filterable list of created bundles, and "+ Create Subject Combo".
+        - `CreateComboModal` allows teachers to bundle multiple subjects (filtered by academic year and branch) into a single discounted offer.
+        - Teachers can configure: Title, Description, Included Subjects (with live course and note counts), Content Inclusions (All Materials, Notes Only, Courses Only), Selling Price, Original MRP (with auto-suggest calculation from contents), Student Validity (relative months or fixed date), Optional College-Specific Free Access, and 16:9 Thumbnail Cover.
+      - **Automated Access Fulfillment (`fulfillComboAccess` in `server/controllers/user.controller.ts`)**:
+        - When a student purchases a combo (or enrolls free via college domain / dev mode / Cashfree payment):
+          - Finds all courses and notes associated with `combo.subjectIds`.
+          - Adds `combo.id` to `user.purchasedComboIds`, all matching course IDs to `user.purchasedCourseIds`, and all matching note IDs to `user.purchasedNoteIds`.
+          - Generates a master `Purchase` record for the combo (`productType: 'combo'`, `amountPaid: combo.price`) and sub-purchase records for each individual course and note (`productType: 'course' / 'note'`, `amountPaid: 0`, suffixed `cashfreeOrderId`).
+          - All video player HLS key gates (`getVideoKey`), secure PDF file streaming (`resolveFileAccess`), and student dashboard displays immediately unlock without extra steps.
+        - Webhook (`server/routes/webhook.ts`) processes `comboId` from Cashfree order tags and fulfills access asynchronously.
+        - Expiry synchronization (`validity.service.ts`) cleans up expired combos from `purchasedComboIds` and preserves purchase integrity.
+      - **Student Discovery & Checkout (`pages/BrowseCourses.tsx`)**:
+        - Added dedicated `Subject Combos` tab with filter by branch, academic year, and real-time keyword search.
+        - Rich combo card showcases included subjects, course/note counts, savings percentage, and price.
+        - Integrated `ComboDetailModal` displays course and note contents with 1-click Cashfree checkout or instant free enrollment for college students.
+
+    - **Legal, Privacy & Cookie Policy Transparency Architecture**:
+      - **Dedicated Compliance Pages**:
+        - `pages/PrivacyPolicy.tsx` (`/privacy`): Full DPDP & GDPR aligned disclosure. Itemizes exactly what personal and academic information is collected (name, email, phone, college/branch, salted bcrypt password hashes, watch time, test analytics, forensic watermarks, device logs), why it is collected (authentication, institutional verification, order fulfillment, DRM copyright protection, AI quizzes), military-grade encryption (AES-256-GCM, AES-128 HLS, TLS 1.3), Cashfree PCI-DSS gateway guarantees (zero card/PIN storage), data retention, and student rights (access, erasure, correction).
+        - `pages/TermsAndConditions.tsx` (`/terms`): Legally binding terms detailing single-user personal licenses, strict anti-piracy DRM protection (prohibiting screen recording, HLS scraping, decryption tampering, and Telegram/Drive piracy), forensic watermarking notice, 6-month validity lifecycle, digital content non-refundability policy, live class decorum, and Pune jurisdiction.
+        - `pages/CookiePolicy.tsx` (`/cookie`): Exhaustive technical table listing all client-side storage keys (`token`, `unieval_cookie_consent`, `pdf_page_{fileId}`, `u_{userId}:{fileUrl}` Cache API pool, `activeYearTab`, Cloudflare edge cookies), explaining their exact performance/security purposes, and guaranteeing zero third-party advertising or cross-site tracking.
+      - **Interactive Cookie Consent Banner (`components/CookieBanner.tsx`)**:
+        - Sleek floating banner with glassmorphism aesthetics adhering to the UniEval design system.
+        - Gives users options ("Accept All" vs. "Essential Only") and saves preferences to `localStorage`.
+      - **Unified Brand Footer (`components/Footer.tsx`)**:
+        - Standardized across `Home.tsx`, `About.tsx`, and legal pages with quick links to Academics, Privacy, Terms, Cookies, contact info, and security badges.
+      - **Signup & Registration Compliance Disclosure**:
+        - Integrated explicit binding notices on Step 1 and Step 3 in `pages/Login.tsx` and `components/LoginModal.tsx` linking to Terms, Privacy, and Cookie policies.
+      - **Landing Domain Routing Guard**:
+        - Whitelisted `/privacy`, `/terms`, and `/cookie` in `App.tsx` on `unieval.in` / `www.unieval.in` to allow prospective students to read policies without being forced to redirect.
+
+  - **Student-Facing UX Copy & Anti-Jargon Policy**:
+    - **Zero Developer Security Jargon on Student UI**: Technical developer terms such as `"AES-256 Encrypted"`, `"Military-Grade DRM"`, `"Adaptive HLS streaming"`, `"AES-128 bit keys"`, or raw cryptographic details must NEVER be displayed on public or student-facing screens (Homepage, Navbar, Course Cards, Sales Cards, Footers, or Dashboards).
+    - Students perceive technical security jargon as developer clutter. Always translate platform capabilities into clear student-centric benefits:
+      - Instead of `"Military-Grade DRM"` -> use `"Topper-Verified Study Notes"`.
+      - Instead of `"AES-256 Encrypted"` -> use `"Verified Study Portal"`.
+      - Instead of `"Adaptive HLS video streaming"` -> use `"High-definition video lectures (360p to 1080p buffer-free)"`.
+    - Technical specifications are strictly reserved for legal compliance documents (`PrivacyPolicy.tsx`, `TermsAndConditions.tsx`) and backend code.
+
+  - **Progressive Web App (PWA) & Super Admin Push Notification Engine**:
+    - **Native App Feel (Desktop & Mobile)**:
+      - Full PWA manifest (`public/manifest.webmanifest`) configured with `display: "standalone"`, brand theme color `#2563EB`, background `#0F172A`, and responsive maskable icons (`192x192` and `512x512` generated from official brand assets).
+      - `index.html` configured with mobile viewport meta tags, Apple touch icons (`apple-touch-icon.png`), and standalone web app tags for iOS Safari and Android Chrome.
+      - Express server serves `/sw.js` with `Service-Worker-Allowed: /`, `Content-Type: application/javascript`, and strict `no-cache` headers.
+    - **Smart Installation Experience (`components/InstallPwaBanner.tsx`)**:
+      - For Desktop (Chrome, Edge, Brave) & Android: Intercepts `beforeinstallprompt` event, shows a non-intrusive floating install prompt ("Add UniEval to Home Screen" / "Install App"), triggers native prompt, and stores dismissed status for 7 days.
+      - For iOS Safari: Automatically detects iOS devices running in Safari browser mode and displays a visual 3-step modal guide ("Tap Share -> Scroll down and select 'Add to Home Screen' -> Tap Add").
+    - **Web Push Notifications Architecture (`server/services/notification.service.ts` & `services/pwa.ts`)**:
+      - Standards-compliant VAPID push system utilizing `web-push`. Keys are automatically read from environment variables or auto-generated and safely persisted to `.vapid-keys.json`.
+      - Secure endpoint registration (`server/models/pushSubscription.model.ts`) tracks device subscriptions with user linkage (`userId`, `userRole`, `deviceType`: mobile vs desktop, `endpoint`, and encryption keys).
+      - Dead/expired subscription pruning (404/410 status codes returned by Apple APNs / Google FCM) automatically purges obsolete endpoints from MongoDB to prevent database bloat.
+      - Gentle permission onboarding banner (`components/NotificationPermissionBanner.tsx`) prompts users with value explanation (live class reminders and exam note alerts) before requesting native browser permission.
+    - **Super Admin Notification Broadcast Center (`components/AdminNotificationModal.tsx`)**:
+      - Super Admins can compose and broadcast push notifications from the Super Admin portal (`pages/SuperAdminDashboard.tsx`).
+      - Features real-time subscriber metrics (live counter of registered Mobile devices, Desktop browsers, and Total subscribers).
+      - Target audience filtering: `ALL` devices, `STUDENTS` only, or `FACULTY` only.
+      - Custom target URL navigation on click (e.g. direct link to a live class or new unit PDF).
+      - Real-time notification preview card mimicking device push display with app icon, title, body, and timestamp.
+
+  - **Comprehensive Code Quality & Architecture Modernization (Clean Code Standard)**:
+    - **Dead Code Purge & Root Hygiene**:
+      - Purged obsolete legacy files (`pages/TeacherUpload.tsx`, `components/HlsPlayer.tsx`, deprecated `LiveClass` lobby/controls, and `services/api.ts.deprecated`).
+      - Archived 20+ one-off root maintenance and debugging scripts into `scratch/archive/`, keeping only `ecosystem.config.cjs` at root for PM2 production process management.
+      - Updated `tsconfig.json` to exclude `scratch/`.
+    - **Modular Mongoose Model Layer (`server/models/`)**:
+      - Migrated monolithic `server/models.ts` into individual model files under `server/models/`:
+        - `liveClass.model.ts`, `pendingRecording.model.ts`, `liveChat.model.ts`, `liveQuestion.model.ts`, `livePoll.model.ts`, `combo.model.ts`, `purchase.model.ts`, `user.model.ts`, `courseProgress.model.ts`, `pushSubscription.model.ts`.
+      - `server/models/index.ts` serves as the centralized export barrel; `server/models.ts` maintains 1-line backward compatibility.
+    - **Unified Authentication (`components/auth/`)**:
+      - `components/auth/AuthForm.tsx`: Unified single source of truth for student/faculty login, 3-step signup, OTP verification, password reset, and legal disclosures.
+      - `components/auth/PasswordStrengthMeter.tsx`: Reusable real-time password requirement checklist.
+      - Refactored `components/LoginModal.tsx` and `pages/Login.tsx` into clean, zero-duplication wrappers.
+    - **Centralized Cashfree Payment Gateway (`services/cashfreeCheckout.ts` & `server/services/cashfree.service.ts`)**:
+      - Created `launchCashfreeCheckout()` utility with global SDK typing, error handling, and session redirection.
+      - Refactored `CourseDetail.tsx`, `NoteDetail.tsx`, `BrowseCourses.tsx`, and `QuizDetail.tsx` to eliminate repetitive `window.Cashfree` declarations and checkout loops.
+      - Centralized Cashfree API order creation and signature validation on backend (`cashfree.service.ts`).
+    - **Backend Routes & Service Decomposition (`server/services/`)**:
+      - Decomposed monolithic `server/routes/upload.ts` (from 1,120 lines to 260 lines — 77% reduction):
+        - `storage.service.ts`: Cloudflare R2 / S3 client operations, presigned URLs, S3 direct streaming buffer retrieval, and single/bulk deletion.
+        - `crypto.service.ts`: AES-256-GCM buffer encryption/decryption, LRU in-memory RAM cache (150 files), and single-flight request deduplication.
+        - `assetCleanup.service.ts`: Cascading asset deletion for courses, notes, and videos.
+        - `videoTranscode.service.ts`: FFmpeg HLS transcode job queue and status store.
+      - Extracted `getSubjects` and `createSubject` into dedicated `server/controllers/subject.controller.ts`.
+    - **Frontend Monolith Deconstruction**:
+      - **Admin Dashboard (`pages/AdminDashboard.tsx`)**: Reduced from 4,295 lines to 1,387 lines (68% reduction):
+        - Extracted `components/admin/TeacherLogin.tsx`.
+        - Extracted tabs into `components/admin/tabs/`: `BEToolkitTab.tsx`, `ExamPrepTab.tsx`.
+        - Extracted modals into `components/admin/modals/`: `CreateCourseModal.tsx`, `CreateNoteModal.tsx`, `CreateQuizModal.tsx`, `CreateVivaModal.tsx`, `CreateComboModal.tsx`, `LiveModal.tsx`, and `common.ts`.
+      - **Student Dashboard (`pages/StudentDashboard.tsx`)**: Reduced from 2,244 lines to 401 lines (82% reduction):
+        - Created `hooks/useStudentDashboardData.ts` to coordinate data fetching, live classroom WebSockets, polling fallback, and recording replay state.
+        - Extracted tabs into `components/student/tabs/`: `OverviewTab.tsx`, `CoursesTab.tsx`, `NotesTab.tsx`, `LiveClassesTab.tsx`, `BillingTab.tsx`, `SettingsTab.tsx`.
+        - Extracted `components/student/SearchResultsView.tsx` and `components/student/RecordingPlayerModal.tsx`.
+    - **Centralized Academic Constants (`constants/academics.ts`)**:
+      - Centralized `ACADEMIC_YEARS` (`FE`, `SE`, `TE`, `BE`), `getYearCode()`, `getYearName()`, `getYearFullName()`, `getYearMeta()` (visual branding badges and color tokens), and `ENGINEERING_BRANCHES`.
+
+  - **Official SPPU Syllabus Archive & Google Drive Synchronization**:
+    - **Google Drive Shared Folder Integration**:
+      - Shared directory ID: `1PaXIr_9w7Fz_wcpQnP8yF0YkJlL-N8xU` (`https://drive.google.com/drive/folders/1PaXIr_9w7Fz_wcpQnP8yF0YkJlL-N8xU?usp=drive_link`).
+      - Contains official Savitribai Phule Pune University (SPPU) 2024 credit pattern syllabus copies across all engineering branches:
+        - First Year (FE): Common engineering curriculum PDF (`SPPU_FE_2024_Pattern.pdf`).
+        - Second Year (SE): 12 branch-specific copies (Computer, IT, AI&DS, AIML, ENTC, VLSI, Electrical, Mechanical, Sandwich, Civil, Chemical, Robotics).
+        - Third Year (TE): 9 branch-specific NEP copies (Computer, AIML, ENTC, VLSI, Electrical, Mechanical, Sandwich, Civil, Chemical).
+    - **Landing Page Syllabus Section (`components/home/SyllabusSection.tsx`)**:
+      - Positioned on `Home.tsx` (`#syllabus`) with interactive cards for FE, SE, TE, and a direct Google Drive folder action.
+      - Displays real-time branch counts and syllabus highlights aligned with Pune University credit patterns.
+    - **Interactive Syllabus Explorer Modal (`components/home/SyllabusModal.tsx`)**:
+      - Instant multi-branch search filtering (e.g. typing "comp", "entc", "mech", "civil", "ai").
+      - Tab selectors for `All (22)`, `First Year (FE)`, `Second Year (SE)`, and `Third Year (TE)`.
+      - Built-in PDF reader mode embedding Google Drive document preview (`https://drive.google.com/file/d/:id/preview`) with back button and new-tab option.
+      - Dual view modes: Curated UniEval filtered card index and embedded Google Drive folder stream (`https://drive.google.com/embeddedfolderview?id=1PaXIr_9w7Fz_wcpQnP8yF0YkJlL-N8xU#grid`).
+      - Direct links to open the entire shared folder or individual files in Google Drive.
+    - **CSP Alignment (`server.ts`)**:
+      - Whitelisted `https://drive.google.com`, `https://docs.google.com`, and `https://*.google.com` under helmet `frameSrc` to permit Google Drive folder and document preview embedding in production.
+    - **Dedicated Crawlable Syllabus Route & GEO Optimization (`pages/Syllabus.tsx`)**:
+      - Canonical dedicated route mounted at `/syllabus` (registered in `App.tsx` `publicLandingRoutes` for `unieval.in` domain compatibility).
+      - Semantic on-page Knowledge Box specifically written for Google Gemini / Google AI Overviews and Search Summaries, establishing UniEval as the definitive source for SPPU syllabus and exam prep.
+      - Rich Schema.org markup: `BreadcrumbList`, `EducationalOrganization`, `Dataset`, `ItemList` (all 22 syllabus PDFs cataloged), and `FAQPage` covering FE/SE/TE patterns.
+      - **Static HTML & AI Crawlers Alignment**:
+        - `index.html`: Upgraded meta description, keywords, Knowledge Graph, Dataset schema, and FAQPage schemas.
+        - `public/sitemap.xml`: Added `https://unieval.in/syllabus` with priority `1.0` and daily change frequency.
+        - `public/robots.txt`: Explicitly allows `/syllabus` for `Google-Extended` (Gemini / AI Overviews crawler), `GoogleOther`, `GPTBot`, `PerplexityBot`, and `ClaudeBot`.
+        - `public/llms.txt` and `public/llms-full.txt`: Documented the full syllabus directory and concise Q&A knowledge synthesized by LLMs when users query "UniEval" or "SPPU syllabus".
+
 ---
 *(Note: As an agent, I will update this file whenever major architectural decisions, new features, or critical rules are established.)*

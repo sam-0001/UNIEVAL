@@ -48,14 +48,15 @@ const AdminBroadcastModal: React.FC = () => {
     };
 
     return (
-        <div className="mb-6">
+        <div>
             <button
                 onClick={() => setIsOpen(true)}
-                className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl font-medium shadow-lg hover:shadow-xl transition-all"
+                className="inline-flex items-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 active:scale-98 text-white rounded-xl text-xs sm:text-sm font-semibold transition-all shadow-xs"
             >
-                <Send className="w-5 h-5" />
+                <Send className="w-4 h-4" />
                 WhatsApp Broadcast & Offers
             </button>
+
 
             {isOpen && (
                 <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">

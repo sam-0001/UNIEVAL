@@ -1,6 +1,6 @@
 import express from 'express';
 import { randomUUID } from 'crypto';
-import { Course, Note, Quiz, Viva, User } from '../models/index.js';
+import { Course, Note, Quiz, Viva, User, Combo, Subject } from '../models/index.js';
 import { UserRole } from '../../types.js';
 import { cache } from '../services/cache.service.js';
 import logger from '../logger.js';
@@ -625,3 +625,224 @@ export async function deleteViva(req: express.Request, res: express.Response): P
         res.json({ success: true });
     } catch (err) { logger.error('[Vivas] deleteViva:', err); res.status(500).json({ error: 'An internal error occurred' }); }
 }
+
+// ─── Combos ───────────────────────────────────────────────────────────────────
+
+export async function getCombos(req: express.Request, res: express.Response): Promise<void> {
+    const teacherId = req.query.teacherId ? String(req.query.teacherId) : undefined;
+    const subjectId = req.query.subjectId ? String(req.query.subjectId) : undefined;
+    const { page, limit, skip } = parsePagination(req.query);
+
+    try {
+        const query: any = {};
+        if (teacherId) query.teacherId = teacherId;
+        if (subjectId) query.subjectIds = subjectId;
+
+        const [combos, total, subjects, courses, notes] = await Promise.all([
+            Combo.find(query).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
+            Combo.countDocuments(query),
+            Subject.find({}, { id: 1, name: 1, code: 1, branch: 1, year: 1 }).lean(),
+            Course.find({}, { id: 1, subjectId: 1, title: 1 }).lean(),
+            Note.find({}, { id: 1, subjectId: 1, title: 1 }).lean()
+        ]);
+
+        const subjectMap = new Map<string, any>(subjects.map((s: any) => [s.id, s]));
+
+        const enrichedCombos = combos.map((combo: any) => {
+            const subjectIds: string[] = Array.isArray(combo.subjectIds) ? combo.subjectIds : [];
+            const subNames = subjectIds.map(id => subjectMap.get(id)?.name || id);
+            const comboType = combo.comboType || 'all';
+
+            const matchingCourses = (comboType === 'notes')
+                ? []
+                : courses.filter((c: any) => subjectIds.includes(c.subjectId));
+
+            const matchingNotes = (comboType === 'courses')
+                ? []
+                : notes.filter((n: any) => subjectIds.includes(n.subjectId));
+
+            return {
+                ...combo,
+                subjectNames: subNames,
+                coursesCount: matchingCourses.length,
+                notesCount: matchingNotes.length
+            };
+        });
+
+        res.json({
+            data: enrichedCombos,
+            page,
+            limit,
+            total,
+            totalPages: Math.ceil(total / limit)
+        });
+    } catch (err) {
+        logger.error('[Combos] getCombos:', err);
+        res.status(500).json({ error: 'An internal error occurred' });
+    }
+}
+
+export async function getComboById(req: express.Request, res: express.Response): Promise<void> {
+    const id = req.params.id as string;
+    try {
+        const combo = await Combo.findOne({ id }).lean() as any;
+        if (!combo) {
+            res.status(404).json({ error: 'Combo not found' });
+            return;
+        }
+
+        const subjectIds: string[] = Array.isArray(combo.subjectIds) ? combo.subjectIds : [];
+        const comboType = combo.comboType || 'all';
+
+        const [subjects, courses, notes] = await Promise.all([
+            Subject.find({ id: { $in: subjectIds } }).lean(),
+            comboType === 'notes' ? [] : Course.find({ subjectId: { $in: subjectIds } }).lean(),
+            comboType === 'courses' ? [] : Note.find({ subjectId: { $in: subjectIds } }).lean()
+        ]);
+
+        const currentUser = (req as any).currentUser;
+        const sanitizedNotes = notes.map(n => sanitizeNoteForClient(n, currentUser?.role, currentUser?.id));
+
+        res.json({
+            ...combo,
+            subjects,
+            subjectNames: subjects.map((s: any) => s.name),
+            courses,
+            notes: sanitizedNotes,
+            coursesCount: courses.length,
+            notesCount: notes.length
+        });
+    } catch (err) {
+        logger.error('[Combos] getComboById:', err);
+        res.status(500).json({ error: 'An internal error occurred' });
+    }
+}
+
+export async function createCombo(req: express.Request, res: express.Response): Promise<void> {
+    const comboData = req.body;
+    const currentUser = (req as any).currentUser;
+    const teacherId = comboData.teacherId || currentUser?.id;
+
+    if (!comboData.title?.trim() || !Array.isArray(comboData.subjectIds) || comboData.subjectIds.length === 0) {
+        res.status(400).json({ error: 'Title and at least one subject are required' });
+        return;
+    }
+
+    if (typeof comboData.price !== 'number' || comboData.price < 0) {
+        res.status(400).json({ error: 'A valid price is required' });
+        return;
+    }
+
+    if (!comboData.collegeConfig || !comboData.collegeConfig.name?.trim() || !comboData.collegeConfig.emailDomain?.trim()) {
+        delete comboData.collegeConfig;
+    } else {
+        comboData.collegeConfig = {
+            name: comboData.collegeConfig.name.trim(),
+            emailDomain: comboData.collegeConfig.emailDomain.trim().toLowerCase()
+        };
+    }
+
+    const validityType = comboData.validityType === 'date' ? 'date' : 'months';
+    comboData.validityType = validityType;
+    if (validityType === 'date' && comboData.validityDate) {
+        comboData.validityDate = new Date(comboData.validityDate);
+        comboData.validityMonths = 6;
+    } else {
+        comboData.validityType = 'months';
+        comboData.validityMonths = Number(comboData.validityMonths) > 0 ? Number(comboData.validityMonths) : 6;
+        comboData.validityDate = null;
+    }
+
+    try {
+        const combo = await Combo.create({
+            ...comboData,
+            teacherId,
+            id: generateId()
+        });
+        await cache.invalidate('combos:*');
+        res.json(combo);
+    } catch (err) {
+        logger.error('[Combos] createCombo:', err);
+        res.status(500).json({ error: 'An internal error occurred' });
+    }
+}
+
+export async function updateCombo(req: express.Request, res: express.Response): Promise<void> {
+    const id = req.params.id as string;
+    const updates = req.body;
+    try {
+        const existingCombo = await Combo.findOne({ id }).lean() as any;
+        if (!existingCombo) {
+            res.status(404).json({ error: 'Combo not found' });
+            return;
+        }
+
+        const currentUser = (req as any).currentUser;
+        const isAdmin = currentUser?.role === UserRole.ADMIN || currentUser?.role === UserRole.SUPER_ADMIN;
+        if (currentUser?.role === UserRole.TEACHER && existingCombo.teacherId && existingCombo.teacherId !== currentUser.id && !isAdmin) {
+            res.status(403).json({ error: 'You are not authorized to update this combo' });
+            return;
+        }
+
+        if (updates.validityType === 'date' && updates.validityDate) {
+            updates.validityDate = new Date(updates.validityDate);
+            updates.validityMonths = 6;
+        } else if (updates.validityType === 'months') {
+            updates.validityMonths = Number(updates.validityMonths) > 0 ? Number(updates.validityMonths) : 6;
+            updates.validityDate = null;
+        }
+
+        const mongoUpdate: any = { ...updates };
+        delete mongoUpdate._id;
+        delete mongoUpdate.id;
+
+        if (!updates.collegeConfig || !updates.collegeConfig.name?.trim() || !updates.collegeConfig.emailDomain?.trim()) {
+            delete mongoUpdate.collegeConfig;
+            mongoUpdate.$unset = { collegeConfig: 1 };
+        } else {
+            mongoUpdate.collegeConfig = {
+                name: updates.collegeConfig.name.trim(),
+                emailDomain: updates.collegeConfig.emailDomain.trim().toLowerCase()
+            };
+        }
+
+        const combo = await Combo.findOneAndUpdate({ id }, mongoUpdate, { new: true });
+        await cache.invalidate(`combo:${id}`);
+        await cache.invalidate('combos:*');
+        res.json(combo);
+    } catch (err) {
+        logger.error('[Combos] updateCombo:', err);
+        res.status(500).json({ error: 'An internal error occurred' });
+    }
+}
+
+export async function deleteCombo(req: express.Request, res: express.Response): Promise<void> {
+    const id = req.params.id as string;
+    try {
+        const combo = await Combo.findOne({ id }).lean() as any;
+        if (!combo) {
+            res.status(404).json({ error: 'Combo not found' });
+            return;
+        }
+
+        const currentUser = (req as any).currentUser;
+        const isAdmin = currentUser?.role === UserRole.ADMIN || currentUser?.role === UserRole.SUPER_ADMIN;
+        if (currentUser?.role === UserRole.TEACHER && combo.teacherId && combo.teacherId !== currentUser.id && !isAdmin) {
+            res.status(403).json({ error: 'You are not authorized to delete this combo' });
+            return;
+        }
+
+        if (combo.thumbnailUrl) {
+            try { await deleteFileFromR2(combo.thumbnailUrl); } catch (e) { logger.warn('[Combos] Failed to delete thumbnail:', e); }
+        }
+
+        await Combo.deleteOne({ id });
+        await cache.invalidate(`combo:${id}`);
+        await cache.invalidate('combos:*');
+        res.json({ success: true });
+    } catch (err) {
+        logger.error('[Combos] deleteCombo:', err);
+        res.status(500).json({ error: 'An internal error occurred' });
+    }
+}
+

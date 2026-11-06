@@ -5,7 +5,7 @@ const purchaseSchema = new mongoose.Schema({
   userId:            { type: String, required: true, index: true },
   productId:         { type: String, required: true, index: true },
   teacherId:         { type: String, required: true, index: true },
-  productType:       { type: String, enum: ['note', 'course', 'quiz', 'viva', 'free'], required: true },
+  productType:       { type: String, enum: ['note', 'course', 'quiz', 'viva', 'free', 'combo', 'credits'], required: true },
   amountPaid:        { type: Number, required: true },
   couponId:          { type: String, default: null, index: true },
   discountAmount:    { type: Number, default: 0 },

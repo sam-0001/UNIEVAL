@@ -1,6 +1,6 @@
 /**
  * CouponManager.tsx
- * Drop this inside TeacherUpload.tsx (or AdminDashboard.tsx) as a panel.
+ * Drop this inside AdminDashboard.tsx as a panel.
  *
  * Usage:
  *   <CouponManager productId={note.id} productType="note" />

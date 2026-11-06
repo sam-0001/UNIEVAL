@@ -23,6 +23,7 @@ export interface User {
   qualification?: string; // For teachers
   purchasedNoteIds: string[]; // Track purchased notes
   purchasedCourseIds: string[]; // Track purchased courses
+  purchasedComboIds?: string[]; // Track purchased subject combos
   archivedNoteIds?: string[];
   archivedCourseIds?: string[];
   upiId?: string; // For teacher payouts
@@ -222,15 +223,47 @@ export interface BEToolkitItem {
   createdAt?: string;
 }
 
+export interface Combo {
+  id: string;
+  title: string;
+  description?: string;
+  subjectIds: string[];
+  comboType?: 'all' | 'notes' | 'courses';
+  teacherId: string;
+  thumbnailUrl?: string;
+  price: number;
+  originalPrice?: number;
+  validityType?: 'months' | 'date';
+  validityMonths?: number;
+  validityDate?: string;
+  collegeConfig?: CollegeConfig | null;
+  createdAt?: string;
+  updatedAt?: string;
+  // Computed helpers for UI
+  subjectNames?: string[];
+  coursesCount?: number;
+  notesCount?: number;
+}
+
 export interface PurchaseRecord {
   id: string;
   userId: string;
   productId: string;
   teacherId: string;
-  productType: 'note' | 'course' | 'quiz' | 'viva' | 'free';
+  productType: 'note' | 'course' | 'quiz' | 'viva' | 'free' | 'combo' | 'credits';
   amountPaid: number;
   createdAt: string;
   expiresAt: string | null;
   isExpired?: boolean;
   daysRemaining?: number | null;
+}
+
+export interface CourseProgressData {
+  courseId: string;
+  completedLectures: string[];
+  completed: boolean;
+  lastWatchedLectureId: string | null;
+  totalLectures?: number;
+  completedCount?: number;
+  percentage?: number;
 }

@@ -11,6 +11,7 @@ const userSchema = new mongoose.Schema({
   qualification: String,
   purchasedNoteIds: [String],
   purchasedCourseIds: [String],
+  purchasedComboIds: [String],
   archivedNoteIds: [String],
   archivedCourseIds: [String],
   upiId: String,

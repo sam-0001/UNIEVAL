@@ -1,10 +1,11 @@
 import express from 'express';
 import mongoose from 'mongoose';
 import { randomUUID } from 'crypto';
-import { User, Course, Note, Purchase } from '../models/index.js';
+import { User, Course, Note, Purchase, Combo } from '../models/index.js';
 import logger from '../logger.js';
 import { incrementCouponUsage } from '../controllers/coupon.controller.js';
 import { calculateItemExpiryDate } from '../services/validity.service.js';
+import { fulfillComboAccess } from '../controllers/user.controller.js';
 
 const router = express.Router();
 
@@ -57,7 +58,7 @@ router.post('/cashfree', async (req, res) => {
         }
 
         const tags = data.order_tags || {};
-        const { userId, courseId, noteId, couponId, discountAmount, plan } = tags;
+        const { userId, courseId, noteId, comboId, couponId, discountAmount, plan } = tags;
 
         if (!userId) {
             res.status(400).send('No userId in order_tags');
@@ -120,6 +121,19 @@ router.post('/cashfree', async (req, res) => {
                 }).catch(err => { logger.warn('[Webhook] Purchase record creation non-fatal error:', err); });
 
                 if (couponId) await incrementCouponUsage(couponId);
+            }
+        }
+        // Handle Combo Purchase
+        else if (comboId) {
+            const user = await User.findOne({ id: userId });
+            if (!user) throw new Error('User not found');
+
+            const existingPurchase = await Purchase.findOne({ userId, productId: comboId, cashfreeOrderId: orderId });
+            if (!existingPurchase) {
+                await fulfillComboAccess(userId, comboId, {
+                    cashfreeOrderId: orderId,
+                    amountPaid: data.order_amount
+                });
             }
         }
         // Handle Credits Purchase

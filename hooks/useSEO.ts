@@ -19,6 +19,8 @@ export interface SEOProps {
   title: string;
   /** Meta description — 120–160 chars recommended */
   description?: string;
+  /** Meta keywords — comma separated search phrases */
+  keywords?: string;
   /** Absolute canonical URL, e.g. 'https://unieval.in/about'. Defaults to current URL without query params. */
   canonical?: string;
   /** Robots directive, e.g. 'noindex, nofollow'. Omit for default (indexable). */
@@ -112,6 +114,7 @@ function setLink(
 export function useSEO({
   title,
   description,
+  keywords,
   canonical,
   robots,
   ogTitle,
@@ -151,6 +154,11 @@ export function useSEO({
     // ── Meta description ──────────────────────────────────────────────────────
     if (description) {
       setMeta('name', 'description', description, owned);
+    }
+
+    // ── Meta keywords ─────────────────────────────────────────────────────────
+    if (keywords) {
+      setMeta('name', 'keywords', keywords, owned);
     }
 
     // ── Canonical ─────────────────────────────────────────────────────────────

@@ -1,4 +1,4 @@
-import { Course, Note, Quiz, Viva, Subject } from '../../types';
+import { Course, Note, Quiz, Viva, Subject, Combo, User } from '../../types';
 import { fetchJson, authHeaders, unwrapList } from './client';
 
 // ─── Subjects ─────────────────────────────────────────────────────────────────
@@ -159,4 +159,54 @@ export const vivaApi = {
 
     delete: (id: string) =>
         fetchJson<void>(`/vivas/${id}`, { method: 'DELETE', headers: authHeaders() }),
+};
+
+// ─── Combos ───────────────────────────────────────────────────────────────────
+
+export const comboApi = {
+    getAll: async (subjectId?: string): Promise<Combo[]> => {
+        const params = new URLSearchParams({ limit: '100' });
+        if (subjectId) params.append('subjectId', subjectId);
+        return unwrapList(await fetchJson<{ data: Combo[] } | Combo[]>(`/combos?${params}`));
+    },
+
+    getById: (id: string) =>
+        fetchJson<Combo & { courses?: Course[]; notes?: Note[] }>(`/combos/${id}`).catch(() => undefined),
+
+    create: (combo: Omit<Combo, 'id' | 'createdAt' | 'updatedAt'>) =>
+        fetchJson<Combo>('/combos', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...authHeaders() },
+            body: JSON.stringify(combo)
+        }),
+
+    update: (combo: Combo) =>
+        fetchJson<Combo>(`/combos/${combo.id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json', ...authHeaders() },
+            body: JSON.stringify(combo)
+        }),
+
+    delete: (id: string) =>
+        fetchJson<void>(`/combos/${id}`, { method: 'DELETE', headers: authHeaders() }),
+
+    enrollFree: (comboId: string) =>
+        fetchJson<{ success: boolean; user: User; message?: string }>(`/combos/${comboId}/enroll`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        }),
+
+    createOrder: (comboId: string) =>
+        fetchJson<{ orderId?: string; paymentSessionId?: string; amount?: number; currency?: string; appId?: string; devMode?: boolean; user?: User; coursesUnlocked?: number; notesUnlocked?: number }>(`/combos/${comboId}/create-order`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...authHeaders() },
+            body: JSON.stringify({}),
+        }),
+
+    verifyPurchase: (comboId: string, data: { cashfree_order_id: string; cashfree_payment_session_id: string }) =>
+        fetchJson<{ success: boolean; user: User; coursesUnlocked?: number; notesUnlocked?: number }>(`/combos/${comboId}/verify-purchase`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...authHeaders() },
+            body: JSON.stringify(data),
+        }),
 };

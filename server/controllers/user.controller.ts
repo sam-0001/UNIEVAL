@@ -1,13 +1,14 @@
 import express from 'express';
 import mongoose from 'mongoose';
 import { randomUUID } from 'crypto';
-import { User, Course, Note, Subject, Purchase, VideoKey, Coupon } from '../models/index.js';
+import { User, Course, Note, Subject, Purchase, VideoKey, Coupon, Combo } from '../models/index.js';
 import { UserRole } from '../../types.js';
 import { sanitizeUser, generateId, findUserByEmail } from './auth.controller.js';
 import { applyDiscount, incrementCouponUsage } from './coupon.controller.js';
 import { cache } from '../services/cache.service.js';
 import logger from '../logger.js';
 import { calculateItemExpiryDate, isPurchaseExpired, syncUserExpiredPurchases } from '../services/validity.service.js';
+import { getCashfreeKeys, createCashfreeOrder, verifyCashfreePayment } from '../services/cashfree.service.js';
 
 // ─── Users ────────────────────────────────────────────────────────────────────
 
@@ -39,7 +40,7 @@ export async function updateUser(req: express.Request, res: express.Response): P
     // Strip sensitive fields that must never be updated via this user profile endpoint
     [
         'password', 'role', 'id', '_id',
-        'purchasedCourseIds', 'purchasedNoteIds',
+        'purchasedCourseIds', 'purchasedNoteIds', 'purchasedComboIds',
         'archivedCourseIds', 'archivedNoteIds',
         'credits', 'unlimitedPlan',
         'freeQuizUsedToday', 'lastReset',
@@ -102,99 +103,14 @@ export async function getTeacherStats(req: express.Request, res: express.Respons
     }
 }
 
-// ─── Subjects ─────────────────────────────────────────────────────────────────
-
-export async function getSubjects(req: express.Request, res: express.Response): Promise<void> {
-    const query: any = {};
-    if (req.query.year) query.year = Number(req.query.year as string);
-    if (req.query.branch) query.branch = String(req.query.branch);
-    try {
-        const cacheKey = `subjects:${query.branch || 'all'}:${query.year || 'all'}`;
-        const subjects = await cache.getOrSet(cacheKey, () => Subject.find(query).lean(), 1800);
-        res.json(subjects);
-    } catch (err) {
-        logger.error('[Subjects] getSubjects:', err);
-        res.status(500).json({ error: 'An internal error occurred' });
-    }
-}
-
-export async function createSubject(req: express.Request, res: express.Response): Promise<void> {
-    const { name, code, branch, year } = req.body;
-    if (!name || !branch || !year) {
-        res.status(400).json({ error: 'Name, branch, and year are required' }); return;
-    }
-    try {
-        const existing = await Subject.findOne({
-            name: new RegExp(`^${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i'), branch, year
-        });
-        if (existing) { res.json(existing); return; }
-        const newSubject = await Subject.create({
-            id: generateId(), name,
-            code: code || name.substring(0, 3).toUpperCase(),
-            branch, year
-        });
-        await cache.invalidate('subjects:*');
-        res.json(newSubject);
-    } catch (err) {
-        logger.error('[Subjects] createSubject:', err);
-        res.status(500).json({ error: 'An internal error occurred' });
-    }
-}
+// ─── Subjects (Re-exported from subject.controller.js) ────────────────────────
+export { getSubjects, createSubject } from './subject.controller.js';
 
 // ─── Note Purchases ───────────────────────────────────────────────────────────
-
-function getCashfreeKeys(): { appId: string | undefined; secretKey: string | undefined } {
-    return {
-        appId: process.env.CASHFREE_APP_ID,
-        secretKey: process.env.CASHFREE_SECRET_KEY,
-    };
-}
 
 function assertString(val: string | undefined, name: string): string {
     if (!val) throw new Error(`${name} is not set`);
     return val;
-}
-
-async function createCashfreeOrder(amount: number, receipt: string, notes: Record<string, string>, appId: string, secretKey: string) {
-    const url = process.env.NODE_ENV === 'production' ? 'https://api.cashfree.com/pg/orders' : 'https://sandbox.cashfree.com/pg/orders';
-    const orderRes = await fetch(url, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'x-client-id': appId,
-            'x-client-secret': secretKey,
-            'x-api-version': '2023-08-01'
-        },
-        body: JSON.stringify({
-            order_amount: amount / 100, // Cashfree expects amount in INR
-            order_currency: 'INR',
-            order_id: receipt,
-            customer_details: {
-                customer_id: notes.userId || 'user_123',
-                customer_phone: '9999999999',
-            },
-            order_meta: {
-                return_url: `https://unieval.in/payment-callback?order_id={order_id}`
-            },
-            order_tags: notes
-        })
-    });
-    const order = await orderRes.json() as any;
-    if (!orderRes.ok) throw new Error(order.message || 'Failed to create order');
-    return order;
-}
-
-async function verifyCashfreePayment(orderId: string, appId: string, secretKey: string): Promise<boolean> {
-    const url = process.env.NODE_ENV === 'production' ? 'https://api.cashfree.com/pg/orders' : 'https://sandbox.cashfree.com/pg/orders';
-    const res = await fetch(`${url}/${orderId}`, {
-        headers: {
-            'x-client-id': appId,
-            'x-client-secret': secretKey,
-            'x-api-version': '2023-08-01'
-        }
-    });
-    const data = await res.json();
-    return data.order_status === 'PAID';
 }
 
 async function resolveNoteCoupon(noteId: string, couponId?: string): Promise<{
@@ -809,3 +725,246 @@ export async function getMyPurchases(req: express.Request, res: express.Response
         res.status(500).json({ error: 'An internal error occurred' });
     }
 }
+
+// ─── Combo Purchases & Access Fulfillment ──────────────────────────────────────
+
+export async function fulfillComboAccess(
+    userId: string,
+    comboId: string,
+    paymentMeta?: { cashfreeOrderId?: string; cashfreePaymentId?: string; amountPaid?: number }
+): Promise<{ user: any; coursesUnlocked: number; notesUnlocked: number }> {
+    const [user, combo] = await Promise.all([
+        User.findOne({ id: userId }),
+        Combo.findOne({ id: comboId }).lean() as any
+    ]);
+    if (!user) throw new Error('User not found');
+    if (!combo) throw new Error('Combo not found');
+
+    const subjectIds = Array.isArray(combo.subjectIds) ? combo.subjectIds : [];
+    const comboType = combo.comboType || 'all';
+
+    // Find all matching courses and notes for these subjects
+    const [targetCourses, targetNotes] = await Promise.all([
+        comboType === 'notes' ? [] : Course.find({ subjectId: { $in: subjectIds } }).lean(),
+        comboType === 'courses' ? [] : Note.find({ subjectId: { $in: subjectIds } }).lean()
+    ]);
+
+    const expiresAt = calculateItemExpiryDate(combo);
+
+    if (!Array.isArray(user.purchasedCourseIds)) user.purchasedCourseIds = [];
+    if (!Array.isArray(user.purchasedNoteIds)) user.purchasedNoteIds = [];
+    if (!Array.isArray((user as any).purchasedComboIds)) (user as any).purchasedComboIds = [];
+
+    // Add combo ID
+    if (!(user as any).purchasedComboIds.includes(comboId)) {
+        (user as any).purchasedComboIds.push(comboId);
+    }
+
+    // Add course IDs
+    for (const c of targetCourses) {
+        if (!user.purchasedCourseIds.includes(c.id)) {
+            user.purchasedCourseIds.push(c.id);
+        }
+    }
+
+    // Add note IDs
+    for (const n of targetNotes) {
+        if (!user.purchasedNoteIds.includes(n.id)) {
+            user.purchasedNoteIds.push(n.id);
+        }
+    }
+
+    await user.save();
+
+    // Create master Purchase record for the combo
+    const amountPaid = paymentMeta?.amountPaid ?? (combo.price || 0);
+    const teacherId = combo.teacherId || 'admin';
+
+    await Purchase.create({
+        id: randomUUID(),
+        userId,
+        productId: comboId,
+        teacherId,
+        productType: amountPaid <= 0 ? 'free' : 'combo',
+        amountPaid,
+        cashfreeOrderId: paymentMeta?.cashfreeOrderId,
+        cashfreePaymentId: paymentMeta?.cashfreePaymentId,
+        expiresAt
+    }).catch(err => { logger.warn('[Combo] Master purchase record non-fatal error:', err); });
+
+    // Create individual sub-purchase records for each course so HLS video decryption key-gate succeeds
+    for (const c of targetCourses) {
+        const existingPurchase = await Purchase.findOne({
+            userId,
+            productId: c.id,
+            $or: [{ expiresAt: { $gt: new Date() } }, { expiresAt: null }]
+        }).lean();
+
+        if (!existingPurchase) {
+            await Purchase.create({
+                id: randomUUID(),
+                userId,
+                productId: c.id,
+                teacherId: (c as any).teacherId || teacherId,
+                productType: 'course',
+                amountPaid: 0,
+                cashfreeOrderId: paymentMeta?.cashfreeOrderId ? `${paymentMeta.cashfreeOrderId}_sub_${c.id}` : undefined,
+                expiresAt
+            }).catch(err => { logger.warn('[Combo] Sub-course purchase record non-fatal error:', err); });
+        }
+    }
+
+    // Create individual sub-purchase records for each note so secure PDF file streaming succeeds
+    for (const n of targetNotes) {
+        const existingPurchase = await Purchase.findOne({
+            userId,
+            productId: n.id,
+            $or: [{ expiresAt: { $gt: new Date() } }, { expiresAt: null }]
+        }).lean();
+
+        if (!existingPurchase) {
+            await Purchase.create({
+                id: randomUUID(),
+                userId,
+                productId: n.id,
+                teacherId: (n as any).teacherId || teacherId,
+                productType: 'note',
+                amountPaid: 0,
+                cashfreeOrderId: paymentMeta?.cashfreeOrderId ? `${paymentMeta.cashfreeOrderId}_sub_${n.id}` : undefined,
+                expiresAt
+            }).catch(err => { logger.warn('[Combo] Sub-note purchase record non-fatal error:', err); });
+        }
+    }
+
+    logger.info(`[Combo] Fulfilled combo ${comboId} for user ${userId}: ${targetCourses.length} courses, ${targetNotes.length} notes unlocked.`);
+
+    return {
+        user,
+        coursesUnlocked: targetCourses.length,
+        notesUnlocked: targetNotes.length
+    };
+}
+
+export async function createComboOrder(req: express.Request, res: express.Response): Promise<void> {
+    const comboId = req.params.id as string;
+    const userId = (req as any).currentUser.id as string;
+
+    try {
+        const combo = await Combo.findOne({ id: comboId }).lean() as any;
+        if (!combo) { res.status(404).json({ error: 'Combo not found' }); return; }
+
+        const price = Math.max(0, Number(combo.price) || 0);
+        const { appId, secretKey } = getCashfreeKeys();
+
+        if (!appId || !secretKey || price <= 0) {
+            // Dev mode or 100% free combo: fulfill access immediately
+            const result = await fulfillComboAccess(userId, comboId, { amountPaid: price });
+            res.json({
+                devMode: true,
+                user: sanitizeUser(result.user),
+                coursesUnlocked: result.coursesUnlocked,
+                notesUnlocked: result.notesUnlocked
+            });
+            return;
+        }
+
+        const order = await createCashfreeOrder(
+            Math.round(price * 100),
+            `combo_${comboId.slice(0, 8)}_${Date.now().toString().slice(-10)}`,
+            { comboId, userId },
+            appId!,
+            secretKey!
+        );
+
+        res.json({
+            orderId: order.order_id,
+            paymentSessionId: order.payment_session_id,
+            amount: order.order_amount,
+            currency: order.order_currency,
+            appId: appId!
+        });
+    } catch (err) {
+        logger.error('[Combos] createComboOrder:', err);
+        res.status(500).json({ error: err instanceof Error ? err.message : 'An internal error occurred' });
+    }
+}
+
+export async function verifyComboPurchase(req: express.Request, res: express.Response): Promise<void> {
+    const comboId = req.params.id as string;
+    const userId = (req as any).currentUser.id as string;
+    const cashfree_order_id = req.body.cashfree_order_id as string;
+    const cashfree_payment_session_id = req.body.cashfree_payment_session_id as string;
+
+    const { appId, secretKey } = getCashfreeKeys();
+    if (!appId || !secretKey) {
+        res.status(500).json({ error: 'Payment not configured' });
+        return;
+    }
+
+    try {
+        const isValid = await verifyCashfreePayment(cashfree_order_id, appId!, secretKey!);
+        if (!isValid) {
+            res.status(400).json({ error: 'Invalid payment signature — possible fraud attempt' });
+            return;
+        }
+
+        const combo = await Combo.findOne({ id: comboId }).lean() as any;
+        if (!combo) { res.status(404).json({ error: 'Combo not found' }); return; }
+
+        const result = await fulfillComboAccess(userId, comboId, {
+            cashfreeOrderId: cashfree_order_id,
+            cashfreePaymentId: cashfree_payment_session_id,
+            amountPaid: combo.price
+        });
+
+        res.json({
+            success: true,
+            user: sanitizeUser(result.user),
+            coursesUnlocked: result.coursesUnlocked,
+            notesUnlocked: result.notesUnlocked
+        });
+    } catch (err) {
+        logger.error('[Combos] verifyComboPurchase:', err);
+        res.status(500).json({ error: 'An internal error occurred' });
+    }
+}
+
+export async function enrollComboFree(req: express.Request, res: express.Response): Promise<void> {
+    const comboId = req.params.id as string;
+    const userId = (req as any).currentUser?.id as string;
+    if (!userId) {
+        res.status(401).json({ error: 'Unauthorized' });
+        return;
+    }
+
+    try {
+        await syncUserExpiredPurchases(userId);
+        const [combo, user] = await Promise.all([
+            Combo.findOne({ id: comboId }).lean() as any,
+            User.findOne({ id: userId })
+        ]);
+        if (!combo) { res.status(404).json({ error: 'Combo not found' }); return; }
+        if (!user) { res.status(404).json({ error: 'User not found' }); return; }
+
+        // College specific free check
+        const collegeDomain = combo.collegeConfig?.emailDomain?.trim().toLowerCase();
+        const isCollegeFree = !!collegeDomain && collegeDomain.length >= 3 && user.email.toLowerCase().endsWith(collegeDomain);
+
+        if ((combo.price ?? 0) > 0 && !isCollegeFree) {
+            res.status(403).json({ error: 'This combo requires payment' });
+            return;
+        }
+
+        const result = await fulfillComboAccess(userId, comboId, { amountPaid: 0 });
+        res.json({
+            success: true,
+            user: sanitizeUser(result.user),
+            coursesUnlocked: result.coursesUnlocked,
+            notesUnlocked: result.notesUnlocked
+        });
+    } catch (err) {
+        logger.error('[Combos] enrollComboFree:', err);
+        res.status(500).json({ error: 'An internal error occurred' });
+    }
+}
+

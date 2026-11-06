@@ -1,96 +1,101 @@
 import express, { Request, Response } from 'express';
 import multer from 'multer';
-import ffmpeg from 'fluent-ffmpeg';
-import ffmpegInstaller from '@ffmpeg-installer/ffmpeg';
 import path from 'path';
 import fs from 'fs';
-import crypto, { randomUUID } from 'crypto';
-import { S3Client, PutObjectCommand, DeleteObjectCommand, DeleteObjectsCommand, GetObjectCommand, ListObjectsV2Command } from "@aws-sdk/client-s3";
+import { randomUUID } from 'crypto';
+import { PutObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
-import { Course, VideoKey, FileKey } from '../models/index.js'; 
+import { VideoKey, Course } from '../models/index.js';
 import { requireAuth, requireRole } from '../middleware/auth.js';
 import { UserRole } from '../../types.js';
 import { uploadRateLimit, noteUploadRateLimit, presignedUrlLimit } from '../middleware/userRateLimit.js';
 import logger from '../logger.js';
 import { enqueueVideoJob, isQueueAvailable } from '../services/queue.service.js';
 
-ffmpeg.setFfmpegPath(ffmpegInstaller.path);
+// Import decoupled services
+import {
+    s3Client,
+    R2_ACCOUNT_ID,
+    R2_BUCKET_NAME,
+    R2_PUBLIC_URL,
+    extractR2KeyFromUrl,
+    deleteFileFromR2,
+    deleteDirectoryFromR2
+} from '../services/storage.service.js';
+import {
+    encryptAndStoreFile,
+    readAndDecryptFile,
+    readAndDecryptBundleAsset,
+    getBundleIdForFile,
+    getFileBufferFromR2OrUrl,
+    invalidateDecryptedCache
+} from '../services/crypto.service.js';
+import {
+    deleteVideoAssets,
+    deleteNoteFileAssets,
+    deleteNoteAssets,
+    deleteCourseAssets
+} from '../services/assetCleanup.service.js';
+import {
+    processVideoAsync,
+    videoJobStore
+} from '../services/videoTranscode.service.js';
+
+// Backward-compatibility exports
+export {
+    extractR2KeyFromUrl,
+    deleteFileFromR2,
+    deleteDirectoryFromR2,
+    readAndDecryptFile,
+    readAndDecryptBundleAsset,
+    getBundleIdForFile,
+    getFileBufferFromR2OrUrl,
+    invalidateDecryptedCache,
+    deleteVideoAssets,
+    deleteNoteFileAssets,
+    deleteNoteAssets,
+    deleteCourseAssets,
+    processVideoAsync
+};
 
 const router = express.Router();
 
-// --- CONFIGURATION ---
-const MAX_VIDEO_SIZE = 5 * 1024 * 1024 * 1024; // 5GB
-const TEMP_FILE_TTL = 24 * 60 * 60 * 1000; // 24 hours
-const CLEANUP_INTERVAL = 60 * 60 * 1000; // 1 hour
-
-// IMPORTANT: Set API_BASE_URL=https://unieval.in in production .env
-const API_BASE_URL = process.env.API_BASE_URL || (
-  process.env.NODE_ENV === 'production'
-    ? 'https://unieval.in'
-    : 'http://localhost:3000'
-);
-
 const ALLOWED_VIDEO_TYPES = ['video/mp4', 'video/webm', 'video/ogg', 'video/quicktime', 'video/x-msvideo'];
 const ALLOWED_VIDEO_EXTENSIONS = ['mp4', 'webm', 'ogg', 'mov', 'avi'];
-
 const ALLOWED_DOC_EXTENSIONS = ['pdf', 'txt', 'md', 'csv', 'doc', 'docx', 'ppt', 'pptx', 'xls', 'xlsx', 'html', 'htm', 'png', 'jpg', 'jpeg', 'webp', 'gif', 'svg'];
 const MAX_DOC_SIZE = 100 * 1024 * 1024; // 100MB per note file
+const TEMP_DIR = path.join(process.cwd(), 'uploads', 'temp');
 
-const UPLOADS_DIR = path.join(process.cwd(), 'uploads');
-const TEMP_DIR = path.join(UPLOADS_DIR, 'temp');
-const SECURE_FILES_DIR = path.join(UPLOADS_DIR, 'secure-files'); // local fallback storage for encrypted note files
-
-[UPLOADS_DIR, TEMP_DIR, SECURE_FILES_DIR].forEach(dir => {
-    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-});
+if (!fs.existsSync(TEMP_DIR)) {
+    fs.mkdirSync(TEMP_DIR, { recursive: true });
+}
 
 router.use('/video/playlist', express.static(TEMP_DIR));
 
-// Dynamic fallback for playlist/chunks:
+// Dynamic fallback for playlist/chunks
 router.get('/video/playlist/:videoId/:file', async (req: Request, res: Response, next: express.NextFunction): Promise<void> => {
     try {
         const videoId = String(req.params.videoId);
         const file = String(req.params.file);
         const videoKeyDoc = await VideoKey.findOne({ videoId });
-        
-        // If it's ready and has an R2 url, redirect to R2!
+
         if (videoKeyDoc && videoKeyDoc.status === 'ready' && videoKeyDoc.videoUrl && videoKeyDoc.videoUrl.includes('r2.dev')) {
             const baseUrl = videoKeyDoc.videoUrl.replace(/\/playlist\.m3u8$/, '');
             res.redirect(302, `${baseUrl}/${file}`);
             return;
         }
-        
-        // Otherwise, serve it from TEMP_DIR if it exists locally
+
         const localPath = path.join(TEMP_DIR, videoId, file);
         if (fs.existsSync(localPath)) {
             res.sendFile(localPath);
             return;
         }
-        
+
         res.status(404).send('Not found');
     } catch (err) {
         next(err);
     }
 });
-
-// --- FILE (NOTE / DOCUMENT) ENCRYPTION HELPERS ---
-// AES-256-GCM: a fresh random key + IV per file, key material stored only in MongoDB (FileKey),
-// never in the object's storage path or filename. The encrypted blob at rest is unreadable
-// without the DB record, and the DB record alone (without the blob) is useless.
-function encryptBuffer(plain: Buffer): { ciphertext: Buffer; keyHex: string; ivHex: string; authTagHex: string } {
-    const key = crypto.randomBytes(32); // AES-256
-    const iv = crypto.randomBytes(12);  // recommended IV size for GCM
-    const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
-    const ciphertext = Buffer.concat([cipher.update(plain), cipher.final()]);
-    const authTag = cipher.getAuthTag();
-    return { ciphertext, keyHex: key.toString('hex'), ivHex: iv.toString('hex'), authTagHex: authTag.toString('hex') };
-}
-
-function decryptBuffer(ciphertext: Buffer, keyHex: string, ivHex: string, authTagHex: string): Buffer {
-    const decipher = crypto.createDecipheriv('aes-256-gcm', Buffer.from(keyHex, 'hex'), Buffer.from(ivHex, 'hex'));
-    decipher.setAuthTag(Buffer.from(authTagHex, 'hex'));
-    return Buffer.concat([decipher.update(ciphertext), decipher.final()]);
-}
 
 const noteFileUpload = multer({
     storage: multer.memoryStorage(),
@@ -105,301 +110,7 @@ const noteFileUpload = multer({
     }
 });
 
-// R2 Configuration
-const R2_ACCOUNT_ID = process.env.R2_ACCOUNT_ID?.trim();
-const R2_ACCESS_KEY_ID = process.env.R2_ACCESS_KEY_ID?.trim();
-const R2_SECRET_ACCESS_KEY = process.env.R2_SECRET_ACCESS_KEY?.trim();
-const R2_BUCKET_NAME = process.env.R2_BUCKET_NAME?.trim();
-const R2_PUBLIC_URL = process.env.R2_PUBLIC_URL?.trim();
-
-const s3Client = new S3Client({
-  region: "auto",
-  endpoint: `https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
-  credentials: { accessKeyId: R2_ACCESS_KEY_ID || "", secretAccessKey: R2_SECRET_ACCESS_KEY || "" },
-  requestChecksumCalculation: "WHEN_REQUIRED",
-  responseChecksumValidation: "WHEN_REQUIRED",
-});
-
-export function extractR2KeyFromUrl(urlOrKey?: string): string | null {
-  if (!urlOrKey || typeof urlOrKey !== 'string') return null;
-  const trimmed = urlOrKey.trim();
-  if (!trimmed || trimmed === '#') return null;
-
-  // Don't touch external placeholder images
-  if (trimmed.includes('picsum.photos') || trimmed.includes('placeholder')) return null;
-
-  let pathStr = trimmed;
-  if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
-    try {
-      const u = new URL(trimmed);
-      pathStr = u.pathname;
-    } catch {
-      return null;
-    }
-  }
-
-  // Strip query/hash if any
-  pathStr = pathStr.split('?')[0].split('#')[0];
-
-  // Remove leading slashes
-  pathStr = pathStr.replace(/^\/+/, '');
-
-  // Strip /uploads/ or uploads/ prefix if present
-  if (pathStr.startsWith('uploads/')) {
-    pathStr = pathStr.substring('uploads/'.length);
-  }
-
-  try {
-    pathStr = decodeURIComponent(pathStr);
-  } catch {
-    // ignore decode error
-  }
-
-  return pathStr || null;
-}
-
-export async function deleteFileFromR2(keyOrUrl: string): Promise<void> {
-  const key = extractR2KeyFromUrl(keyOrUrl);
-  if (!key) return;
-
-  // If local uploads file exists, delete it
-  const localPath = path.join(process.cwd(), 'uploads', key);
-  if (fs.existsSync(localPath)) {
-    try { fs.unlinkSync(localPath); } catch {}
-  }
-
-  if (!R2_BUCKET_NAME) return;
-  try {
-    await s3Client.send(new DeleteObjectCommand({ Bucket: R2_BUCKET_NAME, Key: key }));
-    logger.info(`[R2] Deleted file: ${key}`);
-  } catch (err) {
-    logger.error(`[R2] Failed to delete ${key}:`, err);
-  }
-}
-
-export async function deleteDirectoryFromR2(prefix: string): Promise<void> {
-  if (!prefix) return;
-  const cleanPrefix = prefix.replace(/^\/+/, '').replace(/\/+$/, '') + '/';
-
-  // Clean local directory if exists
-  const localDir = path.join(process.cwd(), 'uploads', cleanPrefix);
-  if (fs.existsSync(localDir)) {
-    try { fs.rmSync(localDir, { recursive: true, force: true }); } catch {}
-  }
-  const folderName = cleanPrefix.replace(/^videos\//, '').replace(/\/$/, '');
-  const tempDir = path.join(TEMP_DIR, folderName);
-  if (fs.existsSync(tempDir)) {
-    try { fs.rmSync(tempDir, { recursive: true, force: true }); } catch {}
-  }
-
-  if (!R2_BUCKET_NAME) return;
-  try {
-    let continuationToken: string | undefined = undefined;
-    let totalDeleted = 0;
-    do {
-      const listCommand = new ListObjectsV2Command({
-        Bucket: R2_BUCKET_NAME,
-        Prefix: cleanPrefix,
-        ContinuationToken: continuationToken,
-      });
-      const listResult: any = await s3Client.send(listCommand);
-      const objects: any[] = listResult.Contents || [];
-      if (objects.length > 0) {
-        await s3Client.send(new DeleteObjectsCommand({
-          Bucket: R2_BUCKET_NAME,
-          Delete: {
-            Objects: objects.map((o: any) => ({ Key: o.Key! })),
-            Quiet: true,
-          },
-        }));
-        totalDeleted += objects.length;
-      }
-      continuationToken = listResult.IsTruncated ? listResult.NextContinuationToken : undefined;
-    } while (continuationToken);
-
-    if (totalDeleted > 0) {
-      logger.info(`[R2] Deleted ${totalDeleted} files under directory prefix: ${cleanPrefix}`);
-    }
-  } catch (err) {
-    logger.error(`[R2] Failed to delete directory prefix ${cleanPrefix}:`, err);
-  }
-}
-
-export async function deleteVideoAssets(video: {
-  id?: string;
-  videoId?: string;
-  videoKey?: string;
-  videoUrl?: string;
-  thumbnailUrl?: string;
-  resources?: any[];
-}): Promise<void> {
-  try {
-    // 1. Identify videoId
-    let vidId = video.videoId;
-    if (!vidId && video.videoUrl) {
-      const match = video.videoUrl.match(/videos\/(vid-[a-zA-Z0-9_-]+)/);
-      if (match) vidId = match[1];
-    }
-
-    if (vidId) {
-      // Delete HLS directory
-      await deleteDirectoryFromR2(`videos/${vidId}`);
-      // Delete video key record from MongoDB
-      await VideoKey.deleteOne({ videoId: vidId });
-      videoJobStore.delete(vidId);
-    }
-
-    // 2. Delete raw video upload (videoKey)
-    if (video.videoKey) {
-      await deleteFileFromR2(video.videoKey);
-    }
-
-    // 3. If videoUrl points directly to a file (not playlist.m3u8)
-    if (video.videoUrl && !video.videoUrl.includes('.m3u8')) {
-      await deleteFileFromR2(video.videoUrl);
-    }
-
-    // 4. Delete video thumbnail
-    if (video.thumbnailUrl) {
-      await deleteFileFromR2(video.thumbnailUrl);
-    }
-
-    // 5. Delete attached resources
-    if (Array.isArray(video.resources)) {
-      for (const resItem of video.resources) {
-        if (resItem?.url) {
-          await deleteFileFromR2(resItem.url);
-        }
-      }
-    }
-  } catch (err) {
-    logger.error('[R2] Error deleting video assets:', err);
-  }
-}
-
-export async function deleteNoteFileAssets(urlOrId?: string, fileIdFallback?: string): Promise<void> {
-  if (!urlOrId || urlOrId === '#') return;
-  try {
-    let fileId: string | null = null;
-    const match = urlOrId.match(/\/api\/secure-file-raw\/([a-zA-Z0-9-]+)/);
-    if (match) {
-      fileId = match[1];
-    } else if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(urlOrId)) {
-      fileId = urlOrId;
-    } else if (fileIdFallback && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(fileIdFallback)) {
-      const exists = await FileKey.exists({ fileId: fileIdFallback });
-      if (exists) fileId = fileIdFallback;
-    }
-
-    if (fileId) {
-      invalidateDecryptedCache(fileId);
-      const record = await FileKey.findOne({ fileId }).lean() as any;
-      if (record) {
-        if (record.bundleId) {
-          const bundleRecords = await FileKey.find({ bundleId: record.bundleId }).lean() as any[];
-          for (const bRecord of bundleRecords) {
-            if (bRecord.storageKey) {
-              await deleteFileFromR2(bRecord.storageKey);
-            }
-          }
-          await FileKey.deleteMany({ bundleId: record.bundleId });
-        } else {
-          if (record.storageKey) {
-            await deleteFileFromR2(record.storageKey);
-          }
-          await FileKey.deleteOne({ fileId });
-        }
-        return;
-      }
-    }
-
-    // Direct R2 / public URL or path
-    await deleteFileFromR2(urlOrId);
-  } catch (err) {
-    logger.error('[R2] Error deleting note file assets:', err);
-  }
-}
-
-export async function deleteNoteAssets(note: {
-  id?: string;
-  thumbnailUrl?: string;
-  sections?: any[];
-}): Promise<void> {
-  try {
-    if (note.thumbnailUrl) {
-      await deleteFileFromR2(note.thumbnailUrl);
-    }
-    if (Array.isArray(note.sections)) {
-      for (const section of note.sections) {
-        if (Array.isArray(section.files)) {
-          for (const file of section.files) {
-            await deleteNoteFileAssets(file.url, file.id);
-          }
-        }
-      }
-    }
-  } catch (err) {
-    logger.error('[R2] Error deleting note assets:', err);
-  }
-}
-
-export async function deleteCourseAssets(course: any): Promise<void> {
-  try {
-    if (course.thumbnailUrl) {
-      await deleteFileFromR2(course.thumbnailUrl);
-    }
-    if (Array.isArray(course.modules)) {
-      for (const mod of course.modules) {
-        if (mod.videoUrl) await deleteFileFromR2(mod.videoUrl);
-        if (mod.videoKey) await deleteFileFromR2(mod.videoKey);
-        if (Array.isArray(mod.resources)) {
-          for (const r of mod.resources) {
-            if (r?.url) await deleteFileFromR2(r.url);
-          }
-        }
-        if (Array.isArray(mod.videos)) {
-          for (const vid of mod.videos) {
-            await deleteVideoAssets(vid);
-          }
-        }
-      }
-    }
-  } catch (err) {
-    logger.error('[R2] Error deleting course assets:', err);
-  }
-}
-
-// --- TYPES & STORE ---
-interface Resolution { name: string; width: number; height: number; bitrate: string; }
-interface ProcessVideoRequest { videoUrl: string; videoKey?: string; }
-interface VideoJobStatus { videoId: string; status: 'processing' | 'finalizing' | 'ready' | 'error'; progress: number; error?: string; createdAt: Date; tempDir?: string; }
-
-class VideoJobStore {
-    private jobs: Map<string, VideoJobStatus> = new Map();
-    set(videoId: string, status: VideoJobStatus): void { this.jobs.set(videoId, status); }
-    get(videoId: string): VideoJobStatus | undefined { return this.jobs.get(videoId); }
-    delete(videoId: string): void { this.jobs.delete(videoId); }
-}
-const videoJobStore = new VideoJobStore();
-
-const RESOLUTIONS: Resolution[] = [
-    { name: '360p', width: 640, height: 360, bitrate: '800k' },
-    { name: '480p', width: 854, height: 480, bitrate: '1400k' },
-    { name: '720p', width: 1280, height: 720, bitrate: '2800k' },
-    { name: '1080p', width: 1920, height: 1080, bitrate: '5000k' },
-];
-
-const getMaxResolution = (): number => {
-    const envRes = (process.env.MAX_VIDEO_RESOLUTION || '720p').toLowerCase();
-    if (envRes.includes('1080')) return 1080;
-    if (envRes.includes('720')) return 720;
-    if (envRes.includes('480')) return 480;
-    if (envRes.includes('360')) return 360;
-    return 720;
-};
-
-// --- VALIDATION & SECURITY ---
-function validateFileUpload(fileName: string, fileType: string, fileSize: number, isVideo: boolean): { valid: boolean; error?: string } {
+function validateFileUpload(fileName: string, fileType: string, _fileSize: number, isVideo: boolean): { valid: boolean; error?: string } {
     if (!fileName || !fileType) return { valid: false, error: 'File name and type are required' };
     const extension = fileName.toLowerCase().split('.').pop();
     if (!extension || (isVideo && (!ALLOWED_VIDEO_EXTENSIONS.includes(extension) || !ALLOWED_VIDEO_TYPES.includes(fileType.toLowerCase())))) {
@@ -408,55 +119,7 @@ function validateFileUpload(fileName: string, fileType: string, fileSize: number
     return { valid: true };
 }
 
-async function cleanupTempFiles(): Promise<void> {
-    try {
-        const now = Date.now();
-        const tempEntries = fs.readdirSync(TEMP_DIR, { withFileTypes: true });
-        for (const entry of tempEntries) {
-            const fullPath = path.join(TEMP_DIR, entry.name);
-            const stats = fs.statSync(fullPath);
-            if (now - stats.mtimeMs > TEMP_FILE_TTL) {
-                if (entry.isDirectory()) fs.rmSync(fullPath, { recursive: true, force: true });
-                else fs.unlinkSync(fullPath);
-            }
-        }
-    } catch (err) {}
-}
-setInterval(cleanupTempFiles, CLEANUP_INTERVAL);
-
-async function cleanupOnError(videoId: string, tempDir?: string, videoKey?: string): Promise<void> {
-    if (tempDir && fs.existsSync(tempDir)) {
-        try { fs.rmSync(tempDir, { recursive: true, force: true }); } catch (err) {}
-    }
-    videoJobStore.delete(videoId);
-}
-
-async function updateCourseVideoStatus(videoId: string, status: string, finalUrl?: string, progress?: number): Promise<void> {
-    try {
-        const courses = await Course.find({ 'modules.videos.videoId': videoId });
-        for (const course of courses) {
-            let updated = false;
-            course.modules.forEach((m: any) => {
-                m.videos.forEach((v: any) => {
-                    if (v.videoId === videoId) {
-                        v.videoStatus = status;
-                        if (status === 'ready') {
-                            v.videoProgress = 100;
-                            if (finalUrl) v.videoUrl = finalUrl;
-                        } else if (progress !== undefined) {
-                            v.videoProgress = progress;
-                        }
-                        updated = true;
-                    }
-                });
-            });
-            if (updated) await course.save();
-        }
-    } catch (err) { logger.error(`Error updating course:`, err); }
-}
-
-// --- ROUTES ---
-
+// ─── POST /delete-files ────────────────────────────────────────────────────────
 router.post('/delete-files', requireAuth, requireRole(UserRole.TEACHER, UserRole.ADMIN, UserRole.SUPER_ADMIN), async (req: Request, res: Response): Promise<void> => {
     const { urls } = req.body;
     if (!Array.isArray(urls) || urls.length === 0) {
@@ -467,7 +130,6 @@ router.post('/delete-files', requireAuth, requireRole(UserRole.TEACHER, UserRole
         for (const item of urls) {
             if (!item || typeof item !== 'string' || item === '#') continue;
 
-            // 1. Video URL or ID
             if (item.includes('/videos/') || item.startsWith('vid-') || item.includes('playlist.m3u8')) {
                 let vidId: string | undefined;
                 const match = item.match(/videos\/(vid-[a-zA-Z0-9_-]+)/);
@@ -480,13 +142,11 @@ router.post('/delete-files', requireAuth, requireRole(UserRole.TEACHER, UserRole
                 }
             }
 
-            // 2. Secure file proxy URL or file ID
             if (item.includes('/api/secure-file-raw/') || /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(item)) {
                 await deleteNoteFileAssets(item);
                 continue;
             }
 
-            // 3. Direct R2 key/URL
             await deleteFileFromR2(item);
         }
         res.json({ success: true, message: 'Files deleted successfully' });
@@ -496,106 +156,65 @@ router.post('/delete-files', requireAuth, requireRole(UserRole.TEACHER, UserRole
     }
 });
 
-// ✅ CHANGED: uploadRateLimit → presignedUrlLimit (cheap URL signing, not heavy processing)
+// ─── POST /upload/r2-presigned-url ─────────────────────────────────────────────
 router.post('/upload/r2-presigned-url', requireAuth, requireRole(UserRole.TEACHER, UserRole.ADMIN, UserRole.SUPER_ADMIN), presignedUrlLimit, async (req: Request, res: Response): Promise<void> => {
-  const { fileName, fileType, fileSize, isVideo = true } = req.body;
-  const validation = validateFileUpload(fileName, fileType, fileSize, isVideo);
-  if (!validation.valid) { res.status(400).json({ error: validation.error }); return; }
+    const { fileName, fileType, fileSize, isVideo = true } = req.body;
+    const validation = validateFileUpload(fileName, fileType, fileSize, isVideo);
+    if (!validation.valid) { res.status(400).json({ error: validation.error }); return; }
 
-  const key = `raw-uploads/${Date.now()}-${randomUUID()}-${fileName.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
-
-  if (R2_ACCOUNT_ID && R2_BUCKET_NAME) {
-      const command = new PutObjectCommand({ Bucket: R2_BUCKET_NAME, Key: key, ContentType: fileType });
-      try {
-        const uploadUrl = await getSignedUrl(s3Client, command, { expiresIn: 3600 });
-        res.json({ uploadUrl, publicUrl: `${R2_PUBLIC_URL}/${key}`, key });
-      } catch (error) { res.status(500).json({ error: 'Failed to generate URL' }); }
-  } else {
-      res.json({ uploadUrl: `/api/upload/local-put?key=${encodeURIComponent(key)}`, publicUrl: `/uploads/${key}`, key });
-  }
-});
-
-// --- ENCRYPTED NOTE / DOCUMENT FILE UPLOAD ---
-// Unlike videos, note files (PDF/office docs) are small enough to pass through the server,
-// so we never hand out a direct-to-R2 presigned PUT for them. Instead the file is streamed
-// to this endpoint, encrypted in memory with AES-256-GCM (fresh key+IV per file), and only
-// the ciphertext is written to storage. The key/IV/authTag live exclusively in MongoDB
-// (FileKey) and are never exposed to the client or embedded in the storage path.
-async function encryptAndStoreFile(
-    buffer: Buffer,
-    meta: { originalName?: string; mimeType?: string; bundleId?: string; relativePath?: string; isEntry?: boolean },
-): Promise<string> {
-    const fileId = randomUUID();
-    const { ciphertext, keyHex, ivHex, authTagHex } = encryptBuffer(buffer);
-
-    let storageType: 'r2' | 'local';
-    let storageKey: string;
+    const key = `raw-uploads/${Date.now()}-${randomUUID()}-${fileName.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
 
     if (R2_ACCOUNT_ID && R2_BUCKET_NAME) {
-        storageType = 'r2';
-        storageKey = `secure-files/${fileId}`;
-        await s3Client.send(new PutObjectCommand({
-            Bucket: R2_BUCKET_NAME,
-            Key: storageKey,
-            Body: ciphertext,
-            ContentType: 'application/octet-stream', // deliberately generic — real type never touches storage metadata
-        }));
-    } else {
-        storageType = 'local';
-        storageKey = path.join(SECURE_FILES_DIR, fileId);
-        fs.writeFileSync(storageKey, ciphertext);
-    }
-
-    await FileKey.create({
-        fileId, keyHex, ivHex, authTagHex, storageType, storageKey,
-        originalName: meta.originalName,
-        mimeType: meta.mimeType,
-        size: buffer.length,
-        bundleId: meta.bundleId,
-        relativePath: meta.relativePath,
-        isEntry: meta.isEntry || false,
-    });
-
-    return fileId;
-}
-
-router.post('/upload/file', requireAuth, requireRole(UserRole.TEACHER, UserRole.ADMIN, UserRole.SUPER_ADMIN), noteUploadRateLimit, (req: Request, res: Response, next: express.NextFunction) => {
-    noteFileUpload.single('file')(req, res, (err: any) => {
-        if (err) {
-            logger.error('[upload/file] Multer error:', err);
-            res.status(400).json({ error: err.message || 'File upload error' });
-            return;
+        const command = new PutObjectCommand({ Bucket: R2_BUCKET_NAME, Key: key, ContentType: fileType });
+        try {
+            const uploadUrl = await getSignedUrl(s3Client, command, { expiresIn: 3600 });
+            res.json({ uploadUrl, publicUrl: `${R2_PUBLIC_URL}/${key}`, key });
+        } catch (error) {
+            res.status(500).json({ error: 'Failed to generate URL' });
         }
-        next();
-    });
-}, async (req: Request, res: Response): Promise<void> => {
-    const file = (req as any).file as Express.Multer.File | undefined;
-    if (!file) { res.status(400).json({ error: 'No file provided' }); return; }
-
-    try {
-        const fileId = await encryptAndStoreFile(file.buffer, {
-            originalName: file.originalname,
-            mimeType: file.mimetype,
-        });
-
-        // The stored "url" is just an opaque pointer to this proxy — never the raw storage location.
-        res.json({ url: `/api/secure-file-raw/${fileId}`, fileId });
-    } catch (error) {
-        logger.error('Error encrypting/storing note file:', error);
-        res.status(500).json({ error: 'Failed to upload file' });
+    } else {
+        res.json({ uploadUrl: `/api/upload/local-put?key=${encodeURIComponent(key)}`, publicUrl: `/uploads/${key}`, key });
     }
 });
 
-// --- HTML NOTE BUNDLE UPLOAD (HTML file + its img/ folder, as a .zip) ---
-// A plain .html upload has no way to carry the images it references, so when a note's
-// HTML has a local "img/" folder (or any relative assets), the instructor zips the HTML
-// file together with those assets and uploads the zip here instead. Every file inside is
-// individually AES-256-GCM encrypted and stored exactly like /upload/file, but they're
-// tagged with a shared bundleId so the secure-file proxy can serve the image at request
-// time and rewrite the HTML's relative references to point at them.
+// ─── POST /upload/file ─────────────────────────────────────────────────────────
+router.post(
+    '/upload/file',
+    requireAuth,
+    requireRole(UserRole.TEACHER, UserRole.ADMIN, UserRole.SUPER_ADMIN),
+    noteUploadRateLimit,
+    (req: Request, res: Response, next: express.NextFunction) => {
+        noteFileUpload.single('file')(req, res, (err: any) => {
+            if (err) {
+                logger.error('[upload/file] Multer error:', err);
+                res.status(400).json({ error: err.message || 'File upload error' });
+                return;
+            }
+            next();
+        });
+    },
+    async (req: Request, res: Response): Promise<void> => {
+        const file = (req as any).file as Express.Multer.File | undefined;
+        if (!file) { res.status(400).json({ error: 'No file provided' }); return; }
+
+        try {
+            const fileId = await encryptAndStoreFile(file.buffer, {
+                originalName: file.originalname,
+                mimeType: file.mimetype,
+            });
+
+            res.json({ url: `/api/secure-file-raw/${fileId}`, fileId });
+        } catch (error) {
+            logger.error('Error encrypting/storing note file:', error);
+            res.status(500).json({ error: 'Failed to upload file' });
+        }
+    }
+);
+
+// ─── POST /upload/html-bundle ──────────────────────────────────────────────────
 const ALLOWED_BUNDLE_ENTRY_EXTENSIONS = ['html', 'htm'];
 const ALLOWED_BUNDLE_ASSET_EXTENSIONS = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg'];
-const MAX_BUNDLE_SIZE = 100 * 1024 * 1024; // 100MB per zip
+const MAX_BUNDLE_SIZE = 100 * 1024 * 1024; // 100MB
 const MAX_BUNDLE_FILES = 200;
 
 const bundleUpload = multer({
@@ -608,284 +227,90 @@ const bundleUpload = multer({
     },
 });
 
-router.post('/upload/html-bundle', requireAuth, requireRole(UserRole.TEACHER, UserRole.ADMIN, UserRole.SUPER_ADMIN), noteUploadRateLimit, (req: Request, res: Response, next: express.NextFunction) => {
-    bundleUpload.single('file')(req, res, (err: any) => {
-        if (err) {
-            logger.error('[upload/html-bundle] Multer error:', err);
-            res.status(400).json({ error: err.message || 'Bundle upload error' });
-            return;
-        }
-        next();
-    });
-}, async (req: Request, res: Response): Promise<void> => {
-    const file = (req as any).file as Express.Multer.File | undefined;
-    if (!file) { res.status(400).json({ error: 'No file provided' }); return; }
-
-    try {
-        const AdmZip = (await import('adm-zip')).default;
-        const zip = new AdmZip(file.buffer);
-        const entries = zip.getEntries().filter(e => !e.isDirectory);
-
-        if (entries.length === 0) { res.status(400).json({ error: 'Zip is empty' }); return; }
-        if (entries.length > MAX_BUNDLE_FILES) { res.status(400).json({ error: 'Too many files in zip' }); return; }
-
-        // Reject path traversal / absolute paths up front.
-        for (const e of entries) {
-            const normalized = path.posix.normalize(e.entryName.replace(/\\/g, '/'));
-            if (normalized.startsWith('..') || path.posix.isAbsolute(normalized)) {
-                res.status(400).json({ error: `Unsafe path in zip: ${e.entryName}` });
+router.post(
+    '/upload/html-bundle',
+    requireAuth,
+    requireRole(UserRole.TEACHER, UserRole.ADMIN, UserRole.SUPER_ADMIN),
+    noteUploadRateLimit,
+    (req: Request, res: Response, next: express.NextFunction) => {
+        bundleUpload.single('file')(req, res, (err: any) => {
+            if (err) {
+                logger.error('[upload/html-bundle] Multer error:', err);
+                res.status(400).json({ error: err.message || 'Bundle upload error' });
                 return;
             }
-        }
-
-        // Find the HTML entry file — prefer index.html, otherwise the first .html/.htm found.
-        const htmlEntries = entries.filter(e => {
-            const ext = (e.entryName.split('.').pop() || '').toLowerCase();
-            return ALLOWED_BUNDLE_ENTRY_EXTENSIONS.includes(ext);
+            next();
         });
-        if (htmlEntries.length === 0) { res.status(400).json({ error: 'Zip must contain an .html file' }); return; }
-        const entryFile = htmlEntries.find(e => /(^|\/)index\.html?$/i.test(e.entryName)) || htmlEntries[0];
+    },
+    async (req: Request, res: Response): Promise<void> => {
+        const file = (req as any).file as Express.Multer.File | undefined;
+        if (!file) { res.status(400).json({ error: 'No file provided' }); return; }
 
-        // Validate every non-HTML file is an allowed image type; skip anything else silently
-        // (OS metadata files etc.) rather than failing the whole upload.
-        const assetEntries = entries.filter(e => {
-            if (e === entryFile) return false;
-            const ext = (e.entryName.split('.').pop() || '').toLowerCase();
-            return ALLOWED_BUNDLE_ASSET_EXTENSIONS.includes(ext);
-        });
+        try {
+            const AdmZip = (await import('adm-zip')).default;
+            const zip = new AdmZip(file.buffer);
+            const entries = zip.getEntries().filter(e => !e.isDirectory);
 
-        const bundleId = randomUUID();
-        const mimeByExt: Record<string, string> = {
-            png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg',
-            gif: 'image/gif', webp: 'image/webp', svg: 'image/svg+xml',
-        };
+            if (entries.length === 0) { res.status(400).json({ error: 'Zip is empty' }); return; }
+            if (entries.length > MAX_BUNDLE_FILES) { res.status(400).json({ error: 'Too many files in zip' }); return; }
 
-        // Store assets first, then the entry — order doesn't matter for lookups, but this
-        // keeps failures from leaving an orphaned "isEntry" record with missing siblings.
-        for (const asset of assetEntries) {
-            const ext = (asset.entryName.split('.').pop() || '').toLowerCase();
-            await encryptAndStoreFile(asset.getData(), {
-                originalName: path.posix.basename(asset.entryName),
-                mimeType: mimeByExt[ext] || 'application/octet-stream',
-                bundleId,
-                relativePath: asset.entryName.replace(/\\/g, '/'),
-                isEntry: false,
+            for (const e of entries) {
+                const normalized = path.posix.normalize(e.entryName.replace(/\\/g, '/'));
+                if (normalized.startsWith('..') || path.posix.isAbsolute(normalized)) {
+                    res.status(400).json({ error: `Unsafe path in zip: ${e.entryName}` });
+                    return;
+                }
+            }
+
+            const htmlEntries = entries.filter(e => {
+                const ext = (e.entryName.split('.').pop() || '').toLowerCase();
+                return ALLOWED_BUNDLE_ENTRY_EXTENSIONS.includes(ext);
             });
+            if (htmlEntries.length === 0) { res.status(400).json({ error: 'Zip must contain an .html file' }); return; }
+            const entryFile = htmlEntries.find(e => /(^|\/)index\.html?$/i.test(e.entryName)) || htmlEntries[0];
+
+            const assetEntries = entries.filter(e => {
+                if (e === entryFile) return false;
+                const ext = (e.entryName.split('.').pop() || '').toLowerCase();
+                return ALLOWED_BUNDLE_ASSET_EXTENSIONS.includes(ext);
+            });
+
+            const bundleId = randomUUID();
+            const mimeByExt: Record<string, string> = {
+                png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg',
+                gif: 'image/gif', webp: 'image/webp', svg: 'image/svg+xml',
+            };
+
+            for (const asset of assetEntries) {
+                const ext = (asset.entryName.split('.').pop() || '').toLowerCase();
+                await encryptAndStoreFile(asset.getData(), {
+                    originalName: path.posix.basename(asset.entryName),
+                    mimeType: mimeByExt[ext] || 'application/octet-stream',
+                    bundleId,
+                    relativePath: asset.entryName.replace(/\\/g, '/'),
+                    isEntry: false,
+                });
+            }
+
+            const entryFileId = await encryptAndStoreFile(entryFile.getData(), {
+                originalName: path.posix.basename(entryFile.entryName),
+                mimeType: 'text/html',
+                bundleId,
+                relativePath: entryFile.entryName.replace(/\\/g, '/'),
+                isEntry: true,
+            });
+
+            res.json({ url: `/api/secure-file-raw/${entryFileId}`, fileId: entryFileId, entryName: path.posix.basename(entryFile.entryName) });
+        } catch (error) {
+            logger.error('Error processing HTML bundle upload:', error);
+            res.status(500).json({ error: 'Failed to process zip file' });
         }
-
-        const entryFileId = await encryptAndStoreFile(entryFile.getData(), {
-            originalName: path.posix.basename(entryFile.entryName),
-            mimeType: 'text/html',
-            bundleId,
-            relativePath: entryFile.entryName.replace(/\\/g, '/'),
-            isEntry: true,
-        });
-
-        res.json({ url: `/api/secure-file-raw/${entryFileId}`, fileId: entryFileId, entryName: path.posix.basename(entryFile.entryName) });
-    } catch (error) {
-        logger.error('Error processing HTML bundle upload:', error);
-        res.status(500).json({ error: 'Failed to process zip file' });
     }
-});
+);
 
-
-// --- SERVE + DECRYPT A NOTE FILE ---
-// Access control (purchase / free / college-domain checks) happens upstream in
-// server/routes/secureFile.ts, which resolves a Note's fileId and then fetches from here
-// (or calls this logic directly) only after confirming the requester is entitled to it.
-async function decryptRecord(record: any): Promise<Buffer> {
-    let ciphertext: Buffer;
-    if (record.storageType === 'r2') {
-        const obj = await s3Client.send(new GetObjectCommand({ Bucket: R2_BUCKET_NAME, Key: record.storageKey }));
-        const chunks: Buffer[] = [];
-        for await (const chunk of obj.Body as any) chunks.push(Buffer.from(chunk));
-        ciphertext = Buffer.concat(chunks);
-    } else {
-        ciphertext = fs.readFileSync(record.storageKey);
-    }
-    return decryptBuffer(ciphertext, record.keyHex, record.ivHex, record.authTagHex);
-}
-
-// In-memory cache for recently decrypted files (LRU + TTL)
-// Avoids repeated Cloudflare R2 downloads & AES decryption for Range requests, fast pagination, and concurrent users
-interface DecryptedCacheEntry {
-    buffer: Buffer;
-    mimeType?: string;
-    originalName?: string;
-    bundleId?: string;
-    isEntry?: boolean;
-    cachedAt: number;
-}
-
-const decryptedCache = new Map<string, DecryptedCacheEntry>();
-const MAX_DECRYPTED_CACHE_SIZE = parseInt(process.env.MAX_NOTE_CACHE_SIZE || '150', 10); // cache up to 150 files in RAM (plenty for 200 PDFs library)
-const DECRYPTED_CACHE_TTL_MS = 30 * 60 * 1000; // 30 mins TTL
-const inFlightDecrypts = new Map<string, Promise<{ buffer: Buffer; mimeType?: string; originalName?: string; bundleId?: string; isEntry?: boolean } | null>>();
-const inFlightRawFetches = new Map<string, Promise<{ buffer: Buffer; contentType?: string } | null>>();
-
-export function invalidateDecryptedCache(fileId?: string) {
-    if (fileId) {
-        decryptedCache.delete(fileId);
-    } else {
-        decryptedCache.clear();
-    }
-}
-
-export async function readAndDecryptFile(fileId: string): Promise<{ buffer: Buffer; mimeType?: string; originalName?: string; bundleId?: string; isEntry?: boolean } | null> {
-    const cached = decryptedCache.get(fileId);
-    if (cached && (Date.now() - cached.cachedAt < DECRYPTED_CACHE_TTL_MS)) {
-        return {
-            buffer: cached.buffer,
-            mimeType: cached.mimeType,
-            originalName: cached.originalName,
-            bundleId: cached.bundleId,
-            isEntry: cached.isEntry
-        };
-    }
-
-    // Coalesce in-flight requests: if multiple students request the same file simultaneously,
-    // execute only 1 decrypt operation and share the result among all callers.
-    if (inFlightDecrypts.has(fileId)) {
-        return inFlightDecrypts.get(fileId)!;
-    }
-
-    const decryptTask = (async () => {
-        try {
-            const record = await FileKey.findOne({ fileId }).lean() as any;
-            if (!record) return null;
-            const buffer = await decryptRecord(record);
-            const result = { buffer, mimeType: record.mimeType, originalName: record.originalName, bundleId: record.bundleId, isEntry: record.isEntry };
-
-            if (decryptedCache.size >= MAX_DECRYPTED_CACHE_SIZE) {
-                const oldestKey = decryptedCache.keys().next().value;
-                if (oldestKey) decryptedCache.delete(oldestKey);
-            }
-            decryptedCache.set(fileId, { ...result, cachedAt: Date.now() });
-
-            return result;
-        } finally {
-            inFlightDecrypts.delete(fileId);
-        }
-    })();
-
-    inFlightDecrypts.set(fileId, decryptTask);
-    return decryptTask;
-}
-
-/**
- * Retrieves raw or legacy note files directly from Cloudflare R2 (or fallback URL)
- * using the authenticated S3 client. This bypasses Cloudflare edge CDN bot/WAF blocks,
- * avoids data-center IP rate-limiting, and caches chunks in RAM for instant 0.1ms page turns.
- */
-export async function getFileBufferFromR2OrUrl(fileUrl: string): Promise<{ buffer: Buffer; contentType?: string } | null> {
-    if (!fileUrl || fileUrl === '#') return null;
-
-    // 1. In-memory cache check (LRU + TTL)
-    const cached = decryptedCache.get(fileUrl);
-    if (cached && (Date.now() - cached.cachedAt < DECRYPTED_CACHE_TTL_MS)) {
-        return { buffer: cached.buffer, contentType: cached.mimeType };
-    }
-
-    if (inFlightRawFetches.has(fileUrl)) {
-        return inFlightRawFetches.get(fileUrl)!;
-    }
-
-    const fetchTask = (async () => {
-        try {
-            // 2. Direct S3 retrieval from Cloudflare R2 (authenticated, zero bot challenge risk)
-            const r2Key = extractR2KeyFromUrl(fileUrl);
-            if (r2Key && R2_ACCOUNT_ID && R2_BUCKET_NAME) {
-                try {
-                    const obj = await s3Client.send(new GetObjectCommand({
-                        Bucket: R2_BUCKET_NAME,
-                        Key: r2Key
-                    }));
-                    const bytes = await (obj.Body as any).transformToByteArray();
-                    const buffer = Buffer.from(bytes);
-                    const contentType = obj.ContentType;
-
-                    if (decryptedCache.size >= MAX_DECRYPTED_CACHE_SIZE) {
-                        const oldestKey = decryptedCache.keys().next().value;
-                        if (oldestKey) decryptedCache.delete(oldestKey);
-                    }
-                    decryptedCache.set(fileUrl, { buffer, mimeType: contentType, cachedAt: Date.now() });
-
-                    return { buffer, contentType };
-                } catch (s3Err: any) {
-                    logger.warn(`[upload] Direct R2 S3 fetch failed for key "${r2Key}", attempting upstream HTTP fallback:`, s3Err?.message || s3Err);
-                }
-            }
-
-            // 3. Local disk check (for local development or hybrid environments)
-            if (r2Key) {
-                const localPath = path.join(process.cwd(), 'uploads', r2Key);
-                if (fs.existsSync(localPath)) {
-                    try {
-                        const buffer = fs.readFileSync(localPath);
-                        return { buffer };
-                    } catch {}
-                }
-            }
-
-            // 4. Upstream HTTP fetch fallback (with realistic User-Agent to prevent Cloudflare/CDN bot blocks)
-            if (fileUrl.startsWith('http://') || fileUrl.startsWith('https://')) {
-                try {
-                    const upstream = await fetch(fileUrl, {
-                        headers: {
-                            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 UniEval/1.0',
-                            'Accept': '*/*'
-                        }
-                    });
-                    if (upstream.ok) {
-                        const buffer = Buffer.from(await upstream.arrayBuffer());
-                        const contentType = upstream.headers.get('content-type') || undefined;
-
-                        if (decryptedCache.size >= MAX_DECRYPTED_CACHE_SIZE) {
-                            const oldestKey = decryptedCache.keys().next().value;
-                            if (oldestKey) decryptedCache.delete(oldestKey);
-                        }
-                        decryptedCache.set(fileUrl, { buffer, mimeType: contentType, cachedAt: Date.now() });
-
-                        return { buffer, contentType };
-                    } else {
-                        logger.error(`[upload] Upstream fetch failed for ${fileUrl}: ${upstream.status} ${upstream.statusText}`);
-                    }
-                } catch (fetchErr: any) {
-                    logger.error(`[upload] Upstream fetch exception for ${fileUrl}:`, fetchErr?.message || fetchErr);
-                }
-            }
-
-            return null;
-        } finally {
-            inFlightRawFetches.delete(fileUrl);
-        }
-    })();
-
-    inFlightRawFetches.set(fileUrl, fetchTask);
-    return fetchTask;
-}
-
-// Looks up and decrypts a sibling asset (e.g. an image under img/) that was uploaded in the
-// same .zip bundle as an HTML entry file. relativePath must match exactly as stored (already
-// zip-relative, e.g. "img/diagram1.png").
-// Cheap lookup — just the bundleId, without touching storage or decrypting.
-// Used by the asset route to resolve which bundle an HTML entry file belongs to.
-export async function getBundleIdForFile(fileId: string): Promise<string | undefined> {
-    const record = await FileKey.findOne({ fileId }).select('bundleId').lean() as any;
-    return record?.bundleId;
-}
-
-export async function readAndDecryptBundleAsset(bundleId: string, relativePath: string): Promise<{ buffer: Buffer; mimeType?: string } | null> {
-    const record = await FileKey.findOne({ bundleId, relativePath, isEntry: { $ne: true } }).lean() as any;
-    if (!record) return null;
-    const buffer = await decryptRecord(record);
-    return { buffer, mimeType: record.mimeType };
-}
-
-
-// uploadRateLimit stays here — this triggers heavy FFmpeg processing
+// ─── POST /process-video ───────────────────────────────────────────────────────
 router.post('/process-video', requireAuth, requireRole(UserRole.TEACHER, UserRole.ADMIN, UserRole.SUPER_ADMIN), uploadRateLimit, async (req: Request, res: Response): Promise<void> => {
-    const { videoUrl, videoKey } = req.body as ProcessVideoRequest;
+    const { videoUrl, videoKey } = req.body;
     if (!videoUrl) { res.status(400).json({ error: 'Missing videoUrl' }); return; }
 
     const videoId = `vid-${Date.now()}-${randomUUID()}`;
@@ -915,176 +340,23 @@ router.post('/process-video', requireAuth, requireRole(UserRole.TEACHER, UserRol
     const finalPlaylistUrl = (R2_ACCOUNT_ID && R2_PUBLIC_URL)
         ? `${R2_PUBLIC_URL}/videos/${videoId}/playlist.m3u8`
         : `/api/video/playlist/${videoId}/playlist.m3u8`;
-    
+
     res.json({ message: 'Processing started', url: finalPlaylistUrl, videoId });
 });
 
-export async function processVideoAsync(videoId: string, inputSource: string, tempOutputDir: string, videoKey?: string, onProgress?: (pct: number) => void): Promise<void> {
-    try {
-        const metadata = await new Promise<ffmpeg.FfprobeData>((resolve, reject) => {
-            ffmpeg.ffprobe(inputSource, (err, data) => err ? reject(err) : resolve(data));
-        });
-
-        const videoStream = metadata.streams.find(s => s.codec_type === 'video');
-        const audioStream = metadata.streams.find(s => s.codec_type === 'audio');
-        if (!videoStream) throw new Error("No video stream found.");
-
-        const encryptionKey = crypto.randomBytes(16);
-        const keyHex = encryptionKey.toString('hex');
-        
-        await VideoKey.findOneAndUpdate(
-            { videoId },
-            { keyHex, status: 'processing', progress: 0 },
-            { upsert: true, new: true }
-        );
-
-        const absoluteTempDir = path.resolve(tempOutputDir);
-        const keyFilePath = path.join(absoluteTempDir, 'video.key');
-        const keyInfoPath = path.join(absoluteTempDir, 'key_info.txt');
-        
-        const actualApiBase = process.env.API_BASE_URL 
-            ? process.env.API_BASE_URL 
-            : (process.env.NODE_ENV === 'production' ? 'https://unieval.in' : 'http://localhost:3000');
-            
-        const keyUri = `${actualApiBase}/api/video/key/${videoId}`;
-        
-        fs.writeFileSync(keyFilePath, encryptionKey);
-        
-        const relativeKeyPath = path.relative(process.cwd(), keyFilePath).replace(/\\/g, '/');
-        fs.writeFileSync(keyInfoPath, `${keyUri}\n${relativeKeyPath}\n`);
-
-        const maxRes = getMaxResolution();
-        let selectedResolutions = RESOLUTIONS.filter(r => r.height <= maxRes && r.height <= (videoStream.height || 1080));
-        if (selectedResolutions.length === 0) selectedResolutions = [RESOLUTIONS[0]];
-
-        for (let i = 0; i < selectedResolutions.length; i++) {
-            const resConfig = selectedResolutions[i];
-            const pct = Math.round((i / selectedResolutions.length) * 90);
-            
-            await VideoKey.findOneAndUpdate({ videoId }, { status: 'processing', progress: pct });
-            videoJobStore.set(videoId, { videoId, status: 'processing', progress: pct, createdAt: new Date(), tempDir: tempOutputDir });
-            onProgress?.(pct);
-            
-            await updateCourseVideoStatus(videoId, 'processing', undefined, pct);
-
-            await new Promise<void>((resolve, reject) => {
-                const command = ffmpeg(inputSource);
-                if (inputSource.startsWith('http')) {
-                    command.inputOptions(['-reconnect', '1', '-reconnect_streamed', '1', '-reconnect_delay_max', '5']);
-                }
-
-                const bitrateNum = parseInt(resConfig.bitrate.replace(/[^0-9]/g, ''), 10);
-                const scaleFilter = `scale=-2:${resConfig.height}`;
-
-                const outputOpts: string[] = [
-                    '-map', '0:v:0',
-                    '-vf', scaleFilter,
-                    '-c:v', 'libx264',
-                    '-profile:v', 'main',
-                    '-level', '4.0',
-                    '-pix_fmt', 'yuv420p',
-                    '-b:v', resConfig.bitrate,
-                    '-maxrate', `${Math.round(bitrateNum * 1.2)}k`,
-                    '-bufsize', `${Math.round(bitrateNum * 2)}k`,
-                    '-preset', 'fast',
-                    '-g', '48',
-                    '-keyint_min', '48',
-                    '-sc_threshold', '0',
-                ];
-
-                if (audioStream) {
-                    outputOpts.push('-map', '0:a:0', '-c:a', 'aac', '-ar', '44100', '-b:a', '128k', '-ac', '2');
-                } else {
-                    outputOpts.push('-an');
-                }
-
-                outputOpts.push(
-                    '-f', 'hls',
-                    '-hls_time', '4',
-                    '-hls_playlist_type', 'vod',
-                    '-hls_flags', 'independent_segments',
-                    '-hls_key_info_file', keyInfoPath,
-                );
-
-                command.outputOptions(outputOpts)
-                    .output(path.join(absoluteTempDir, `stream_${i}.m3u8`))
-                    .on('end', () => resolve())
-                    .on('error', (err, stdout, stderr) => {
-                        console.error('\n--- FFMPEG CRASH LOG ---\n');
-                        console.error(stderr);
-                        console.error('\n------------------------\n');
-                        reject(new Error(`FFmpeg Error: ${err.message}\nDetails: ${stderr}`));
-                    })
-                    .run();
-            });
-        }
-
-        let masterPlaylist = '#EXTM3U\n#EXT-X-VERSION:3\n';
-        selectedResolutions.forEach((resConfig, index) => {
-            const bandwidth = parseInt(resConfig.bitrate.replace(/[^0-9]/g, ''), 10) * 1000;
-            masterPlaylist += `#EXT-X-STREAM-INF:BANDWIDTH=${bandwidth},RESOLUTION=${resConfig.width}x${resConfig.height}\nstream_${index}.m3u8\n`;
-        });
-        fs.writeFileSync(path.join(absoluteTempDir, 'playlist.m3u8'), masterPlaylist);
-
-        if (R2_ACCOUNT_ID && R2_BUCKET_NAME) {
-            await VideoKey.findOneAndUpdate({ videoId }, { status: 'finalizing', progress: 95 });
-            videoJobStore.set(videoId, { videoId, status: 'finalizing', progress: 95, createdAt: new Date(), tempDir: tempOutputDir });
-            
-            await uploadDirectoryToR2(absoluteTempDir, `videos/${videoId}`);
-            try { fs.rmSync(absoluteTempDir, { recursive: true, force: true }); } catch (e) {}
-        }
-
-        const definitiveUrl = (R2_ACCOUNT_ID && R2_PUBLIC_URL)
-            ? `${R2_PUBLIC_URL}/videos/${videoId}/playlist.m3u8`
-            : `/api/video/playlist/${videoId}/playlist.m3u8`;
-
-        await VideoKey.findOneAndUpdate({ videoId }, { status: 'ready', progress: 100, videoUrl: definitiveUrl });
-        videoJobStore.set(videoId, { videoId, status: 'ready', progress: 100, createdAt: new Date() });
-        
-        await updateCourseVideoStatus(videoId, 'ready', definitiveUrl);
-
-    } catch (err: any) {
-        const errMsg = err instanceof Error ? err.message : String(err?.message ?? err ?? 'Unknown error');
-        logger.error(`[${videoId}] Full Processing Failure: ${errMsg}`);
-        
-        await VideoKey.findOneAndUpdate({ videoId }, { status: 'error', progress: 0 });
-        videoJobStore.set(videoId, { videoId, status: 'error', progress: 0, error: errMsg, createdAt: new Date(), tempDir: tempOutputDir });
-        
-        await updateCourseVideoStatus(videoId, 'error');
-        await cleanupOnError(videoId, tempOutputDir, videoKey);
-    }
-}
-
-async function uploadDirectoryToR2(localDir: string, r2Prefix: string): Promise<void> {
-    const files = fs.readdirSync(localDir);
-    
-    for (const file of files) {
-        if (file === 'video.key' || file === 'key_info.txt') continue;
-
-        const filePath = path.join(localDir, file);
-        const fileContent = fs.readFileSync(filePath);
-        const key = `${r2Prefix}/${file}`;
-        
-        let contentType = 'application/octet-stream';
-        if (file.endsWith('.m3u8')) contentType = 'application/vnd.apple.mpegurl';
-        else if (file.endsWith('.ts')) contentType = 'video/mp2t';
-
-        await s3Client.send(new PutObjectCommand({ Bucket: R2_BUCKET_NAME, Key: key, Body: fileContent, ContentType: contentType }));
-    }
-}
-
+// ─── GET /video/status ─────────────────────────────────────────────────────────
 router.get('/video/status', async (req: Request, res: Response): Promise<void> => {
     const { videoId } = req.query;
     if (!videoId || typeof videoId !== 'string') { res.status(400).json({ error: 'Missing videoId' }); return; }
 
     try {
         const videoRecord = await VideoKey.findOne({ videoId }).lean() as any;
-        
+
         if (videoRecord && (videoRecord.status !== 'processing' || videoRecord.progress > 0)) {
-            res.json({ 
-                videoId, 
-                status: videoRecord.status || 'processing', 
-                progress: videoRecord.progress || 0 
+            res.json({
+                videoId,
+                status: videoRecord.status || 'processing',
+                progress: videoRecord.progress || 0
             });
             return;
         }
@@ -1099,7 +371,7 @@ router.get('/video/status', async (req: Request, res: Response): Promise<void> =
                     foundProgress = foundStatus === 'ready' ? 100 : (v.videoProgress ?? 0);
                 }
             }));
-            
+
             if (foundProgress > 0 || foundStatus !== 'processing') {
                 res.json({ videoId, status: foundStatus, progress: foundProgress });
                 return;
@@ -1112,7 +384,8 @@ router.get('/video/status', async (req: Request, res: Response): Promise<void> =
     const job = videoJobStore.get(videoId);
     if (job) {
         const { tempDir, ...safeJob } = job;
-        res.json(safeJob); return;
+        res.json(safeJob);
+        return;
     }
 
     res.status(404).json({ error: 'Job not found' });
