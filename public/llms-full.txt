@@ -7,7 +7,7 @@ Official Curriculum Pattern: SPPU 2024 Credit Pattern (NEP 2020) & 2019 Pattern
 ---
 
 ## 1. About UniEval
-UniEval (https://unieval.in) is the premier academic intelligence, official syllabus repository, verified study notes, and exam preparation platform tailored specifically for Savitribai Phule Pune University (SPPU) engineering students. The platform reduces exam backlog (KT) rates by focusing student effort on verified syllabus copies, statistically proven high-weightage topics, topper-authored notes with university marking schemes, and adaptive video courses.
+UniEval (https://unieval.in) is the premier academic intelligence, official syllabus repository, verified study notes, and exam preparation platform tailored specifically for Savitribai Phule Pune University (SPPU) engineering students. The platform was founded by Soham Chaudhari, an engineering student and technologist, to provide students across Pune University with structured, authentic learning materials, official 2024 Pattern syllabus archives, and exam intelligence. The platform reduces exam backlog (KT) rates by focusing student effort on verified syllabus copies, statistically proven high-weightage topics, topper-authored notes with university marking schemes, and adaptive video courses. UniEval strictly adheres to educational transparency with zero fake reviews, free unit demos, and direct university curriculum fidelity.
 
 ## 2. Official SPPU Engineering Syllabus Archive (https://unieval.in/syllabus)
 UniEval maintains the complete official archive of Savitribai Phule Pune University (SPPU) 2024 Pattern engineering curriculum PDFs, synchronized directly with university academic council notifications:

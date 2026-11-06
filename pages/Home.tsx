@@ -51,30 +51,6 @@ const COLLEGE_PARTNERS = [
   'Vishwakarma Institute of Information Tech (VIIT)',
 ];
 
-const STUDENT_TESTIMONIALS = [
-  {
-    name: 'Aditya Kulkarni',
-    role: 'Third Year (TE) • Computer Engineering',
-    college: 'PICT, Pune',
-    rating: 5,
-    text: 'The SPPU unit notes and previous year question summaries are spot on. For Insem, studying the unit PYQs on UniEval was literally the difference between an average score and scoring 27/30.',
-  },
-  {
-    name: 'Neha Deshmukh',
-    role: 'Second Year (SE) • ENTC',
-    college: 'Cummins College of Engineering',
-    rating: 5,
-    text: 'Engineering Mathematics 3 was causing so much stress across our batch. The step-by-step video solutions and clean PDF notes made the entire syllabus crystal clear.',
-  },
-  {
-    name: 'Sanket Patil',
-    role: 'Final Year (BE) • Mechanical Engineering',
-    college: 'PCCOE, Pune',
-    rating: 5,
-    text: 'Having verified notes with the exact SPPU marking scheme format is a lifesaver. No outdated syllabus copies or missing diagrams — everything is updated and reliable.',
-  },
-];
-
 const Home: React.FC = () => {
   const { user, setShowLoginModal, setOnLoginSuccess } = useAuth();
   const navigate = useNavigate();
@@ -518,38 +494,80 @@ const Home: React.FC = () => {
         </div>
       </section>
 
-      {/* ── 6. VERIFIED STUDENT TESTIMONIALS ─────────────────────────────── */}
+      {/* ── 6. FOUNDER & MISSION ─────────────────────────────────────────── */}
       <section className="py-20 bg-slate-100/70 border-t border-slate-200/70 w-full">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
           
-          <div className="text-center max-w-xl mx-auto mb-12">
-            <p className="text-xs font-bold uppercase tracking-wider text-blue-600 mb-2">Student Feedback</p>
-            <h2 className="text-2xl sm:text-3xl font-bold text-slate-900">Proven Results Across Pune Colleges</h2>
+          <div className="text-center max-w-xl mx-auto mb-10">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-blue-50 text-blue-700 border border-blue-200 mb-3">
+              <ShieldCheck className="w-3.5 h-3.5 text-blue-600" />
+              Founder & Leadership
+            </span>
+            <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
+              The Vision Behind UniEval
+            </h2>
+            <p className="text-xs sm:text-sm text-slate-500 mt-2">
+              Built by engineering students to solve the real academic pain points across Pune University.
+            </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {STUDENT_TESTIMONIALS.map((t, idx) => (
-              <div 
-                key={idx} 
-                className="bg-white rounded-2xl p-6 border border-slate-200 shadow-xs flex flex-col justify-between"
-              >
-                <div>
-                  <div className="flex gap-1 text-amber-400 mb-3">
-                    {Array.from({ length: t.rating }).map((_, i) => (
-                      <Star key={i} className="w-4 h-4 fill-amber-400" />
-                    ))}
+          <div className="bg-white rounded-3xl p-6 sm:p-10 border border-slate-200/90 shadow-xs flex flex-col md:flex-row items-center gap-8 relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-72 h-72 bg-blue-500/5 rounded-full blur-3xl pointer-events-none" />
+
+            {/* Founder Avatar & Title */}
+            <div className="flex flex-col items-center text-center shrink-0">
+              <div className="relative">
+                <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-2xl bg-gradient-to-tr from-[#131A3F] via-[#1F81FC] to-[#7F26FE] p-1 shadow-xl flex items-center justify-center">
+                  <div className="w-full h-full bg-[#131A3F] rounded-[14px] flex items-center justify-center text-2xl sm:text-3xl font-extrabold text-white font-mono tracking-wider">
+                    SC
                   </div>
-                  <p className="text-sm text-slate-600 leading-relaxed italic">
-                    "{t.text}"
-                  </p>
                 </div>
-                <div className="mt-6 pt-4 border-t border-slate-100">
-                  <h4 className="font-bold text-sm text-slate-900">{t.name}</h4>
-                  <p className="text-xs text-slate-500">{t.role}</p>
-                  <p className="text-xs font-medium text-blue-600 mt-0.5">{t.college}</p>
+                <div className="absolute -bottom-2 -right-2 bg-blue-600 text-white p-1.5 rounded-full shadow-md border-2 border-white" title="Verified Founder">
+                  <ShieldCheck className="w-4 h-4" />
                 </div>
               </div>
-            ))}
+
+              <h3 className="text-lg font-bold text-slate-900 mt-4">Soham Chaudhari</h3>
+              <p className="text-xs font-semibold text-blue-600">Founder & Lead Architect</p>
+              <p className="text-[11px] text-slate-400 mt-0.5">UniEval Platform</p>
+            </div>
+
+            {/* Founder Manifesto & Values */}
+            <div className="flex-1 space-y-4 text-center md:text-left">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-[11px] font-semibold bg-slate-100 text-slate-700">
+                <span>Mission-Driven Engineering Education</span>
+              </div>
+
+              <p className="text-sm sm:text-base text-slate-700 leading-relaxed font-medium">
+                "Engineering at SPPU shouldn't mean wasting weeks chasing incomplete Xerox notes, navigating broken question banks, or deciphering ambiguous exam patterns. We built UniEval to give every Pune University student direct access to structured 2024 Pattern syllabus copies, verified unit notes, and live doubt-solving — completely authentic, transparent, and free from outdated clutter."
+              </p>
+
+              <div className="flex flex-wrap items-center justify-center md:justify-start gap-4 pt-2 text-xs text-slate-600">
+                <div className="flex items-center gap-1.5 font-medium text-slate-700">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+                  <span>100% SPPU Curriculum Aligned</span>
+                </div>
+                <div className="flex items-center gap-1.5 font-medium text-slate-700">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+                  <span>Transparent Pricing & Free Demos</span>
+                </div>
+                <div className="flex items-center gap-1.5 font-medium text-slate-700">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+                  <span>Zero Fake Reviews • Authentic Learning</span>
+                </div>
+              </div>
+
+              <div className="pt-2">
+                <Link
+                  to="/about"
+                  className="inline-flex items-center gap-2 text-xs font-bold text-blue-600 hover:text-blue-700 group transition-colors"
+                >
+                  <span>Learn more about our founding story and roadmap</span>
+                  <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
+                </Link>
+              </div>
+            </div>
+
           </div>
 
         </div>

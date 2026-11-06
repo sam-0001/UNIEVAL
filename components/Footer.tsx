@@ -15,7 +15,7 @@ const Footer: React.FC = () => {
               <span className="text-white font-bold text-xl tracking-tight">UNIEVAL</span>
             </Link>
             <p className="text-slate-400 text-xs sm:text-sm leading-relaxed max-w-sm">
-              The premier learning and exam intelligence platform tailored for Savitribai Phule Pune University (SPPU) engineering students. Providing high-yield notes, expert video courses, exam question paper analysis, and live classrooms.
+              The premier learning and exam intelligence platform tailored for Savitribai Phule Pune University (SPPU) engineering students. Founded by Soham Chaudhari to provide high-yield notes, official 2024 pattern syllabus copies, PYQ intelligence, and live classrooms.
             </p>
             <div className="flex flex-wrap items-center gap-2.5 pt-2">
               <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-slate-800/80 border border-slate-700/60 text-[11px] font-medium text-slate-300">
@@ -103,7 +103,7 @@ const Footer: React.FC = () => {
 
         {/* Bottom bar */}
         <div className="mt-12 pt-8 border-t border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-500">
-          <p>&copy; {new Date().getFullYear()} UNIEVAL. All rights reserved. Not affiliated with Savitribai Phule Pune University.</p>
+          <p>&copy; {new Date().getFullYear()} UNIEVAL. Founded by Soham Chaudhari. All rights reserved. Not affiliated with Savitribai Phule Pune University.</p>
           <div className="flex items-center gap-6">
             <Link to="/privacy" className="hover:text-slate-300 transition-colors">Privacy</Link>
             <span className="text-slate-700">•</span>

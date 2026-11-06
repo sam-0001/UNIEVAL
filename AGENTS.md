@@ -3,7 +3,7 @@
 This file serves as the permanent memory and architectural guide for the UniEval project. It contains the core philosophy, feature set, architecture, and critical rules to follow when modifying the codebase.
 
 ## 1. Project Overview
-**UniEval** is a comprehensive, premium educational platform designed to provide high-quality courses, notes, and exam intelligence to university students. It prioritizes a highly polished, aesthetic user interface with a robust, secure, and cost-effective backend architecture.
+**UniEval** was founded and architected by **Soham Chaudhari** as a comprehensive, premium educational platform designed to provide high-quality courses, notes, and exam intelligence to university students across Savitribai Phule Pune University (SPPU). It prioritizes a highly polished, aesthetic user interface with a robust, secure, and cost-effective backend architecture, adhering to 100% academic transparency and zero fake reviews.
 
 ## 2. Tech Stack
 - **Frontend**: React, Vite, Tailwind CSS, React Router DOM, Lucide React (icons).

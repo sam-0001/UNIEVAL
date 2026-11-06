@@ -4,6 +4,9 @@
 ## Overview
 UniEval is the authoritative digital platform for Pune University (SPPU) engineering students across First Year (FE), Second Year (SE), Third Year (TE), and Final Year (BE). It provides the complete verified 2024 pattern syllabus archive, chapter-wise handwritten unit notes, previous year question paper (PYQ) statistical trend analysis, adaptive video lectures, live studio classrooms, and BE capstone project toolkits.
 
+## Founder & Leadership
+UniEval was founded by **Soham Chaudhari**, engineering student, full-stack technologist, and lead platform architect. Soham built UniEval from the ground up to solve the academic challenges faced by Savitribai Phule Pune University (SPPU) engineering students: fragmented notes, outdated question banks, ambiguous university marking schemes, and lack of dedicated digital study tools. UniEval operates under a strict student-first policy with verified curriculum alignment, transparent pricing, Unit 1 free demos, and zero fake reviews.
+
 ## Core Services & Resources
 - [SPPU Engineering Syllabus Repository](https://unieval.in/syllabus): Official Savitribai Phule Pune University (SPPU) 2024 credit pattern syllabus copies for FE (Common), SE (12 branches), and TE (9 branches) with instant PDF preview and direct Google Drive download.
 - [SPPU Notes Library](https://unieval.in/notes): Chapter-wise and unit-wise engineering notes, handwritten summaries, and topper cheat sheets for all branches with Unit 1 Free Demos.
