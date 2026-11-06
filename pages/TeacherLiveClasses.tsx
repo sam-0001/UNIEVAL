@@ -3,10 +3,29 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { getDashboardRoute } from '../types';
-import Navbar from '../components/Navbar';
-import { Video, Calendar, Clock, Plus, MonitorPlay, Copy, Play, Trash2, ArrowLeft, Sun, Moon, Loader2, VideoOff, Link, CheckCircle2 } from 'lucide-react';
+import { 
+    Video, 
+    Calendar, 
+    Clock, 
+    Plus, 
+    MonitorPlay, 
+    Copy, 
+    Play, 
+    Trash2, 
+    ArrowLeft, 
+    Loader2, 
+    CheckCircle2, 
+    Radio, 
+    BookOpen,
+    Users,
+    Share2,
+    X,
+    Sparkles,
+    Check
+} from 'lucide-react';
+import LiveCountdown from '../components/live/LiveCountdown';
 
-const TeacherLiveClasses: React.FC = () => {
+export const TeacherLiveClasses: React.FC = () => {
     const { courseId } = useParams<{ courseId: string }>();
     const navigate = useNavigate();
     const { user, isLoading } = useAuth();
@@ -16,7 +35,6 @@ const TeacherLiveClasses: React.FC = () => {
     
     const [liveClasses, setLiveClasses] = useState<any[]>([]);
     const [viewMode, setViewMode] = useState<'upcoming' | 'completed'>('upcoming');
-    const [isDarkMode, setIsDarkMode] = useState(false);
     const [isCreatingInstant, setIsCreatingInstant] = useState(false);
     const [isFetchingClasses, setIsFetchingClasses] = useState(true);
 
@@ -30,6 +48,9 @@ const TeacherLiveClasses: React.FC = () => {
     const [editingRecordingClass, setEditingRecordingClass] = useState<any | null>(null);
     const [recordingUrlInput, setRecordingUrlInput] = useState('');
     const [isSavingRecording, setIsSavingRecording] = useState(false);
+
+    // Toast feedback for copying links
+    const [copiedClassId, setCopiedClassId] = useState<string | null>(null);
 
     useEffect(() => {
         if (isLoading) return;
@@ -117,9 +138,11 @@ const TeacherLiveClasses: React.FC = () => {
                 
                 // Refetch
                 const data = await res.json();
-                const freshRes = await fetch(`/api/live-classes/course/${selectedCourse}`, { headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }});
+                const freshRes = await fetch(`/api/live-classes/course/${selectedCourse}?status=${viewMode}`, { 
+                    headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+                });
                 const freshData = await freshRes.json();
-                setLiveClasses(freshData.liveClasses);
+                setLiveClasses(freshData.liveClasses || []);
             } else {
                 alert('Failed to schedule class');
             }
@@ -168,11 +191,11 @@ const TeacherLiveClasses: React.FC = () => {
     const startInstantMeeting = async () => {
         if (isCreatingInstant) return;
         if (!selectedCourse || selectedCourse === 'all') {
-            alert('Please select a course first');
+            alert('Please select a specific course first to start an instant meeting.');
             return;
         }
         setIsCreatingInstant(true);
-        const instantTitle = `Instant Meeting - ${new Date().toLocaleTimeString()}`;
+        const instantTitle = `Instant Meeting - ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
         try {
             const res = await fetch('/api/live-classes/schedule', {
                 method: 'POST',
@@ -184,7 +207,6 @@ const TeacherLiveClasses: React.FC = () => {
                     courseId: selectedCourse, 
                     title: instantTitle, 
                     scheduledStartTime: new Date().toISOString(),
-                    // Support long classes up to 6 hours so it never cuts off
                     scheduledEndTime: new Date(Date.now() + 6 * 60 * 60 * 1000).toISOString()
                 })
             });
@@ -202,44 +224,67 @@ const TeacherLiveClasses: React.FC = () => {
         }
     };
 
-    // Current Time for Banner
+    const handleCopyInviteLink = (classId: string) => {
+        const link = `${window.location.origin}/live-class/${classId}`;
+        navigator.clipboard.writeText(link).then(() => {
+            setCopiedClassId(classId);
+            setTimeout(() => setCopiedClassId(null), 2500);
+        });
+    };
+
+    // Live clock for instructor banner
     const [now, setNow] = useState(new Date());
     useEffect(() => {
-        const interval = setInterval(() => setNow(new Date()), 60000);
+        const interval = setInterval(() => setNow(new Date()), 30000);
         return () => clearInterval(interval);
     }, []);
 
     const timeString = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     const dateString = now.toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 
+    const selectedCourseObj = courses.find(c => c.id === selectedCourse);
+
     return (
-        <div className={`min-h-screen bg-slate-50 dark:bg-[#161925] text-slate-900 dark:text-white flex flex-col ${isDarkMode ? 'dark' : ''}`}>
-            <header className="bg-white dark:bg-[#1C1F2E] px-4 sm:px-6 py-3.5 sm:py-4 flex items-center justify-between border-b border-slate-200 dark:border-[#2A2E3D]">
-                <div className="flex items-center gap-2.5 sm:gap-3">
-                    <img src="/img/logo.jpeg" alt="UNIEVAL Logo" className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg object-cover shadow-md" />
-                    <h1 className="text-lg sm:text-xl font-bold tracking-tight">UniEval Live Class</h1>
+        <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans">
+            {/* Top Navigation Bar */}
+            <header className="bg-[#131A3F] text-white px-4 sm:px-6 py-3.5 flex items-center justify-between border-b border-slate-800 shadow-md">
+                <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-[#1F81FC] to-[#7F26FE] flex items-center justify-center shadow-sm">
+                        <Radio className="w-5 h-5 text-white animate-pulse" />
+                    </div>
+                    <div>
+                        <h1 className="text-base sm:text-lg font-bold tracking-tight text-white leading-tight">
+                            Live Studio & Classes
+                        </h1>
+                        <p className="text-[11px] text-slate-400">Instructor Management Hub</p>
+                    </div>
                 </div>
+
                 <div className="flex items-center gap-2 sm:gap-4">
-                    <button onClick={() => setIsDarkMode(!isDarkMode)} className="p-2 rounded-full bg-slate-100 dark:bg-[#252A41] text-slate-600 dark:text-gray-300 hover:bg-slate-200 dark:hover:bg-[#2A2E3D] transition-colors" title="Toggle theme">
-                        {isDarkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-                    </button>
-                    <button onClick={() => navigate(getDashboardRoute(user?.role))} className="text-xs sm:text-sm text-slate-500 dark:text-gray-400 hover:text-indigo-600 dark:text-blue-400 flex items-center gap-1.5 transition-colors font-medium">
-                        <ArrowLeft className="w-4 h-4" /> <span className="hidden xs:inline">Back to Dashboard</span><span className="xs:hidden">Dashboard</span>
+                    <button 
+                        onClick={() => navigate(getDashboardRoute(user?.role))} 
+                        className="text-xs sm:text-sm text-slate-300 hover:text-white bg-slate-800/80 hover:bg-slate-700 px-3.5 py-1.5 rounded-xl border border-slate-700 flex items-center gap-1.5 transition-colors font-medium"
+                    >
+                        <ArrowLeft className="w-4 h-4" /> 
+                        <span className="hidden xs:inline">Back to Dashboard</span>
+                        <span className="xs:hidden">Dashboard</span>
                     </button>
                 </div>
             </header>
 
             <div className="flex-1 flex overflow-hidden">
-                {/* Desktop Sidebar */}
-                <aside className="hidden md:flex w-72 bg-white dark:bg-[#1C1F2E] p-6 flex-col border-r border-slate-200 dark:border-[#2A2E3D] shrink-0">
+                {/* Desktop Sidebar Course Picker */}
+                <aside className="hidden md:flex w-72 bg-white p-6 flex-col border-r border-slate-200 shrink-0">
                     <div className="mb-6">
-                        <label className="text-xs font-bold text-slate-500 dark:text-gray-400 uppercase tracking-wider mb-2 block">Select Course</label>
+                        <label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 block">
+                            Filter by Course
+                        </label>
                         <select 
                             value={selectedCourse} 
                             onChange={(e) => setSelectedCourse(e.target.value)}
-                            className="w-full bg-slate-50 dark:bg-[#161925] text-slate-900 dark:text-white rounded-lg p-3 outline-none border border-slate-200 dark:border-[#2A2E3D] focus:border-indigo-500"
+                            className="w-full bg-slate-50 text-slate-900 rounded-xl p-3 outline-none border border-slate-200 focus:border-[#1F81FC] text-xs font-semibold"
                         >
-                            <option value="all">-- All My Courses --</option>
+                            <option value="all">-- All Authored Courses --</option>
                             {courses.map(c => (
                                 <option key={c.id} value={c.id}>{c.title}</option>
                             ))}
@@ -247,188 +292,291 @@ const TeacherLiveClasses: React.FC = () => {
                     </div>
 
                     <div className="space-y-2">
-                        <button className="w-full text-left px-4 py-3 bg-indigo-50 dark:bg-[#252A41] text-indigo-700 dark:text-blue-300 rounded-lg font-bold flex items-center gap-3">
-                            <MonitorPlay className="w-5 h-5" /> Home
+                        <button 
+                            onClick={() => setViewMode('upcoming')}
+                            className={`w-full text-left px-4 py-3 rounded-xl font-bold text-xs flex items-center justify-between transition-all ${
+                                viewMode === 'upcoming'
+                                    ? 'bg-blue-50 text-[#1F81FC] border border-blue-200'
+                                    : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                            }`}
+                        >
+                            <span className="flex items-center gap-2.5">
+                                <Calendar className="w-4 h-4" />
+                                <span>Upcoming Sessions</span>
+                            </span>
+                            {viewMode === 'upcoming' && <span className="w-2 h-2 rounded-full bg-[#1F81FC]" />}
                         </button>
-                        <button className="w-full text-left px-4 py-3 text-slate-600 dark:text-gray-300 hover:bg-slate-50 dark:bg-[#161925] hover:text-slate-900 dark:text-white rounded-lg font-medium flex items-center gap-3 transition-colors">
-                            <Calendar className="w-5 h-5" /> Upcoming
+
+                        <button 
+                            onClick={() => setViewMode('completed')}
+                            className={`w-full text-left px-4 py-3 rounded-xl font-bold text-xs flex items-center justify-between transition-all ${
+                                viewMode === 'completed'
+                                    ? 'bg-indigo-50 text-indigo-600 border border-indigo-200'
+                                    : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                            }`}
+                        >
+                            <span className="flex items-center gap-2.5">
+                                <Video className="w-4 h-4" />
+                                <span>Recordings & Past</span>
+                            </span>
+                            {viewMode === 'completed' && <span className="w-2 h-2 rounded-full bg-indigo-600" />}
                         </button>
                     </div>
+
+                    {selectedCourseObj && (
+                        <div className="mt-auto p-4 rounded-xl bg-slate-50 border border-slate-200">
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1">
+                                Active Course
+                            </span>
+                            <p className="text-xs font-bold text-slate-800 truncate">
+                                {selectedCourseObj.title}
+                            </p>
+                            <p className="text-[11px] text-slate-500 mt-0.5">
+                                {selectedCourseObj.category || 'Engineering'}
+                            </p>
+                        </div>
+                    )}
                 </aside>
 
-                {/* Main Content */}
-                <main className="flex-1 p-4 sm:p-6 md:p-10 overflow-y-auto">
+                {/* Main Content Area */}
+                <main className="flex-1 p-4 sm:p-6 md:p-8 overflow-y-auto">
                     {/* Mobile Course Selector */}
-                    <div className="md:hidden mb-6 bg-white dark:bg-[#1C1F2E] p-4 rounded-xl border border-slate-200 dark:border-[#2A2E3D] shadow-sm">
-                        <label className="text-xs font-bold text-slate-500 dark:text-gray-400 uppercase tracking-wider mb-1.5 block">Select Course</label>
+                    <div className="md:hidden mb-6 bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
+                        <label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 block">
+                            Select Course
+                        </label>
                         <select 
                             value={selectedCourse} 
                             onChange={(e) => setSelectedCourse(e.target.value)}
-                            className="w-full bg-slate-50 dark:bg-[#161925] text-slate-900 dark:text-white rounded-lg p-2.5 outline-none border border-slate-200 dark:border-[#2A2E3D] focus:border-indigo-500 text-sm"
+                            className="w-full bg-slate-50 text-slate-900 rounded-xl p-2.5 outline-none border border-slate-200 focus:border-[#1F81FC] text-xs font-semibold"
                         >
-                            <option value="all">-- All My Courses --</option>
+                            <option value="all">-- All Authored Courses --</option>
                             {courses.map(c => (
                                 <option key={c.id} value={c.id}>{c.title}</option>
                             ))}
                         </select>
                     </div>
 
-                    {/* Hero Banner */}
-                    <div className="min-h-[160px] sm:h-64 rounded-2xl sm:rounded-[20px] bg-gradient-to-br from-indigo-600 to-purple-700 p-5 sm:p-8 flex flex-col justify-between mb-6 sm:mb-10 shadow-xl relative overflow-hidden text-white">
-                        <div className="absolute top-0 right-0 w-96 h-96 bg-white/10 rounded-full blur-3xl -mr-20 -mt-20 pointer-events-none"></div>
-                        <h2 className="relative z-10 bg-white/20 text-white w-fit px-3 py-1 sm:px-4 sm:py-1.5 rounded-full text-xs sm:text-sm font-bold border border-white/20 backdrop-blur-md shadow-sm">
-                            Upcoming Meeting at: {liveClasses.length > 0 ? new Date(liveClasses[0].scheduledAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'None'}
-                        </h2>
-                        <div className="relative z-10 my-auto sm:my-0">
-                            <h1 className="text-4xl sm:text-6xl md:text-7xl font-extrabold tracking-tighter drop-shadow-md">{timeString}</h1>
-                            <p className="text-indigo-100 text-sm sm:text-lg md:text-xl font-medium mt-1 sm:mt-2 drop-shadow-sm">{dateString}</p>
+                    {/* Hero Banner with Clock */}
+                    <div className="rounded-2xl bg-gradient-to-br from-[#131A3F] via-[#1a2350] to-[#251b4a] p-6 sm:p-8 flex flex-col justify-between mb-8 shadow-xl text-white relative overflow-hidden">
+                        <div className="absolute top-0 right-0 w-80 h-80 bg-[#1F81FC]/15 rounded-full blur-3xl pointer-events-none" />
+                        
+                        <div className="relative z-10 flex flex-wrap items-center justify-between gap-3 mb-4">
+                            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold bg-white/10 text-white border border-white/20 backdrop-blur-md">
+                                <Sparkles className="w-3.5 h-3.5 text-blue-400" />
+                                <span>Instructor Studio Active</span>
+                            </div>
+
+                            <div className="text-xs text-slate-300 font-mono">
+                                {liveClasses.length > 0 ? `${liveClasses.length} sessions listed` : 'Ready to broadcast'}
+                            </div>
+                        </div>
+
+                        <div className="relative z-10 my-2">
+                            <h2 className="text-4xl sm:text-6xl font-extrabold tracking-tight drop-shadow-md font-mono">
+                                {timeString}
+                            </h2>
+                            <p className="text-slate-300 text-xs sm:text-sm font-medium mt-1">
+                                {dateString}
+                            </p>
                         </div>
                     </div>
 
-                    {/* Action Cards */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 mb-8 sm:mb-12">
-                        <div onClick={startInstantMeeting} className={`bg-white dark:bg-[#1C1F2E] border border-slate-200 dark:border-[#2A2E3D] rounded-2xl p-5 sm:p-6 min-h-[130px] sm:min-h-[140px] flex flex-col justify-between ${isCreatingInstant ? 'opacity-70 cursor-not-allowed' : 'cursor-pointer hover:border-orange-500 hover:shadow-md'} transition-all`}>
-                            <div className="w-10 h-10 rounded-[10px] bg-orange-100 dark:bg-orange-500/20 flex items-center justify-center">
+                    {/* Quick Action Cards */}
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+                        {/* 1. Start Instant Meeting */}
+                        <div 
+                            onClick={startInstantMeeting} 
+                            className={`bg-white border border-slate-200 rounded-2xl p-5 flex flex-col justify-between min-h-[140px] shadow-sm hover:shadow-md transition-all ${
+                                isCreatingInstant ? 'opacity-70 cursor-not-allowed' : 'cursor-pointer hover:border-[#1F81FC]'
+                            }`}
+                        >
+                            <div className="w-10 h-10 rounded-xl bg-blue-50 text-[#1F81FC] flex items-center justify-center">
                                 {isCreatingInstant ? (
-                                    <Loader2 className="w-5 h-5 text-orange-600 dark:text-orange-400 animate-spin" />
+                                    <Loader2 className="w-5 h-5 animate-spin" />
                                 ) : (
-                                    <Plus className="w-5 h-5 text-orange-600 dark:text-orange-400" />
+                                    <Play className="w-5 h-5 fill-current" />
                                 )}
                             </div>
-                            <div className="mt-3 sm:mt-4">
-                                <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">New Meeting</h3>
-                                <p className="text-slate-500 dark:text-gray-400 text-xs sm:text-sm">
-                                    {isCreatingInstant ? 'Starting...' : 'Start an instant meeting'}
+                            <div className="mt-4">
+                                <h3 className="text-sm sm:text-base font-bold text-slate-900">Instant Meeting</h3>
+                                <p className="text-slate-500 text-xs mt-0.5">
+                                    {isCreatingInstant ? 'Launching studio...' : 'Start a live room immediately'}
                                 </p>
                             </div>
                         </div>
 
-                        <div onClick={() => setShowScheduleModal(true)} className="bg-white dark:bg-[#1C1F2E] border border-slate-200 dark:border-[#2A2E3D] rounded-2xl p-5 sm:p-6 min-h-[130px] sm:min-h-[140px] flex flex-col justify-between cursor-pointer hover:border-blue-500 hover:shadow-md transition-all">
-                            <div className="w-10 h-10 rounded-[10px] bg-blue-100 dark:bg-blue-500/20 flex items-center justify-center">
-                                <Calendar className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                        {/* 2. Schedule Future Session */}
+                        <div 
+                            onClick={() => setShowScheduleModal(true)} 
+                            className="bg-white border border-slate-200 rounded-2xl p-5 flex flex-col justify-between min-h-[140px] shadow-sm hover:shadow-md transition-all cursor-pointer hover:border-indigo-400"
+                        >
+                            <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                                <Calendar className="w-5 h-5" />
                             </div>
-                            <div className="mt-3 sm:mt-4">
-                                <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">Schedule Meeting</h3>
-                                <p className="text-slate-500 dark:text-gray-400 text-xs sm:text-sm">Plan your meeting</p>
+                            <div className="mt-4">
+                                <h3 className="text-sm sm:text-base font-bold text-slate-900">Schedule Class</h3>
+                                <p className="text-slate-500 text-xs mt-0.5">Plan lecture date & time</p>
                             </div>
                         </div>
 
-                        <div onClick={() => setViewMode(viewMode === 'upcoming' ? 'completed' : 'upcoming')} className="bg-white dark:bg-[#1C1F2E] border border-slate-200 dark:border-[#2A2E3D] rounded-2xl p-5 sm:p-6 min-h-[130px] sm:min-h-[140px] flex flex-col justify-between cursor-pointer hover:border-indigo-500 hover:shadow-md transition-all">
-                            <div className="w-10 h-10 rounded-[10px] bg-indigo-100 dark:bg-indigo-500/20 flex items-center justify-center">
-                                <Video className="w-5 h-5 text-indigo-600 dark:text-blue-400" />
+                        {/* 3. Recordings / Replays */}
+                        <div 
+                            onClick={() => setViewMode(viewMode === 'upcoming' ? 'completed' : 'upcoming')} 
+                            className="bg-white border border-slate-200 rounded-2xl p-5 flex flex-col justify-between min-h-[140px] shadow-sm hover:shadow-md transition-all cursor-pointer hover:border-emerald-400"
+                        >
+                            <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                                <Video className="w-5 h-5" />
                             </div>
-                            <div className="mt-3 sm:mt-4">
-                                <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">View Recordings</h3>
-                                <p className="text-slate-500 dark:text-gray-400 text-xs sm:text-sm">Check out your recordings</p>
+                            <div className="mt-4">
+                                <h3 className="text-sm sm:text-base font-bold text-slate-900">
+                                    {viewMode === 'upcoming' ? 'View Recordings' : 'View Upcoming'}
+                                </h3>
+                                <p className="text-slate-500 text-xs mt-0.5">
+                                    {viewMode === 'upcoming' ? 'Switch to completed sessions' : 'Switch to scheduled sessions'}
+                                </p>
                             </div>
                         </div>
                     </div>
 
-                    {/* Upcoming Meetings List */}
+                    {/* Classes Grid */}
                     <div>
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
-                            <h2 className="text-xl sm:text-2xl font-bold flex items-center gap-2">
-                                {viewMode === 'upcoming' ? 'Upcoming Classes' : 'Completed Classes / Recordings'}
-                            </h2>
-                            <button onClick={() => setViewMode(viewMode === 'upcoming' ? 'completed' : 'upcoming')} className="text-xs sm:text-sm font-bold text-indigo-600 dark:text-blue-400 bg-indigo-50 dark:bg-[#252A41] hover:bg-indigo-100 dark:hover:bg-[#3A3F58] px-3.5 sm:px-4 py-2 rounded-lg transition-colors border border-indigo-100 self-start sm:self-auto">
-                                Switch to {viewMode === 'upcoming' ? 'Completed' : 'Upcoming'}
+                            <div>
+                                <h2 className="text-xl font-bold text-slate-900">
+                                    {viewMode === 'upcoming' ? 'Upcoming Live Sessions' : 'Session Recordings & History'}
+                                </h2>
+                                <p className="text-xs text-slate-500 mt-0.5">
+                                    {viewMode === 'upcoming' 
+                                        ? 'Start broadcasting or share student invite links' 
+                                        : 'Manage recorded replays and video attachments'}
+                                </p>
+                            </div>
+
+                            <button 
+                                onClick={() => setViewMode(viewMode === 'upcoming' ? 'completed' : 'upcoming')} 
+                                className="text-xs font-bold text-[#1F81FC] bg-blue-50 hover:bg-blue-100 px-3.5 py-1.5 rounded-xl border border-blue-200 transition-colors self-start sm:self-auto"
+                            >
+                                Switch to {viewMode === 'upcoming' ? 'Recordings' : 'Upcoming'}
                             </button>
                         </div>
                         
                         {isFetchingClasses ? (
-                            <div className="text-slate-500 dark:text-gray-400">Loading classes...</div>
+                            <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center text-slate-500 text-xs flex flex-col items-center gap-2">
+                                <Loader2 className="w-6 h-6 animate-spin text-[#1F81FC]" />
+                                <span>Loading live sessions...</span>
+                            </div>
                         ) : liveClasses.length === 0 ? (
-                            <div className="bg-white dark:bg-[#1C1F2E] border border-slate-200 dark:border-[#2A2E3D] rounded-xl p-8 text-center shadow-sm">
-                                <p className="text-slate-500 dark:text-gray-400">No {viewMode} meetings for this course.</p>
+                            <div className="bg-white border border-slate-200 rounded-2xl p-10 text-center shadow-sm">
+                                <div className="w-12 h-12 rounded-xl bg-slate-100 flex items-center justify-center mx-auto mb-3 text-slate-400">
+                                    <Calendar className="w-6 h-6" />
+                                </div>
+                                <h3 className="text-sm font-bold text-slate-800 mb-1">
+                                    No {viewMode} sessions found
+                                </h3>
+                                <p className="text-xs text-slate-500 max-w-sm mx-auto">
+                                    {viewMode === 'upcoming' 
+                                        ? 'Schedule a new lecture or launch an instant meeting for your students.'
+                                        : 'Past sessions and replays will appear here once lectures conclude.'}
+                                </p>
                             </div>
                         ) : (
-                            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-5">
-                                {liveClasses.map(lc => (
-                                    <div key={lc.id} className="bg-white dark:bg-[#1C1F2E] border border-slate-200 dark:border-[#2A2E3D] shadow-sm rounded-2xl p-6 hover:border-indigo-300 dark:hover:border-[#3A3F58] hover:shadow-md transition-all flex flex-col justify-between min-h-[200px]">
-                                        <div>
-                                            <div className="flex items-center gap-3 mb-4">
-                                                <div className="w-10 h-10 rounded-full bg-indigo-50 dark:bg-[#252A41] flex items-center justify-center">
-                                                    <Calendar className="w-5 h-5 text-indigo-600 dark:text-blue-400" />
-                                                </div>
-                                                <h3 className="text-xl font-semibold truncate text-slate-900 dark:text-white">{lc.title}</h3>
-                                            </div>
-                                            <p className="text-slate-500 dark:text-gray-400 text-sm mb-6 flex items-center gap-2">
-                                                <Clock className="w-4 h-4 text-slate-400" />
-                                                {new Date(lc.scheduledStartTime || lc.scheduledAt || lc.createdAt || Date.now()).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}
-                                            </p>
-                                        </div>
-                                        {viewMode === 'completed' ? (
-                                            <div className="flex flex-col gap-2.5 mt-auto">
-                                                <div className="flex items-center justify-between text-xs">
-                                                    <span className="text-slate-500 dark:text-gray-400 font-medium">Session Status:</span>
-                                                    <span className="inline-flex items-center gap-1 text-slate-600 dark:text-slate-300 font-medium bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded">
-                                                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" /> Completed
+                            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                                {liveClasses.map(lc => {
+                                    const dateObj = new Date(lc.scheduledStartTime || lc.scheduledAt || lc.createdAt || Date.now());
+                                    const isScheduled = lc.status === 'scheduled';
+                                    const isLive = lc.status === 'live' || lc.status === 'in-progress';
+                                    const isCopied = copiedClassId === lc.id;
+
+                                    return (
+                                        <div 
+                                            key={lc.id} 
+                                            className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm hover:shadow-md hover:border-slate-300 transition-all flex flex-col justify-between min-h-[200px]"
+                                        >
+                                            <div>
+                                                <div className="flex items-center justify-between gap-2 mb-3">
+                                                    <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
+                                                        isLive
+                                                            ? 'bg-rose-50 text-rose-600 border border-rose-200'
+                                                            : viewMode === 'completed'
+                                                            ? 'bg-indigo-50 text-indigo-600 border border-indigo-100'
+                                                            : 'bg-blue-50 text-[#1F81FC] border border-blue-200'
+                                                    }`}>
+                                                        {isLive && <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-ping" />}
+                                                        {isLive ? 'LIVE NOW' : viewMode === 'completed' ? 'CONCLUDED' : 'SCHEDULED'}
                                                     </span>
-                                                </div>
-                                                <div className="flex items-center gap-2">
-                                                    {(lc.recordingStatus === 'ready' || (lc.recordingUrl && !lc.recordingUrl.endsWith(lc.dailyRoomName || ''))) ? (
-                                                        <button
-                                                            onClick={() => navigate(`/live-class/${lc.id}`)}
-                                                            className="flex-1 bg-indigo-600 hover:bg-indigo-700 dark:bg-blue-600 dark:hover:bg-blue-700 text-white py-2 px-3 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 shadow-sm transition-all"
-                                                            title="Watch recording replay"
-                                                        >
-                                                            <Play className="w-3.5 h-3.5 fill-current" /> Watch Recording
-                                                        </button>
-                                                    ) : lc.recordingStatus === 'processing' ? (
-                                                        <button
-                                                            onClick={() => navigate(`/live-class/${lc.id}`)}
-                                                            className="flex-1 bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-300 dark:border-amber-700/60 py-2 px-3 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-all"
-                                                            title="Recording is currently being processed by Webinar.gg"
-                                                        >
-                                                            <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-500" /> Processing Recording
-                                                        </button>
-                                                    ) : (
-                                                        <button
-                                                            onClick={() => navigate(`/live-class/${lc.id}`)}
-                                                            className="flex-1 bg-slate-100 dark:bg-slate-800/80 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700/60 text-slate-600 dark:text-slate-300 py-2 px-3 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-all"
-                                                            title="Check or view session recording"
-                                                        >
-                                                            <Play className="w-3.5 h-3.5" /> View Session
-                                                        </button>
-                                                    )}
+
                                                     <button 
                                                         onClick={() => handleDelete(lc.id)}
-                                                        className="p-2 bg-red-50 hover:bg-red-100 dark:bg-red-950/30 dark:hover:bg-red-900/40 border border-red-100 dark:border-red-900/50 text-red-600 dark:text-red-400 rounded-lg transition-colors"
-                                                        title="Delete Meeting"
+                                                        className="p-1 rounded-lg text-slate-400 hover:text-rose-500 hover:bg-rose-50 transition-colors"
+                                                        title="Delete or cancel class"
                                                     >
-                                                        <Trash2 className="w-4 h-4" />
+                                                        <Trash2 className="w-3.5 h-3.5" />
                                                     </button>
                                                 </div>
+
+                                                <h3 className="text-sm sm:text-base font-bold text-slate-900 truncate mb-1">
+                                                    {lc.title}
+                                                </h3>
+
+                                                <p className="text-xs text-slate-500 mb-3 flex items-center gap-1.5">
+                                                    <Clock className="w-3.5 h-3.5 text-slate-400" />
+                                                    <span>{dateObj.toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}</span>
+                                                </p>
+
+                                                {isScheduled && (
+                                                    <div className="mb-4">
+                                                        <LiveCountdown targetTime={dateObj} compact={true} />
+                                                    </div>
+                                                )}
                                             </div>
-                                        ) : (
-                                            <div className="flex items-center gap-2 mt-auto">
-                                                <button 
-                                                    onClick={() => navigate(`/live-class/${lc.id}`)}
-                                                    className="flex-1 bg-indigo-600 hover:bg-indigo-700 dark:bg-blue-600 dark:hover:bg-blue-700 text-white py-2 px-4 rounded-lg font-bold transition-colors flex items-center justify-center gap-2"
-                                                >
-                                                    <Play className="w-4 h-4" /> Start
-                                                </button>
-                                                <button 
-                                                    onClick={() => {
-                                                        navigator.clipboard.writeText(`${window.location.origin}/live-class/lobby/${lc.id}`);
-                                                        alert('Link copied!');
-                                                    }}
-                                                    className="px-4 py-2 bg-slate-100 dark:bg-[#252A41] hover:bg-slate-200 dark:hover:bg-[#2A2E3D] text-slate-600 dark:text-gray-300 rounded-lg transition-colors"
-                                                    title="Copy Student Link"
-                                                >
-                                                    <Copy className="w-4 h-4" />
-                                                </button>
-                                                <button 
-                                                    onClick={() => handleDelete(lc.id)}
-                                                    className="px-4 py-2 bg-red-50 hover:bg-red-100 border border-red-100 text-red-600 rounded-lg transition-colors"
-                                                    title="Delete Meeting"
-                                                >
-                                                    <Trash2 className="w-4 h-4" />
-                                                </button>
-                                            </div>
-                                        )}
-                                    </div>
-                                ))}
+
+                                            {viewMode === 'completed' ? (
+                                                <div className="flex items-center gap-2 pt-3 border-t border-slate-100">
+                                                    <button
+                                                        onClick={() => navigate(`/live-class/${lc.id}`)}
+                                                        className="flex-1 py-2 px-3 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:opacity-95 text-white text-xs font-bold transition-all flex items-center justify-center gap-1.5"
+                                                    >
+                                                        <Play className="w-3.5 h-3.5 fill-current" />
+                                                        <span>View Replay</span>
+                                                    </button>
+                                                    <button
+                                                        onClick={() => {
+                                                            setEditingRecordingClass(lc);
+                                                            setRecordingUrlInput(lc.recordingUrl || '');
+                                                        }}
+                                                        className="p-2 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-600 text-xs"
+                                                        title="Attach or replace video URL"
+                                                    >
+                                                        Attach
+                                                    </button>
+                                                </div>
+                                            ) : (
+                                                <div className="flex items-center gap-2 pt-3 border-t border-slate-100">
+                                                    <button 
+                                                        onClick={() => navigate(`/live-class/${lc.id}`)}
+                                                        className="flex-1 py-2.5 px-3 rounded-xl bg-gradient-to-r from-[#1F81FC] to-[#7F26FE] hover:opacity-95 text-white text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-md shadow-blue-500/20 active:scale-95"
+                                                    >
+                                                        <Play className="w-3.5 h-3.5 fill-current" />
+                                                        <span>Start Studio</span>
+                                                    </button>
+
+                                                    <button 
+                                                        onClick={() => handleCopyInviteLink(lc.id)}
+                                                        className={`p-2.5 rounded-xl border transition-all text-xs font-semibold flex items-center gap-1 ${
+                                                            isCopied
+                                                                ? 'bg-emerald-50 text-emerald-600 border-emerald-300'
+                                                                : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200'
+                                                        }`}
+                                                        title="Copy Student Invite Link"
+                                                    >
+                                                        {isCopied ? <Check className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4" />}
+                                                    </button>
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })}
                             </div>
                         )}
                     </div>
@@ -437,61 +585,71 @@ const TeacherLiveClasses: React.FC = () => {
 
             {/* Schedule Modal */}
             {showScheduleModal && (
-                <div className="fixed inset-0 bg-slate-900/60 dark:bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-                    <div className="bg-white dark:bg-[#1C1F2E] w-full max-w-md rounded-2xl shadow-2xl border border-slate-200 dark:border-[#2A2E3D] overflow-hidden">
-                        <div className="p-6 text-slate-900 dark:text-white">
-                            <h2 className="text-2xl font-bold mb-6 text-slate-900 dark:text-white">Schedule Meeting</h2>
-                            
-                            <div className="space-y-4">
-                                <div>
-                                    <label className="block text-sm font-bold text-slate-600 dark:text-gray-300 mb-2">Topic</label>
-                                    <input 
-                                        type="text" 
-                                        value={title} 
-                                        onChange={e => setTitle(e.target.value)}
-                                        className="w-full bg-slate-50 dark:bg-[#161925] border border-slate-200 dark:border-[#2A2E3D] rounded-lg p-3 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none"
-                                        placeholder="e.g. Chapter 1 Discussion"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-bold text-slate-600 dark:text-gray-300 mb-2">Date & Time</label>
-                                    <input 
-                                        type="datetime-local" 
-                                        value={scheduledAt} 
-                                        onChange={e => setScheduledAt(e.target.value)}
-                                        className="w-full bg-slate-50 dark:bg-[#161925] border border-slate-200 dark:border-[#2A2E3D] rounded-lg p-3 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-bold text-slate-600 dark:text-gray-300 mb-2">Class Duration</label>
-                                    <select
-                                        value={durationHours}
-                                        onChange={e => setDurationHours(Number(e.target.value))}
-                                        className="w-full bg-slate-50 dark:bg-[#161925] border border-slate-200 dark:border-[#2A2E3D] rounded-lg p-3 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none"
-                                    >
-                                        <option value={1}>1 Hour (Standard lecture)</option>
-                                        <option value={2}>2 Hours (Standard session)</option>
-                                        <option value={3}>3 Hours (Extended marathon)</option>
-                                        <option value={4}>4 Hours (Deep-dive workshop)</option>
-                                        <option value={6}>6 Hours (Long mega-session)</option>
-                                    </select>
-                                    <p className="text-xs text-slate-400 dark:text-gray-500 mt-1">Class can run continuously for up to this duration without auto-terminating.</p>
-                                </div>
+                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fadeIn">
+                    <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-slate-200 overflow-hidden animate-scaleUp">
+                        <div className="px-6 py-4 bg-[#131A3F] text-white flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                                <Calendar className="w-4 h-4 text-[#1F81FC]" />
+                                <h3 className="text-sm font-bold">Schedule Lecture Session</h3>
+                            </div>
+                            <button
+                                onClick={() => setShowScheduleModal(false)}
+                                className="p-1 rounded-lg text-slate-400 hover:text-white transition-colors"
+                            >
+                                <X className="w-4 h-4" />
+                            </button>
+                        </div>
+
+                        <div className="p-6 space-y-4 text-xs">
+                            <div>
+                                <label className="block text-slate-700 font-bold mb-1.5">Lecture Topic</label>
+                                <input 
+                                    type="text" 
+                                    value={title} 
+                                    onChange={e => setTitle(e.target.value)}
+                                    className="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 text-slate-900 focus:ring-2 focus:ring-[#1F81FC] outline-none text-xs font-medium"
+                                    placeholder="e.g. Unit 3 - Heat Exchangers & Numerical Analysis"
+                                />
                             </div>
 
-                            <div className="flex gap-3 mt-8">
+                            <div>
+                                <label className="block text-slate-700 font-bold mb-1.5">Date & Start Time</label>
+                                <input 
+                                    type="datetime-local" 
+                                    value={scheduledAt} 
+                                    onChange={e => setScheduledAt(e.target.value)}
+                                    className="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 text-slate-900 focus:ring-2 focus:ring-[#1F81FC] outline-none text-xs font-medium"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-slate-700 font-bold mb-1.5">Maximum Class Duration</label>
+                                <select
+                                    value={durationHours}
+                                    onChange={e => setDurationHours(Number(e.target.value))}
+                                    className="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 text-slate-900 focus:ring-2 focus:ring-[#1F81FC] outline-none text-xs font-medium"
+                                >
+                                    <option value={1}>1 Hour (Standard Lecture)</option>
+                                    <option value={2}>2 Hours (Standard Session)</option>
+                                    <option value={3}>3 Hours (Extended Workshop)</option>
+                                    <option value={4}>4 Hours (Exam Marathon)</option>
+                                    <option value={6}>6 Hours (Deep Dive Mega-Session)</option>
+                                </select>
+                            </div>
+
+                            <div className="flex gap-2.5 pt-3">
                                 <button 
                                     onClick={() => setShowScheduleModal(false)}
-                                    className="flex-1 py-3 bg-slate-100 dark:bg-[#252A41] hover:bg-slate-200 dark:hover:bg-[#2A2E3D] text-slate-700 dark:text-gray-200 rounded-lg font-bold transition-colors"
+                                    className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold transition-colors"
                                 >
                                     Cancel
                                 </button>
                                 <button 
                                     onClick={handleSchedule}
                                     disabled={!title || !scheduledAt || isScheduling}
-                                    className="flex-1 py-3 bg-indigo-600 hover:bg-indigo-700 dark:bg-blue-600 dark:hover:bg-blue-700 text-white disabled:opacity-50 rounded-lg font-bold transition-colors"
+                                    className="flex-1 py-2.5 bg-gradient-to-r from-[#1F81FC] to-[#7F26FE] hover:opacity-95 text-white disabled:opacity-50 rounded-xl font-bold transition-all shadow-md shadow-blue-500/20"
                                 >
-                                    {isScheduling ? 'Scheduling...' : 'Schedule'}
+                                    {isScheduling ? 'Scheduling...' : 'Schedule Class'}
                                 </button>
                             </div>
                         </div>
@@ -499,46 +657,58 @@ const TeacherLiveClasses: React.FC = () => {
                 </div>
             )}
 
-            {/* Edit / Attach Recording Modal */}
+            {/* Attach Recording Modal */}
             {editingRecordingClass && (
-                <div className="fixed inset-0 bg-slate-900/60 dark:bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-                    <div className="bg-white dark:bg-[#1C1F2E] w-full max-w-md rounded-2xl shadow-2xl border border-slate-200 dark:border-[#2A2E3D] overflow-hidden">
-                        <div className="p-6 text-slate-900 dark:text-white">
-                            <h2 className="text-xl font-bold mb-2 text-slate-900 dark:text-white">Attach Video Recording</h2>
-                            <p className="text-xs text-slate-500 dark:text-gray-400 mb-4">
-                                Paste the genuine video recording replay URL (e.g., Cloudflare R2 / MP4 / Vimeo / Webinar replay stream) for <strong>{editingRecordingClass.title}</strong>. Students will be able to watch it directly.
+                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fadeIn">
+                    <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-slate-200 overflow-hidden animate-scaleUp">
+                        <div className="px-6 py-4 bg-[#131A3F] text-white flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                                <Video className="w-4 h-4 text-[#1F81FC]" />
+                                <h3 className="text-sm font-bold">Attach Lecture Video Recording</h3>
+                            </div>
+                            <button
+                                onClick={() => {
+                                    setEditingRecordingClass(null);
+                                    setRecordingUrlInput('');
+                                }}
+                                className="p-1 rounded-lg text-slate-400 hover:text-white transition-colors"
+                            >
+                                <X className="w-4 h-4" />
+                            </button>
+                        </div>
+
+                        <div className="p-6 space-y-4 text-xs">
+                            <p className="text-slate-600 leading-relaxed">
+                                Paste the genuine video recording replay URL for <strong>{editingRecordingClass.title}</strong>. Students will be able to replay it directly.
                             </p>
-                            
-                            <div className="space-y-4">
-                                <div>
-                                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-gray-400 mb-1">Video Recording URL</label>
-                                    <input 
-                                        type="url" 
-                                        value={recordingUrlInput} 
-                                        onChange={e => setRecordingUrlInput(e.target.value)}
-                                        className="w-full bg-slate-50 dark:bg-[#161925] border border-slate-200 dark:border-[#2A2E3D] rounded-lg p-3 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none text-sm"
-                                        placeholder="https://.../recording.mp4"
-                                    />
-                                    <p className="text-[11px] text-slate-400 dark:text-gray-500 mt-1">
-                                        Leave empty and save if you wish to clear or remove the recording link.
-                                    </p>
-                                </div>
+
+                            <div>
+                                <label className="block text-slate-700 font-bold mb-1.5 uppercase tracking-wider text-[11px]">
+                                    Video Recording URL
+                                </label>
+                                <input 
+                                    type="url" 
+                                    value={recordingUrlInput} 
+                                    onChange={e => setRecordingUrlInput(e.target.value)}
+                                    className="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 text-slate-900 focus:ring-2 focus:ring-[#1F81FC] outline-none text-xs font-mono"
+                                    placeholder="https://.../recording.mp4"
+                                />
                             </div>
 
-                            <div className="flex gap-3 mt-6">
+                            <div className="flex gap-2.5 pt-2">
                                 <button 
                                     onClick={() => {
                                         setEditingRecordingClass(null);
                                         setRecordingUrlInput('');
                                     }}
-                                    className="flex-1 py-2.5 bg-slate-100 dark:bg-[#252A41] hover:bg-slate-200 dark:hover:bg-[#2A2E3D] text-slate-700 dark:text-gray-200 rounded-lg font-bold text-sm transition-colors"
+                                    className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold transition-colors"
                                 >
                                     Cancel
                                 </button>
                                 <button 
                                     onClick={handleSaveRecording}
                                     disabled={isSavingRecording}
-                                    className="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-700 dark:bg-blue-600 dark:hover:bg-blue-700 text-white disabled:opacity-50 rounded-lg font-bold text-sm transition-colors flex items-center justify-center gap-2"
+                                    className="flex-1 py-2.5 bg-gradient-to-r from-[#1F81FC] to-[#7F26FE] hover:opacity-95 text-white disabled:opacity-50 rounded-xl font-bold transition-all shadow-md flex items-center justify-center gap-1.5"
                                 >
                                     {isSavingRecording ? 'Saving...' : 'Save Recording'}
                                 </button>

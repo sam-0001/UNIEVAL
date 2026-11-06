@@ -1,8 +1,23 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { api } from '../services/api';
-import { Video, Calendar, Clock, ArrowLeft, ShieldAlert } from 'lucide-react';
+import { 
+  Video, 
+  Calendar, 
+  Clock, 
+  ArrowLeft, 
+  ShieldCheck, 
+  Radio, 
+  Sparkles,
+  ExternalLink,
+  Download,
+  Share2,
+  BookOpen
+} from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import PreflightDeviceCheck from '../components/live/PreflightDeviceCheck';
+import LiveCountdown from '../components/live/LiveCountdown';
+import { getGoogleCalendarUrl, downloadIcsFile } from '../components/live/CalendarUtils';
 
 const LiveClassLobby: React.FC = () => {
     const { id } = useParams<{ id: string }>();
@@ -10,6 +25,7 @@ const LiveClassLobby: React.FC = () => {
     const { user } = useAuth();
     const [liveClass, setLiveClass] = useState<any>(null);
     const [loading, setLoading] = useState(true);
+    const [copiedInvite, setCopiedInvite] = useState(false);
 
     useEffect(() => {
         const fetchClassDetails = async () => {
@@ -30,85 +46,192 @@ const LiveClassLobby: React.FC = () => {
         fetchClassDetails();
     }, [id, navigate]);
 
+    const handleCopyInvite = () => {
+        const link = `${window.location.origin}/live-class/${id}`;
+        navigator.clipboard.writeText(link).then(() => {
+            setCopiedInvite(true);
+            setTimeout(() => setCopiedInvite(false), 2500);
+        });
+    };
+
     if (loading) {
         return (
-            <div className="min-h-[60vh] flex items-center justify-center">
-                <div className="w-8 h-8 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin"></div>
+            <div className="min-h-screen bg-[#0B0F19] text-white flex items-center justify-center">
+                <div className="flex flex-col items-center gap-3">
+                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-[#1F81FC] to-[#7F26FE] flex items-center justify-center animate-pulse shadow-lg shadow-blue-500/20">
+                        <Radio className="w-6 h-6 text-white" />
+                    </div>
+                    <span className="text-xs text-slate-400">Loading classroom lobby...</span>
+                </div>
             </div>
         );
     }
 
     if (!liveClass) {
         return (
-            <div className="max-w-4xl mx-auto px-4 py-12 text-center">
-                <h2 className="text-2xl font-bold text-gray-900 mb-4">Class Not Found</h2>
-                <button onClick={() => navigate(-1)} className="text-indigo-600 hover:text-indigo-800 font-medium">
-                    &larr; Go Back
-                </button>
+            <div className="min-h-screen bg-[#0B0F19] text-white flex items-center justify-center p-4">
+                <div className="max-w-md w-full bg-[#131A3F] border border-slate-800 p-8 rounded-2xl text-center shadow-2xl">
+                    <h2 className="text-xl font-bold text-white mb-2">Class Not Found</h2>
+                    <p className="text-xs text-slate-400 mb-6">
+                        This live session might have concluded or the link has expired.
+                    </p>
+                    <button 
+                        onClick={() => navigate('/dashboard')} 
+                        className="w-full py-2.5 px-4 rounded-xl bg-[#1F81FC] hover:bg-blue-600 text-xs font-bold text-white transition-colors"
+                    >
+                        Return to Dashboard
+                    </button>
+                </div>
             </div>
         );
     }
 
-    return (
-        <div className="max-w-4xl mx-auto px-3 sm:px-4 py-6 md:py-12">
-            <button 
-                onClick={() => navigate(-1)} 
-                className="flex items-center gap-2 text-gray-500 hover:text-gray-900 transition-colors mb-4 sm:mb-6 font-medium text-sm sm:text-base"
-            >
-                <ArrowLeft className="w-4 h-4" /> Back to Dashboard
-            </button>
+    const scheduledTarget = liveClass.scheduledStartTime || liveClass.scheduledAt || Date.now();
+    const isLive = liveClass.status === 'live';
 
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-                <div className="bg-gradient-to-r from-indigo-600 to-blue-700 px-5 py-6 sm:px-6 sm:py-8 text-white">
-                    <div className="flex items-center gap-2 mb-3 opacity-90 text-xs sm:text-sm font-semibold uppercase tracking-wider">
-                        <Video className="w-4 h-4 sm:w-5 sm:h-5" />
-                        UniEval Live Class
-                    </div>
-                    <h1 className="text-2xl sm:text-3xl md:text-4xl font-extrabold tracking-tight mb-2">
-                        {liveClass.title}
-                    </h1>
-                    <p className="text-indigo-100 max-w-2xl text-sm sm:text-base md:text-lg leading-relaxed">
-                        Get ready to join the interactive live session. Make sure your microphone and camera are working before entering the room.
-                    </p>
+    const calEvent = {
+        title: liveClass.title || 'UniEval Live Class',
+        description: `Interactive live session for ${liveClass.courseTitle || 'UniEval Course'}. Instructor: ${liveClass.teacherName || 'Faculty'}.`,
+        startTime: scheduledTarget,
+        location: `${window.location.origin}/live-class/${id}`
+    };
+
+    return (
+        <main className="min-h-screen bg-[#0B0F19] text-white py-8 sm:py-12 px-4 sm:px-6 relative overflow-hidden">
+            {/* Ambient Background Glows */}
+            <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-[#1F81FC]/10 rounded-full blur-3xl pointer-events-none" />
+            <div className="absolute bottom-1/4 left-1/2 -translate-x-1/2 w-[500px] h-[500px] bg-[#7F26FE]/10 rounded-full blur-3xl pointer-events-none" />
+
+            <div className="max-w-4xl mx-auto space-y-6 relative z-10">
+                {/* Top Navigation */}
+                <div className="flex items-center justify-between">
+                    <button 
+                        onClick={() => navigate(-1)} 
+                        className="inline-flex items-center gap-2 text-slate-400 hover:text-white transition-colors text-xs font-medium"
+                    >
+                        <ArrowLeft className="w-4 h-4" /> 
+                        <span>Back to Dashboard</span>
+                    </button>
+
+                    <button
+                        onClick={handleCopyInvite}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#131A3F] text-slate-300 hover:text-white hover:bg-slate-800 border border-slate-700 transition-colors"
+                    >
+                        <Share2 className="w-3.5 h-3.5" />
+                        <span>{copiedInvite ? 'Link Copied!' : 'Share Lobby'}</span>
+                    </button>
                 </div>
 
-                <div className="p-5 sm:p-6 md:p-8 flex flex-col md:flex-row gap-6 md:gap-8 items-start md:items-center justify-between">
-                    <div className="space-y-4 flex-1 w-full">
-                        <div className="flex items-center gap-3 text-gray-700">
-                            <div className="w-10 h-10 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-600 shrink-0">
-                                <Calendar className="w-5 h-5" />
+                {/* Hero Classroom Card */}
+                <div className="bg-[#131A3F]/90 backdrop-blur-xl rounded-2xl border border-slate-700/70 shadow-2xl overflow-hidden">
+                    {/* Header Banner */}
+                    <div className="bg-gradient-to-r from-[#131A3F] via-[#1a2350] to-[#251b4a] p-6 sm:p-8 border-b border-slate-800/80">
+                        <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
+                            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold bg-[#1F81FC]/15 text-[#1F81FC] border border-[#1F81FC]/30">
+                                <Radio className="w-3.5 h-3.5 animate-pulse" />
+                                <span>UniEval Live Session</span>
                             </div>
-                            <div>
-                                <p className="text-xs sm:text-sm text-gray-500 font-medium">Date</p>
-                                <p className="font-semibold text-sm sm:text-base">{new Date(liveClass.scheduledStartTime).toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
-                            </div>
+
+                            {isLive && (
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-rose-500/20 text-rose-400 border border-rose-500/40">
+                                    <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping" />
+                                    BROADCASTING LIVE NOW
+                                </span>
+                            )}
                         </div>
-                        <div className="flex items-center gap-3 text-gray-700">
-                            <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center text-blue-600 shrink-0">
-                                <Clock className="w-5 h-5" />
-                            </div>
-                            <div>
-                                <p className="text-xs sm:text-sm text-gray-500 font-medium">Time</p>
-                                <p className="font-semibold text-sm sm:text-base">{new Date(liveClass.scheduledStartTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
-                            </div>
+
+                        <h1 className="text-2xl sm:text-3xl md:text-4xl font-extrabold text-white tracking-tight mb-2">
+                            {liveClass.title}
+                        </h1>
+
+                        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-300 mt-2">
+                            {liveClass.courseTitle && (
+                                <span className="flex items-center gap-1.5">
+                                    <BookOpen className="w-3.5 h-3.5 text-[#1F81FC]" />
+                                    <span>Course: <strong className="text-white">{liveClass.courseTitle}</strong></span>
+                                </span>
+                            )}
+                            {liveClass.teacherName && (
+                                <span>Instructor: <strong className="text-white">{liveClass.teacherName}</strong></span>
+                            )}
                         </div>
                     </div>
 
-                    <div className="w-full md:w-auto flex flex-col gap-3 min-w-full sm:min-w-[240px]">
-                        <button 
-                            onClick={() => navigate(`/live-class/${id}`)}
-                            className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3.5 px-6 rounded-xl transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2 active:scale-95 text-sm sm:text-base"
-                        >
-                            <Video className="w-5 h-5" />
-                            Enter Live Room
-                        </button>
-                        <div className="flex items-center justify-center gap-1.5 text-xs text-emerald-600 font-medium bg-emerald-50 py-2 px-3 rounded-lg border border-emerald-100">
-                            <ShieldAlert className="w-4 h-4" /> End-to-End Encrypted
+                    {/* Class Details & Countdown */}
+                    <div className="p-6 sm:p-8 flex flex-col md:flex-row gap-6 md:gap-8 items-start md:items-center justify-between">
+                        <div className="space-y-4 flex-1 w-full">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <div className="p-3 rounded-xl bg-[#0B0F19]/80 border border-slate-800 flex items-center gap-3">
+                                    <div className="w-10 h-10 rounded-lg bg-blue-500/10 text-[#1F81FC] flex items-center justify-center shrink-0">
+                                        <Calendar className="w-5 h-5" />
+                                    </div>
+                                    <div>
+                                        <p className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">Scheduled Date</p>
+                                        <p className="font-bold text-xs sm:text-sm text-white">
+                                            {new Date(scheduledTarget).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <div className="p-3 rounded-xl bg-[#0B0F19]/80 border border-slate-800 flex items-center gap-3">
+                                    <div className="w-10 h-10 rounded-lg bg-indigo-500/10 text-indigo-400 flex items-center justify-center shrink-0">
+                                        <Clock className="w-5 h-5" />
+                                    </div>
+                                    <div>
+                                        <p className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">Start Time</p>
+                                        <p className="font-bold text-xs sm:text-sm text-white">
+                                            {new Date(scheduledTarget).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Calendar Export Buttons */}
+                            <div className="flex flex-wrap items-center gap-2 pt-1">
+                                <a
+                                    href={getGoogleCalendarUrl(calEvent)}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-xs text-blue-400 hover:text-blue-300 border border-slate-700 transition-colors"
+                                >
+                                    <ExternalLink className="w-3.5 h-3.5" />
+                                    <span>Add to Google Calendar</span>
+                                </a>
+
+                                <button
+                                    onClick={() => downloadIcsFile(calEvent)}
+                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-xs text-slate-300 hover:text-white border border-slate-700 transition-colors"
+                                >
+                                    <Download className="w-3.5 h-3.5" />
+                                    <span>Download .ics file</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* CTA Button Box */}
+                        <div className="w-full md:w-auto flex flex-col gap-3 min-w-full sm:min-w-[260px]">
+                            <button 
+                                onClick={() => navigate(`/live-class/${id}`)}
+                                className="w-full bg-gradient-to-r from-[#1F81FC] to-[#7F26FE] hover:opacity-95 text-white font-bold py-3.5 px-6 rounded-xl transition-all shadow-lg shadow-blue-500/25 flex items-center justify-center gap-2 active:scale-95 text-sm sm:text-base"
+                            >
+                                <Video className="w-5 h-5" />
+                                <span>{isLive ? 'Join Live Stream Now' : 'Enter Classroom Waiting Lobby'}</span>
+                            </button>
+
+                            <div className="flex items-center justify-center gap-1.5 text-xs text-emerald-400 font-medium bg-emerald-500/10 py-2 px-3 rounded-lg border border-emerald-500/20">
+                                <ShieldCheck className="w-4 h-4 text-emerald-400" />
+                                <span>End-to-End Encrypted HD Stream</span>
+                            </div>
                         </div>
                     </div>
+                </div>
+
+                {/* Pre-flight Hardware Check Component */}
+                <div className="w-full">
+                    <PreflightDeviceCheck />
                 </div>
             </div>
-        </div>
+        </main>
     );
 };
 

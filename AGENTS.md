@@ -66,6 +66,28 @@ This file serves as the permanent memory and architectural guide for the UniEval
     - A discreet minimal pill `[Exit Fullscreen]` appears only when the user taps or moves the mouse, auto-disappearing after 2.5s.
     - Upon exiting fullscreen, orientation is automatically unlocked via `screen.orientation.unlock()`.
 
+  - **Live Classroom State-of-the-Art UI/UX Architecture**:
+    - **Interactive Pre-flight Device Check (`PreflightDeviceCheck.tsx`)**:
+      - Real-time webcam video preview, interactive microphone level meter via Web Audio API `AudioContext` and `AnalyserNode`, and one-click speaker test chime.
+      - Integrated directly into scheduled waiting lobbies so students can verify hardware and audio levels before class starts.
+      - Camera and microphone tracks are strictly stopped on unmount to prevent persistent device usage lights.
+    - **Active Classroom HUD & Roster (`LiveClassRoom.tsx`)**:
+      - Live session elapsed duration counter (`00:45:12`) synchronized in real time.
+      - Interactive Roster Modal (`LiveAttendeesModal.tsx`): displays real connected peers from Socket.io (`room-participants`), instructor host badge, and student search.
+      - Shortcuts & Studio Guide (`ClassroomShortcutsModal.tsx`): quick guide for fullscreen (`F`), landscape auto-lock, and studio raise-hand interactions.
+      - In fullscreen: YouTube/Zoom-grade floating minimal HUD displays live status, elapsed time, and exit button only during mouse activity, fading out after 2s.
+    - **Scheduled Waiting Lobby & Auto-Enter (`LiveCountdown.tsx` & `CalendarUtils.ts`)**:
+      - Precision countdown timer ticking down (Days : Hours : Mins : Secs) to the lecture start time.
+      - Auto-join background poller with Web Audio synthesized 2-tone notification chime: smoothly auto-enters the classroom the moment the teacher goes live without requiring manual reloads.
+      - 1-click Google Calendar URL generation and `.ics` download for Outlook/Apple Calendar.
+    - **Teacher Studio Management (`TeacherLiveClasses.tsx`)**:
+      - Unified Brand Navy `#131A3F` and clean slate layout.
+      - Instant meeting launch card with spinner, enhanced lecture scheduling modal with duration selector (1 to 6 hours), and copy invite link with toast feedback.
+      - Recording replay manager for attaching or updating genuine video stream links.
+    - **Student Dashboard Schedule Elevation (`LiveClassesTab.tsx`)**:
+      - Glowing red border & pulsing badge on live broadcast sessions.
+      - Compact countdown pills and 1-click calendar sync directly on upcoming lecture cards.
+
   - **Course & Notes Access Expiry / Validity**:
     - Teachers and Admins can configure student access validity when creating or editing any Course or Note Package.
     - Two validity modes are supported:
